@@ -1,0 +1,33 @@
+# Secrets and API keys (never commit these)
+.env
+.env.*
+*.key
+*.pem
+secrets*
+*credentials*
+.Renviron
+.httr-oauth
+
+# R temp files and build artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rcheck/
+*.tar.gz
+renv/library/
+
+# Quarto / knitr intermediates (report/report.pdf and docs/ ARE committed)
+/.quarto/
+*_cache/
+*_files/
+
+# Private and local-only files
+docs-private/
+.claude/settings.local.json
+
+# Editor, OS, and OneDrive files
+.vscode/
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*
