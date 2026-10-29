@@ -23,4 +23,6 @@ Every project change is logged here with the date and the reason. Newest entries
 | GitHub: `gh search repos nbzinbreg`, `github.com/jaxsonbugg/nbzinbreg`, `github.com/nbzinbreg` | no results / 404 |
 | `available::available("nbzinbreg")` | valid name; available on CRAN, Bioconductor, and GitHub |
 
+**GitHub:** the public repository `jaxsonbugg/nbzinbreg` was created and the first commit pushed to `main`. The first push was rejected because the GitHub CLI login token lacks the `workflow` scope, which GitHub requires for any file under `.github/workflows/`, even a placeholder. The placeholder was dropped from the commit. Before the CI workflow file (`R-CMD-check.yaml`) can be pushed, the token needs that scope, which is done with `gh auth refresh -h github.com -s workflow` (it opens a browser sign-in).
+
 **Next:** generate the R package skeleton (DESCRIPTION, NAMESPACE, `.Rbuildignore`, license stub, CI workflow) with usethis, then write the README as the working status document.
