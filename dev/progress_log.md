@@ -26,3 +26,16 @@ Every project change is logged here with the date and the reason. Newest entries
 **GitHub:** the public repository `jaxsonbugg/nbzinbreg` was created and the first commit pushed to `main`. The first push was rejected because the GitHub CLI login token lacks the `workflow` scope, which GitHub requires for any file under `.github/workflows/`, even a placeholder. The placeholder was dropped from the commit. Before the CI workflow file (`R-CMD-check.yaml`) can be pushed, the token needs that scope, which is done with `gh auth refresh -h github.com -s workflow` (it opens a browser sign-in).
 
 **Next:** generate the R package skeleton (DESCRIPTION, NAMESPACE, `.Rbuildignore`, license stub, CI workflow) with usethis, then write the README as the working status document.
+
+## 2026-10-28: Package name protection
+
+**Question:** can the name `nbzinbreg` be registered now so nobody else takes it?
+
+**Answer:** not on CRAN. CRAN has no reservation system. A name belongs to a package only once a real package is submitted and accepted. CRAN's Repository Policy requires a "non-trivial contribution" of "publication quality" and states that CRAN "is not a development platform", so a stub package submitted only to hold the name would likely be rejected and is not something we should do. A first submission also needs a package that passes `R CMD check` without warnings or significant notes, a single named maintainer with a valid public email address, a license from CRAN's list, and human review. Bioconductor and R-universe do not reserve names either.
+
+**What protects the name instead:** the public GitHub repository `jaxsonbugg/nbzinbreg` already holds the name on GitHub, and `devtools::install_github("jaxsonbugg/nbzinbreg")` is how the package is installed. The name was checked and found free everywhere on the day of creation (see the entry above).
+
+**Decisions:**
+- Set `Package: nbzinbreg` in `DESCRIPTION` when the package skeleton is generated, and push it.
+- Tag a first GitHub release (for example `v0.0.0.9000`) once a working version exists.
+- Submitting to CRAN is optional and comes only after the package is complete. Re-run the availability checks right before any submission. A durable maintainer email address is needed, since it becomes public on CRAN.
