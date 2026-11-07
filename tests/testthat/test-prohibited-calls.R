@@ -12,7 +12,7 @@ test_that("detector flags direct, qualified and indirect prohibited calls", {
     qualified        = function(d) stats::glm(y ~ x, data = d),
     triple_colon     = function(x, y) stats:::lm.fit(x, y),
     bad_package      = function(d) pscl::hurdle(y ~ x, data = d),
-    other_fitter     = function(d) VGAM::vglm(y ~ x, data = d),
+    other_fitter     = function(d) MASS::rlm(y ~ x, data = d),
     do_call_string   = function(args) do.call("glm", args),
     match_fun        = function() match.fun("optim"),
     get_string       = function() get("nlminb"),
