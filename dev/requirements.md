@@ -47,7 +47,7 @@ The reference functions may be used in tests, benchmarks, and the report, but ne
 - [ ] Imports listed in `Imports:`; test/vignette-only packages (MASS, pscl, AER, testthat, ...) in `Suggests:`.
 - [ ] `devtools::check()` finishes with 0 errors and 0 warnings; any remaining NOTEs explained in the README.
 - [ ] GitHub Actions `check-standard` workflow, with its passing badge in the README.
-- [ ] Package name is valid and not on CRAN (checked, see `dev/progress_log.md`).
+- [x] Package name is valid and not on CRAN (checked, see `dev/progress_log.md`).
 - [ ] Exported functions: `nbreg(formula, data, offset, control)`, `zinbreg(formula, data, offset, control)`, `nbreg_control()`, `zinbreg_control()`.
 - [ ] `zinbreg` formula form `y ~ x1 + x2 | z1 + z2` (count covariates, then zero covariates); without `|`, the same covariates are used in both parts.
 - [ ] Returned S3 objects (class `nbreg` / `zinbreg`) contain at least: coefficients, variance-covariance matrix, theta and its SE, log-likelihood, number of iterations, a convergence flag, fitted values, and the matched call.
@@ -59,6 +59,24 @@ The reference functions may be used in tests, benchmarks, and the report, but ne
 - [ ] pkgdown website published with GitHub Pages; link in the README and in the repo's About box.
 - [ ] Edge cases: warn if theta-hat becomes very large (Poisson limit) or if `maxit` is hit without convergence.
 - [ ] The GitHub repository is public.
+
+### Current status of section 4
+
+Package skeleton verified; statistical implementation not started. Every required function and method exists with its required signature and roxygen documentation, but is a stub that signals "not yet implemented". So none of the items above is ticked except the package name. The design for the implementation is in `dev/design.md`.
+
+### Planned extras beyond the requirements (provisional)
+
+Chosen by the owner. They are built only after `nbreg()` and `zinbreg()` match the references, and their names and arguments may still change:
+
+- [ ] `confint()` with a profile-likelihood interval for theta (checked by refitting at fixed theta)
+- [ ] `anova.nbreg()` likelihood-ratio tests and `overdispersion_test()` for Poisson vs NB (reference: `pscl::odTest()`)
+- [ ] `vuong_test()` for ZINB vs NB (reference: `pscl::vuong()`)
+- [ ] `simulate()` methods and `boot_se()` parametric bootstrap standard errors
+- [ ] `expected_counts()` and `rootogram()` for observed vs expected count frequencies
+- [ ] `predict()` extras: `se.fit` and `type = "prob"` (reference: `pscl::predict.zeroinfl()`)
+- [ ] glm-style `weights`, `subset` and `na.action` arguments
+- [ ] `tidy()` and `glance()` methods
+- [ ] `zinbreg_control(hessian = "numeric")` alongside the analytic Hessian
 
 ## 5. Benchmarking
 

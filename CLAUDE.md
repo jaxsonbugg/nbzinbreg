@@ -1,6 +1,22 @@
 # CLAUDE.md
 
-R package `nbzinbreg`: negative binomial (NB) and zero-inflated negative binomial (ZINB) regression, with the estimation algorithms written from scratch (IRLS, Newton-Raphson, EM). Owner: Jaxson Bugg. Read `dev/requirements.md` at the start of a session for the full requirements checklist, and `README.md` for the current status of the work. The rules below are the ones most likely to be missed.
+R package `nbzinbreg`: negative binomial (NB) and zero-inflated negative binomial (ZINB) regression, with the estimation algorithms written from scratch (IRLS, Newton-Raphson, EM). Owner: Jaxson Bugg. Read `dev/requirements.md` at the start of a session for the full requirements checklist, `dev/design.md` for how the algorithms are to be implemented (including the numerical safeguards), and `README.md` for the current status of the work. The rules below are the ones most likely to be missed.
+
+## Package map
+
+- `R/nbreg.R`, `R/zinbreg.R`: the user-facing fitting functions. Required arguments come first and in this order: `formula, data, offset, control`.
+- `R/control.R`: `nbreg_control()`, `zinbreg_control()`.
+- `R/methods-nbreg.R`, `R/methods-zinbreg.R`: the required S3 methods.
+- `R/inference.R`, `R/simulate.R`, `R/diagnostics.R`, `R/tidiers.R`: provisional extras (their documentation says so).
+- `R/utils.R`: internal helpers, including `not_implemented()`.
+- Planned internal files (not created yet): `R/nbreg-fit.R`, `R/zinbreg-fit.R`, `R/zinbreg-hessian.R`; see `dev/design.md`.
+- `tests/testthat/`: the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`), the stub list (`test-stubs.R`), and skipped placeholder files for the planned tests.
+
+## Stubs and what "done" means
+
+Functions that are not written yet are documented stubs whose body calls `not_implemented()`. When implementing one: replace the body, remove its name from `stubbed` and `stub_calls` in `tests/testthat/test-stubs.R`, activate its placeholder tests, and add `@examples`. `test-stubs.R` fails if the list and the code disagree.
+
+Keep two levels of "done" apart when reporting progress: a **verified skeleton** (installs, documented, `R CMD check` clean, detector and stub tests pass) is not a **verified statistical implementation** (matches `glm.nb()` / `zeroinfl()` within the required tolerances). Never describe the first as the second.
 
 ## Prohibited functions (highest priority)
 
@@ -9,11 +25,13 @@ The fitting code in `R/` must implement the estimation itself. **Never call** an
 - Optimizers and root finders: `optim`, `optimize`, `optimise`, `nlm`, `nlminb`, `uniroot`, `optimx`, `maxLik`, `stats4::mle`, `bbmle`, or any other general-purpose optimizer.
 - Model fitters: `glm`, `glm.fit`, `lm`, `lm.fit`, `lm.wfit`, `MASS::glm.nb`, `MASS::theta.ml` (or any MASS fitting code), `pscl::zeroinfl`, `countreg`, `glmmTMB`, `gamlss`, `VGAM`.
 
-Allowed in fitting code: `solve`, `qr`, `chol`, `crossprod`, `%*%`, `lgamma`, `digamma`, `trigamma`, `dnbinom`, `plogis`, `qlogis`, `model.frame`, `model.matrix`, `model.response`, `model.offset`, the `Formula` package for two-part formulas, and `numDeriv::hessian` (standard errors only).
+Allowed in fitting code: `solve`, `qr`, `chol`, `chol2inv`, `crossprod`, `%*%`, `lgamma`, `digamma`, `trigamma`, `dnbinom`, `plogis`, `qlogis`, `model.frame`, `model.matrix`, `model.response`, `model.offset`, the `Formula` package for two-part formulas, and `numDeriv::hessian` (standard errors only). `rnbinom` and `rbinom` are allowed for drawing random data in `simulate()` only.
 
 The reference functions (`glm`, `glm.nb`, `zeroinfl`) may and should be used in tests, benchmark scripts, the report, and `@examples` that compare against them, but never inside the fitting functions.
 
-**Mentioning these names in comments, roxygen text, and documentation is fine** (for example "matches the glm.nb() parameterization" or "we do not use optim()"). The rule is about calls in code, not words. Before committing changes to `R/`, check for calls by removing the `#` comment portion of each line first, then search for the function names followed by `(` and for `MASS::` / `pscl::` references; review any hits by hand. Do not add an automated check that fails on a bare mention in a comment.
+**Mentioning these names in comments, roxygen text, and documentation is fine** (for example "matches the glm.nb() parameterization" or "we do not use optim()"). The rule is about calls in code, not words.
+
+The rule is enforced automatically by `tests/testthat/test-prohibited-calls.R`, which runs in `devtools::test()`, `R CMD check` and CI. It checks only functions the package itself defines, and reads their parsed bodies, so comments can never trigger it. It flags direct calls, functions passed as values, `pkg::fn` / `pkg:::fn`, and names given as strings to `do.call()`, `match.fun()`, `get()`, `parse(text = )` and similar. Any qualified use of `MASS::` or `pscl::` inside `R/` is flagged too. If you add a new way of calling functions indirectly, extend the detector and its self-tests rather than working around it.
 
 ## Statistics first
 
@@ -46,6 +64,13 @@ Prefer short explanatory paragraphs plus an example over dense tables or bare bu
 - Warn when the estimated theta becomes very large (Poisson limit) and when `maxit` is reached without convergence. Give informative errors for bad input.
 - `devtools::check()` must stay at 0 errors and 0 warnings.
 - Do not edit `docs/` by hand; it is generated output of `pkgdown::build_site()`.
+- Edit `README.Rmd`, never `README.md`, then re-knit with `devtools::build_readme()`. A local pre-commit hook blocks committing one without the other.
+
+## Local environment notes
+
+- R 4.3.1 is at `C:\R-4.3.1` (on the user PATH). Rtools is not installed. The package has no compiled code, so it does not need Rtools, but devtools refuses to build without it. For `devtools::check()`, `devtools::install()` and `devtools::build_readme()`, run `options(buildtools.check = function(action) TRUE)` first in the same R session.
+- Pandoc is not on R's path. For `devtools::build_readme()` and pkgdown, set `Sys.setenv(RSTUDIO_PANDOC = "C:/Users/Buggb/AppData/Local/Programs/Quarto/bin/tools")` in the same R session.
+- Pushing anything under `.github/workflows/` needs the `workflow` scope on the GitHub CLI token (`gh auth refresh -h github.com -s workflow`).
 
 ## Security and repo hygiene
 
