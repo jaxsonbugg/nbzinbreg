@@ -151,6 +151,7 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 - [ ] Report renders to PDF; `report/report.pdf` is committed.
 - [ ] GitHub Pages site is live and contains the report and the function reference.
 - [ ] Commit history shows progress over time, not a single final commit.
+- [ ] README: the temporary status section has been removed, and the usage example is real and executed.
 
 ## 11. Grading weights (for prioritizing effort)
 

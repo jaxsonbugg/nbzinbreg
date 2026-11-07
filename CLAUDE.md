@@ -66,6 +66,14 @@ Prefer short explanatory paragraphs plus an example over dense tables or bare bu
 - Do not edit `docs/` by hand; it is generated output of `pkgdown::build_site()`.
 - Edit `README.Rmd`, never `README.md`, then re-knit with `devtools::build_readme()`. A local pre-commit hook blocks committing one without the other.
 
+## README status section (temporary)
+
+The README is a short working-status page; keep it short and readable, and keep details in `dev/`. Its status table sits between `<!-- status: start -->` and `<!-- status: end -->`.
+- Update a status row only when that functionality is implemented **and its required tests pass**, not merely when code has been written. Do it in the commit that makes the tests pass, and re-knit.
+- The NB and ZINB usage examples are plain code blocks marked "Planned interface: this does not run yet." Convert each into an executed R chunk **independently**, only after its function (`nbreg()` or `zinbreg()`) is implemented and tested, and remove that example's note at the same time. Both keep the explicit `data("bioChemists", package = "pscl")` line.
+- The description says results "will be validated" against `MASS::glm.nb()` and `pscl::zeroinfl()`. Change it to past tense only when the corresponding reference tests pass.
+- When every row is ✅ and no work remains, delete everything from `status: start` to `status: end`, re-knit, and leave a normal package README (description, installation, usage, check results, website link, license).
+
 ## Local environment notes
 
 - R 4.3.1 is at `C:\R-4.3.1` (on the user PATH). Rtools is not installed. The package has no compiled code, so it does not need Rtools, but devtools refuses to build without it. For `devtools::check()`, `devtools::install()` and `devtools::build_readme()`, run `options(buildtools.check = function(action) TRUE)` first in the same R session.

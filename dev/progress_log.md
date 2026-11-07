@@ -79,3 +79,17 @@ Every project change is logged here with the date and the reason. Newest entries
 **How:** the `workflow` permission was added to the GitHub CLI login first (`gh auth refresh -h github.com -s workflow`). `usethis::use_github_action()` failed locally because it needs a newer `curl` R package than is installed, so the identical template was fetched through the GitHub API, and `.github` was added to `.Rbuildignore` by hand.
 
 **Result:** the first run (run 42416040640) passed on all five platforms. The action treats warnings as failures, so this means 0 errors and 0 warnings everywhere. This still only verifies the package skeleton; no statistical function is implemented yet.
+
+## 2026-11-07: Working-status README
+
+**What:** rewrote `README.Rmd` (knitted to `README.md`) as a short working-status page. It has a two-sentence description, a temporary status table (one row per part of the project, with ✅ / 🚧 / ⬜ markers), links to the progress log, design notes and requirements checklist, installation instructions, planned usage examples for `nbreg()` and `zinbreg()`, the `R CMD check` results with an explanation of the one local NOTE, and the license.
+
+**Why:** the owner wanted a front page that shows at a glance what is done and what is next, while staying short and readable. Details stay in the `dev/` files.
+
+**Rules recorded in `CLAUDE.md`:**
+- A status row changes only when that part is implemented and its required tests pass.
+- Each usage example becomes an executed R chunk separately, once its function is implemented and tested.
+- Validation against `glm.nb()` / `zeroinfl()` is described as planned until the reference tests pass.
+- The whole status section, which is marked with HTML comments, is deleted once the package is finished. That is also an item in the final checklist in `dev/requirements.md`.
+
+**Checks:** the README knits; the usage examples are plain code blocks and are not run; the links to `dev/` files are absolute GitHub links, so they also work on the future pkgdown home page.

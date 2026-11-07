@@ -9,19 +9,84 @@
 <!-- badges: end -->
 
 Negative binomial (NB) and zero-inflated negative binomial (ZINB)
-regression in R, fitted with iteratively reweighted least squares
-(IRLS), Newton-Raphson, and the EM algorithm.
+regression in R, with the estimation written from scratch: iteratively
+reweighted least squares (IRLS) and Newton-Raphson for NB, and the EM
+algorithm with IRLS steps for ZINB. No general-purpose optimizer is
+used. Results will be validated against `MASS::glm.nb()` and
+`pscl::zeroinfl()`.
 
-**Status:** package skeleton verified; statistical functions not yet
-implemented. Every planned function exists with its documentation, but
-calling one currently stops with a “not yet implemented” error.
+<!-- status: start -->
+
+<!-- Temporary section: delete everything from "status: start" to
+"status: end" once the package is finished and no work remains. -->
+
+## Status
+
+Package skeleton verified; statistical functions not yet implemented.
+
+| Part                                                    | Status         |
+|---------------------------------------------------------|----------------|
+| Package skeleton (installs, documented, CI)             | ✅ Done        |
+| `nbreg()`: negative binomial regression                 | ⬜ Not started |
+| `zinbreg()`: zero-inflated NB regression                | ⬜ Not started |
+| Methods (`print`, `summary`, `predict`, …)              | ⬜ Not started |
+| Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
+| Benchmarks against `glm.nb()` and `zeroinfl()`          | ⬜ Not started |
+| Simulation study                                        | ⬜ Not started |
+| NMES1988 data analysis                                  | ⬜ Not started |
+| Report and website                                      | ⬜ Not started |
+
+Details: [progress
+log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
+· [design
+notes](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/design.md)
+· [requirements
+checklist](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/requirements.md)
+
+<!-- status: end -->
 
 ## Installation
-
-You can install the development version of nbzinbreg from
-[GitHub](https://github.com/jaxsonbugg/nbzinbreg) with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("jaxsonbugg/nbzinbreg")
 ```
+
+## Usage
+
+### Negative binomial regression
+
+*Planned interface: this does not run yet.*
+
+``` r
+library(nbzinbreg)
+data("bioChemists", package = "pscl")
+
+fit_nb <- nbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+summary(fit_nb)
+```
+
+### Zero-inflated negative binomial regression
+
+*Planned interface: this does not run yet.*
+
+``` r
+library(nbzinbreg)
+data("bioChemists", package = "pscl")
+
+# Same covariates in both parts; use y ~ x | z to choose the zero-part
+# covariates separately.
+fit_zinb <- zinbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+summary(fit_zinb)
+```
+
+## Check results
+
+`R CMD check`: 0 errors, 0 warnings, 0 notes on all CI platforms (macOS,
+Windows and Ubuntu; R release, devel and the previous release). A local
+Windows run may show one NOTE, “unable to verify current time”, which
+comes from the machine’s clock check, not from the package.
+
+## License
+
+MIT © Jaxson Bugg
