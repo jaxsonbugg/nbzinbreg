@@ -1,0 +1,58 @@
+---
+title: "nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM"
+author: "Jaxson Bugg"
+---
+
+<!--
+Single source of the project report. It is rendered two ways:
+  - as an article on the pkgdown website (pkgdown::build_site());
+  - as the PDF report: quarto render vignettes/articles/report.qmd --to pdf,
+    copied to report/report.pdf.
+Output format settings are deliberately left out until the Quarto/pkgdown
+integration check is done at the start of the report phase.
+Every number, table and figure must come from code chunks that call the
+installed package.
+-->
+
+## Introduction
+
+*Placeholder.* Count data, overdispersion and excess zeros; the goals of the
+package.
+
+## Methods
+
+*Placeholder.* The NB and ZINB models; IRLS, Newton-Raphson and EM, with
+equations; how standard errors are computed; convergence criteria.
+
+## The R package
+
+*Placeholder.* Design, main functions and S3 methods, a short usage example,
+and installation instructions.
+
+## Benchmarking
+
+*Placeholder.* Agreement tables against `MASS::glm.nb()` and
+`pscl::zeroinfl()`, and timings, for both data sets.
+
+## Simulation study
+
+*Placeholder.* Bias, standard errors versus Monte Carlo standard deviation,
+and coverage of 95% Wald intervals.
+
+## Data analysis: NMES1988
+
+*Placeholder.* Descriptive summary, model comparison, interpretation of the
+main effects, and the preferred model.
+
+## Discussion
+
+*Placeholder.* Limitations and possible extensions.
+
+## AI-use statement
+
+*Placeholder.* How Claude Code was used, what was verified independently, and
+an example of output that had to be corrected.
+
+## References
+
+*Placeholder.*

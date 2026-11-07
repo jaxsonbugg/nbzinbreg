@@ -34,3 +34,4 @@ Imports:
     graphics,
     numDeriv,
     stats
+Config/Needs/website: rmarkdown

@@ -20,6 +20,8 @@ renv/library/
 /.quarto/
 *_cache/
 *_files/
+# ...but keep figure folders inside the pkgdown site, or Pages loses images
+!docs/**/*_files/
 
 # Private and local-only files
 docs-private/

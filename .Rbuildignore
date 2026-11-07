@@ -7,3 +7,6 @@
 ^docs$
 ^CLAUDE\.md$
 ^\.gitattributes$
+^_pkgdown\.yml$
+^pkgdown$
+^vignettes/articles$

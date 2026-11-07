@@ -1,0 +1,40 @@
+url: https://jaxsonbugg.github.io/nbzinbreg/
+template:
+  bootstrap: 5
+
+reference:
+  - title: Fitting models
+    contents:
+      - nbreg
+      - zinbreg
+  - title: Control settings
+    contents:
+      - nbreg_control
+      - zinbreg_control
+  - title: Methods for fitted models
+    contents:
+      - nbreg-methods
+      - zinbreg-methods
+  - title: Provisional (not yet implemented)
+    desc: >
+      Planned extras. Their names and arguments may change before they are
+      implemented.
+    contents:
+      - confint-nbzinbreg
+      - anova.nbreg
+      - overdispersion_test
+      - vuong_test
+      - simulate-nbzinbreg
+      - boot_se
+      - expected_counts
+      - rootogram
+      - tidiers-nbzinbreg
+  - title: Package
+    contents:
+      - nbzinbreg-package
+      - reexports
+
+articles:
+  - title: Report
+    contents:
+      - articles/report
