@@ -5,6 +5,7 @@
 
 <!-- badges: start -->
 
+[![R-CMD-check](https://github.com/jaxsonbugg/nbzinbreg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/jaxsonbugg/nbzinbreg/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 Negative binomial (NB) and zero-inflated negative binomial (ZINB)
