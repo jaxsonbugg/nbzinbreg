@@ -1,0 +1,37 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# nbzinbreg
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+Negative binomial (NB) and zero-inflated negative binomial (ZINB) regression
+in R, fitted with iteratively reweighted least squares (IRLS), Newton-Raphson,
+and the EM algorithm.
+
+**Status:** package skeleton verified; statistical functions not yet
+implemented. Every planned function exists with its documentation, but
+calling one currently stops with a "not yet implemented" error.
+
+## Installation
+
+You can install the development version of nbzinbreg from
+[GitHub](https://github.com/jaxsonbugg/nbzinbreg) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("jaxsonbugg/nbzinbreg")
+```
