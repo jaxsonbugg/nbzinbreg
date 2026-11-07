@@ -1,0 +1,36 @@
+Package: nbzinbreg
+Title: Negative Binomial and Zero-Inflated Negative Binomial Regression
+Version: 0.0.0.9000
+Authors@R: 
+    person("Jaxson", "Bugg", , "buggjm@miamioh.edu", role = c("aut", "cre", "cph"))
+Description: Fits negative binomial (NB2) regression by iteratively
+    reweighted least squares (IRLS) for the regression coefficients,
+    alternated with Newton-Raphson for the dispersion parameter, and
+    zero-inflated negative binomial regression by an EM algorithm whose
+    M-steps are IRLS fits. No general-purpose optimizer is used. Results
+    are checked against the reference implementations in 'MASS' and
+    'pscl'.
+License: MIT + file LICENSE
+URL: https://github.com/jaxsonbugg/nbzinbreg,
+    https://jaxsonbugg.github.io/nbzinbreg/
+BugReports: https://github.com/jaxsonbugg/nbzinbreg/issues
+Depends: 
+    R (>= 4.1.0)
+Encoding: UTF-8
+Language: en-US
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Suggests: 
+    AER,
+    bench,
+    codetools,
+    MASS,
+    pscl,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Imports: 
+    Formula,
+    generics,
+    graphics,
+    numDeriv,
+    stats
