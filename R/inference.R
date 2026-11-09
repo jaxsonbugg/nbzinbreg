@@ -101,7 +101,7 @@ confint.nbreg <- function(object, parm, level = 0.95,
     } else {
       prof <- nb_profile_function(object)
       profile_theta_ci(prof, nb_profile_refit(object),
-                       nb_profile_certify(object, prof), object$loglik,
+                       nb_profile_certify(object, prof, level), object$loglik,
                        object$theta, se_logtheta, object$coefficients, level,
                        object$control$theta_min, object$control$theta_max,
                        "nbreg")

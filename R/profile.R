@@ -178,7 +178,9 @@ wald_theta <- function(theta, se_logtheta, theta_bound, level) {
 
 # l_p(theta) for an nbreg fit: the IRLS stage of the NB engine with theta held
 # fixed, warm-started at `start`, run until it converges. If it does not, it
-# is retried once from a fresh Poisson start with four times as many rounds.
+# is retried once from a fresh Poisson start with four times as many rounds
+# (formed in double precision and capped at the largest integer, since
+# 4L * irls_maxit would overflow to NA for limits above about 5.4e8).
 # ok = FALSE if that fails too; its value is then never used.
 nb_profile_function <- function(object) {
   X <- object$x
@@ -196,7 +198,7 @@ nb_profile_function <- function(object) {
       if (!is.null(cold)) {
         names(cold) <- colnames(X)
         ctl_long <- ctl
-        ctl_long$irls_maxit <- 4L * ctl$irls_maxit
+        ctl_long$irls_maxit <- retry_limit(ctl$irls_maxit)
         r <- nb_irls(X, y, off, w, cold, theta, ctl_long)
         ok <- isTRUE(r$converged)
       }
@@ -205,12 +207,28 @@ nb_profile_function <- function(object) {
   }
 }
 
-# Has the nbreg profile reached its limit as theta -> Inf? Both
-#   |l_p(theta_max) - l_p(theta_max / 100)| and
-#   |l_p(theta_max) - l_Poisson|
-# must be below the material tolerance (the NB model tends to the Poisson
-# model as theta -> Inf, so the Poisson fit is the limit itself).
-nb_profile_certify <- function(object, prof) {
+# An iteration limit multiplied for a retry, without integer overflow.
+retry_limit <- function(limit, factor = 4) {
+  as.integer(min(factor * as.numeric(limit), .Machine$integer.max))
+}
+
+# May the upper limit be reported as Inf? Only if all of these hold:
+#   1. the profile has reached its limit numerically:
+#      |l_p(theta_max) - l_p(theta_max / 100)| < tol (both inner fits
+#      converged);
+#   2. that limit is the Poisson model (the NB model tends to it as
+#      theta -> Inf): the Poisson fit settled and
+#      |l_p(theta_max) - l_Poisson| < tol;
+#   3. the limit itself lies inside the likelihood-ratio confidence region
+#      at the requested level: D_inf = 2 (l_hat - l_Poisson) < q, with a
+#      margin of 2 tol so that a limit on the edge of the region is not
+#      certified. Agreement alone (1 and 2) shows where the profile ends, not
+#      that its end is inside the interval.
+# tol = 1e-6 (|l_hat| + 1). If any condition fails, or cannot be checked,
+# the result is FALSE and the endpoint is reported as unresolved ("beyond
+# theta_max", NA), never Inf.
+nb_profile_certify <- function(object, prof, level) {
+  q <- stats::qchisq(level, 1)
   function(start) {
     tol <- profile_tolerance(object$loglik)
     hi <- log(object$control$theta_max)
@@ -220,8 +238,12 @@ nb_profile_certify <- function(object, prof) {
     pf <- tryCatch(poisson_fit(object$x, unname(object$y), object$offset,
                                object$prior.weights),
                    nbzinbreg_error = function(e) NULL)
-    !is.null(pf) && pf$ll_converged && abs(a$ll - b$ll) < tol &&
-      abs(a$ll - pf$loglik) < tol
+    if (is.null(pf) || !isTRUE(pf$ll_converged) || !is.finite(pf$loglik)) {
+      return(FALSE)
+    }
+    d_inf <- 2 * (object$loglik - pf$loglik)
+    abs(a$ll - b$ll) < tol && abs(a$ll - pf$loglik) < tol &&
+      d_inf < q - 2 * tol
   }
 }
 

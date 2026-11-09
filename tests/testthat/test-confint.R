@@ -173,3 +173,78 @@ test_that("confint() checks its arguments", {
   expect_identical(rownames(unclass(confint(fit, 3:1))), c("theta", "x", "(Intercept)"))
   expect_identical(colnames(unclass(confint(fit, level = 0.9))), c("5 %", "95 %"))
 })
+
+# ---- corrective follow-up ---------------------------------------------------
+
+test_that("the profile retry limit cannot overflow", {
+  rl <- get("retry_limit", envir = asNamespace("nbzinbreg"))
+  expect_identical(rl(50L), 200L)
+  expect_identical(rl(.Machine$integer.max), .Machine$integer.max)
+  expect_identical(rl(6e8), .Machine$integer.max)   # 4 * 6e8 > integer max
+  # through confint(): a large valid irls_maxit and a forced retry
+  fit <- nbreg(y ~ x, worked_example(),
+               control = nbreg_control(irls_maxit = .Machine$integer.max))
+  real <- get("nb_irls", envir = asNamespace("nbzinbreg"))
+  seen <- integer()
+  first <- TRUE
+  local_mocked_bindings(
+    nb_irls = function(X, y, offset, w, beta, theta, control) {
+      seen <<- c(seen, control$irls_maxit)
+      r <- real(X, y, offset, w, beta, theta, control)
+      if (first) {          # the first inner fit fails, forcing the retry
+        first <<- FALSE
+        r$converged <- FALSE
+      }
+      r
+    },
+    .package = "nbzinbreg")
+  expect_no_warning(ci <- confint(fit, "theta"))
+  expect_false(anyNA(seen))
+  expect_identical(max(seen), .Machine$integer.max)
+  expect_true(all(is.finite(unclass(ci))))
+})
+
+test_that("Inf is certified only when the Poisson limit is inside the region", {
+  certify <- get("nb_profile_certify", envir = asNamespace("nbzinbreg"))
+  fit <- nbreg(y ~ x, worked_example())
+  q <- stats::qchisq(0.95, 1)
+  tol <- 1e-6 * (abs(fit$loglik) + 1)
+  # a flat profile at the Poisson limit, whose deviance is `d`
+  check <- function(d) {
+    ll_limit <- fit$loglik - d / 2
+    prof <- function(phi, start) list(ok = TRUE, ll = ll_limit, start = start)
+    local_mocked_bindings(
+      poisson_fit = function(...) list(loglik = ll_limit, ll_converged = TRUE),
+      .package = "nbzinbreg")
+    certify(fit, prof, 0.95)(fit$coefficients)
+  }
+  expect_true(check(q - 1))            # clearly inside: Inf is justified
+  expect_false(check(q + 0.01))        # the limit is outside the region
+  expect_false(check(q - tol))         # on the edge: inconclusive
+  # numerical agreement alone is not enough at a stricter level
+  fit_ll <- fit$loglik
+  prof_mid <- function(phi, start) list(ok = TRUE, ll = fit_ll - 3, start = start)
+  local_mocked_bindings(
+    poisson_fit = function(...) list(loglik = fit_ll - 3, ll_converged = TRUE),
+    .package = "nbzinbreg")
+  expect_false(certify(fit, prof_mid, 0.95)(fit$coefficients))   # D = 6 > 3.84
+  expect_true(certify(fit, prof_mid, 0.99)(fit$coefficients))    # D = 6 < 6.63
+})
+
+test_that("an uncertifiable limit is reported as unresolved, not Inf", {
+  set.seed(8)
+  d <- data.frame(x = stats::rnorm(300))
+  d$y <- stats::rbinom(300, 10, 0.4)
+  fit <- suppressWarnings(nbreg(y ~ x, d))
+  # the Poisson limit agrees with the profile but lies on the edge of the
+  # region: not certified, so NA with the theta warning
+  certify <- get("nb_profile_certify", envir = asNamespace("nbzinbreg"))
+  local_mocked_bindings(
+    nb_profile_certify = function(object, prof, level) {
+      function(start) FALSE
+    },
+    .package = "nbzinbreg")
+  expect_warning(ci <- confint(fit, "theta"), class = "nbzinbreg_warning_theta")
+  expect_identical(attr(ci, "status")["theta", 2], "beyond theta_max")
+  expect_true(is.na(unclass(ci)["theta", 2]))
+})
