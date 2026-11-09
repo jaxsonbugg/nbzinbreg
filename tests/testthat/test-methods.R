@@ -385,6 +385,8 @@ test_that("print() and summary() show both parts", {
   expect_output(print(fit), "Count coefficients:")
   expect_output(print(fit), "Zero coefficients:")
   expect_output(print(fit), "Theta: ")
+  expect_output(print(fit),
+                sprintf("EM iterations: %d;  converged: yes", fit$iter))
   expect_invisible(print(fit))
   s <- summary(fit)
   expect_s3_class(s, "summary.zinbreg")
@@ -478,12 +480,71 @@ test_that("diverging coefficients have NA standard errors in the methods", {
   expect_true(is.na(s$coefficients$zero["g", "Std. Error"]))
   expect_false(anyNA(s$coefficients$zero[c("(Intercept)", "x"), "Std. Error"]))
   expect_output(print(s), "diverging coefficient\\(s\\) `zero_g`")
-  nd <- data.frame(x = c(0, 0), g = c(0, 1))
+  # the third row is in group 1, and its pi (1 - pi) underflows to 0, so its
+  # derivative for zero_g is 0; it still involves zero_g and must be NA
+  nd <- data.frame(x = c(0, 0, -5000), g = c(0, 1, 1))
   se <- predict(fit, nd, type = "zero", se.fit = TRUE)$se.fit
   expect_false(is.na(se[1]))     # group 0 does not involve zero_g
   expect_true(is.na(se[2]))      # group 1 does
+  expect_true(is.na(se[3]))      # even when its derivative underflows
   se_count <- predict(fit, nd, type = "count", se.fit = TRUE)$se.fit
   expect_false(anyNA(se_count))  # the count part does not involve it
+})
+
+test_that("prediction SEs are NA, never zero, without a covariance matrix", {
+  set.seed(2)
+  n <- 300
+  d <- data.frame(x = stats::rnorm(n))
+  d$y <- ifelse(stats::runif(n) < 0.3, 0,
+                stats::rnbinom(n, size = 2, mu = exp(0.5 + 0.5 * d$x)))
+  local_mocked_bindings(
+    zinb_vcov = function(H, keep) {
+      list(vcov = matrix(NA_real_, nrow(H), ncol(H), dimnames = dimnames(H)),
+           failed = TRUE)
+    },
+    .package = "nbzinbreg")
+  fit <- suppressWarnings(zinbreg(y ~ x | x, d))
+  expect_true(all(is.na(fit$vcov)))
+  # the third row's count mean underflows to 0, so its derivatives are 0 too
+  nd <- data.frame(x = c(0, 1, -2000))
+  expect_identical(unname(predict(fit, nd, type = "count")[3]), 0)
+  for (type in c("response", "count", "zero")) {
+    for (newdata in list(NULL, nd)) {
+      out <- predict(fit, newdata = newdata, type = type, se.fit = TRUE)
+      expect_true(all(is.na(out$se.fit)), label = type)
+      expect_false(anyNA(out$fit), label = type)
+    }
+  }
+})
+
+test_that("Pearson residuals stay finite when the fitted variance underflows", {
+  m <- zi_fits()
+  fit <- m$fit
+  i0 <- which(fit$y == 0)[1]   # a zero count whose mean underflows
+  i3 <- which(fit$y >= 3)[1]   # a positive count whose 1 - pi underflows
+  fit$linear.predictors$count[i0] <- -800
+  fit$mu[i0] <- exp(-800)
+  fit$linear.predictors$zero[i3] <- 800
+  fit$pi[i3] <- stats::plogis(800)
+  idx <- c(i0, i3)
+  fit$fitted.values[idx] <- fit$mu[idx] *
+    stats::plogis(-fit$linear.predictors$zero[idx])
+  expect_identical(unname(fit$fitted.values[idx]), c(0, 0))
+  r <- residuals(fit, type = "pearson")
+  expect_true(all(is.finite(r)))
+  # zero count: -sqrt(f / (1 + k)), which is -exp(-400.x): 0 to machine
+  # precision, and never NaN
+  expect_lte(r[[i0]], 0)
+  expect_lt(abs(r[[i0]]), 1e-100)
+  # positive count: y / sqrt(v), computed on the log scale
+  k <- (1 + 1 / fit$theta) * fit$mu[[i3]]
+  log_v <- fit$linear.predictors$count[[i3]] - 800 + log1p(k)
+  expect_equal(r[[i3]], fit$y[[i3]] * exp(-0.5 * log_v))
+  expect_gt(r[[i3]], 1e100)
+  # every other row is exactly as before
+  r0 <- residuals(m$fit, type = "pearson")
+  expect_identical(r[-idx], r0[-idx])
+  expect_true(all(is.finite(summary(fit)$pearson)))
 })
 
 test_that("zinbreg methods reject invalid arguments", {

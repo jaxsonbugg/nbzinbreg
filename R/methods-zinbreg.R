@@ -99,6 +99,8 @@ print.zinbreg <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
       " on ", attr(ll, "df"), " df;  AIC: ",
       format(stats::AIC(ll), digits = max(digits, 6L)), "\n", sep = "")
   cat("Observations: ", x$nobs, "\n", sep = "")
+  cat("EM iterations: ", x$iter, ";  converged: ",
+      if (x$converged) "yes" else "NO", "\n", sep = "")
   print_fit_notes(x)
   invisible(x)
 }
@@ -237,8 +239,26 @@ residuals.zinbreg <- function(object, type = c("response", "pearson"), ...) {
   f <- object$fitted.values
   r <- object$y - f
   if (type == "pearson") {
-    v <- f * (1 + (object$pi + 1 / object$theta) * object$mu)
+    k <- (object$pi + 1 / object$theta) * object$mu
+    v <- f * (1 + k)
     r <- r * sqrt(object$prior.weights) / sqrt(v)
+    # The variance underflows to exactly 0 when mu or 1 - pi does
+    # (f = (1 - pi) mu), and the formula above would give 0/0 = NaN for a
+    # zero count. For those rows only, the residual is computed on the log
+    # scale, log f = eta + log(1 - pi) and log v = log f + log1p(k), so
+    # nothing is divided by an underflowed variance: a zero count gets
+    # -sqrt(f / (1 + k)) (0 to machine precision), and a positive count a
+    # large but finite value. The other rows are unchanged.
+    under <- !(v > 0)
+    if (any(under)) {
+      log_f <- object$linear.predictors$count[under] +
+        stats::plogis(-object$linear.predictors$zero[under], log.p = TRUE)
+      log_v <- log_f + log1p(k[under])
+      y_u <- object$y[under]
+      r[under] <- sqrt(object$prior.weights[under]) *
+        ifelse(y_u == 0, -exp(0.5 * (log_f - log1p(k[under]))),
+               (y_u - f[under]) * exp(-0.5 * log_v))
+    }
   }
   stats::naresid(object$na.action, r)
 }
@@ -400,15 +420,20 @@ zinb_prob_matrix <- function(object, eta, zeta, at) {
 #   count:    d mu / d beta = mu x
 #   zero:     d pi / d gamma = pi (1 - pi) z
 #   response: d f / d beta = f x,  d f / d gamma = -f pi z,  f = (1 - pi) mu.
-# Coefficients without a finite estimate have NA variances; the prediction
-# standard error is NA for exactly the rows that involve them (a nonzero
-# entry in their column), and is computed from the other coefficients for
-# every other row.
+# Coefficients without a finite estimate have NA variances. The prediction
+# standard error is NA for exactly the rows that involve them, and is
+# computed from the other coefficients for every other row. Whether a row
+# involves a coefficient is decided from the model matrices (a nonzero entry
+# in its column, for the parts that the prediction type uses), not from the
+# derivatives: a derivative that underflows to 0 (for example a fitted mean
+# of exp(-800)) must not turn an unknown standard error into a zero. If the
+# covariance matrix is entirely unavailable, every standard error is NA.
 zinb_prediction_se <- function(object, X, Z, mu, zeta, type) {
   V <- object$vcov
   p <- ncol(X)
   q <- ncol(Z)
   missing_var <- is.na(diag(V))
+  if (all(missing_var)) return(rep(NA_real_, nrow(X)))
   V[is.na(V)] <- 0
   pi <- stats::plogis(zeta)
   G <- switch(type,
@@ -420,7 +445,11 @@ zinb_prediction_se <- function(object, X, Z, mu, zeta, type) {
               })
   se <- sqrt(pmax(rowSums((G %*% V) * G), 0))
   if (any(missing_var)) {
-    involved <- rowSums(G[, missing_var, drop = FALSE] != 0) > 0
+    used <- switch(type,
+                   count = cbind(X, matrix(0, nrow(X), q)),
+                   zero = cbind(matrix(0, nrow(Z), p), Z),
+                   response = cbind(X, Z))
+    involved <- rowSums(used[, missing_var, drop = FALSE] != 0) > 0
     se[involved] <- NA_real_
   }
   se
