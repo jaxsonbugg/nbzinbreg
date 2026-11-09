@@ -48,6 +48,18 @@ test_that("nbreg_control() rejects invalid iteration limits", {
   }
 })
 
+test_that("nbreg_control() rejects iteration limits above the integer maximum", {
+  big <- .Machine$integer.max
+  for (arg in c("maxit", "irls_maxit", "theta_maxit", "max_halving")) {
+    expect_input_error(do.call(nbreg_control, setNames(list(big + 1), arg)),
+                       paste0("`", arg, "` must be at most 2147483647"))
+    expect_input_error(do.call(nbreg_control, setNames(list(3e9), arg)),
+                       "must be at most 2147483647")
+    ctrl <- expect_silent(do.call(nbreg_control, setNames(list(big), arg)))
+    expect_identical(ctrl[[arg]], big)
+  }
+})
+
 test_that("nbreg_control() rejects an invalid trace flag", {
   expect_input_error(nbreg_control(trace = NA), "`trace` must be TRUE or FALSE")
   expect_input_error(nbreg_control(trace = "yes"), "`trace` must be TRUE or FALSE")

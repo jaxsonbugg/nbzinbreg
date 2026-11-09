@@ -78,6 +78,20 @@ Chosen by the owner. They are built only after `nbreg()` and `zinbreg()` match t
 - [ ] `tidy()` and `glance()` methods
 - [ ] `zinbreg_control(hessian = "numeric")` alongside the analytic Hessian
 
+### Open items from code reviews (scheduled)
+
+These come from independent reviews of the skeleton commits. Each is handled in the phase named, not earlier.
+
+- [ ] **`check_whole()` integer overflow** (fix now, before NB commit 2). Reject whole numbers above `.Machine$integer.max` (2147483647), since the control functions convert them with `as.integer()`. Add tests for `maxit`, `irls_maxit`, `theta_maxit` and `max_halving`.
+- [ ] **Optional offset default** (NB phase for `nbreg()`, ZINB phase for `zinbreg()`). Use `offset = NULL`, keeping the positional order `formula, data, offset, control`. Test omitted offsets, and positional calls both with and without an offset.
+- [ ] **ZINB parameter ordering** (ZINB phase). Choose one documented convention for the order of the count coefficients, the zero coefficients and `log(theta)`. Use it consistently in the Hessian, the covariance matrix, `coef()`, `vcov()`, `summary()`, `confint()` and `tidy()`, and test that they agree.
+- [ ] **ZINB versus NB comparison** (optional-inference phase). A conventional chi-squared likelihood-ratio test is not valid here. The NB model lies on the boundary of the ZINB parameter space (pi = 0, meaning the zero-model intercept goes to minus infinity), and the remaining zero-model coefficients are then unidentified. Use a statistically justified procedure, for example a parametric bootstrap of the likelihood-ratio statistic, or document the limitations. Do not apply a chi-squared reference distribution automatically. The same caution applies to the Vuong test when it is used to test for zero inflation. The current `vuong_test()` documentation must be revised to match.
+- [ ] **Prohibited-call detector review** (package-verification phase).
+  - Confirm that `tests/testthat/helper-prohibited.R` inspects every package-defined function and no imported ones.
+  - Assess bypasses through dynamically constructed names, for example `get(paste0("op", "tim"))`, `asNamespace("stats")$optim`, and `asNamespace("stats")[["optim"]]`.
+  - Extend the detector and its self-tests where needed, without adding false positives from comments or documentation.
+- [ ] **EM monotonicity control** (ZINB phase). `dev/design.md` mentions `check_monotone = TRUE`, which does not exist in the documented `zinbreg_control()` interface. Resolve this in favor of a mandatory monotonicity check (always on, with `monotone_tol` as the only setting) unless an option is clearly justified, and update `dev/design.md` and the documentation to match.
+
 ## 5. Benchmarking
 
 Compare against the reference functions on **two datasets**: `pscl::bioChemists` and `AER::NMES1988`. For each dataset and model, show the two sets of estimates side by side with their maximum absolute difference, plus computation time for ours and the reference.
@@ -152,6 +166,18 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 - [ ] GitHub Pages site is live and contains the report and the function reference.
 - [ ] Commit history shows progress over time, not a single final commit.
 - [ ] README: the temporary status section has been removed, and the usage example is real and executed.
+
+### Verification still required as functionality is added
+
+The skeleton verification and the first CI runs are done. These checks remain, because they depend on code that does not exist yet:
+
+- [ ] `nbreg()` meets every reference tolerance against `MASS::glm.nb()` (section 5).
+- [ ] `zinbreg()` meets every reference tolerance against `pscl::zeroinfl()` (section 5).
+- [ ] All five CI configurations pass after the statistical code is added, and again after each later phase.
+- [ ] The README describes only tested functionality, and each model's usage example becomes executed code once that model is implemented and tested.
+- [ ] The Quarto report renders both as the PDF and as pkgdown HTML from the single source `vignettes/articles/report.qmd`.
+- [ ] The published GitHub Pages site displays its figures and supporting assets correctly.
+- [ ] The local Rtools workaround (`options(buildtools.check = ...)`) does not hide real build failures. Confirm with a plain `R CMD build` and `R CMD check` (no devtools) and with CI.
 
 ## 11. Grading weights (for prioritizing effort)
 

@@ -119,12 +119,20 @@ check_positive <- function(x, name) {
   invisible(x)
 }
 
-# A whole number of at least `min` (iteration limits).
+# A whole number of at least `min` (iteration limits). The control functions
+# store these with as.integer(), so values above the largest integer R can
+# hold (.Machine$integer.max = 2147483647) are rejected rather than silently
+# becoming NA.
 check_whole <- function(x, name, min = 1) {
   check_number(x, name)
   if (abs(x - round(x)) > sqrt(.Machine$double.eps) || x < min) {
     abort_nbz(sprintf("`%s` must be a whole number of at least %d, not %s.",
                       name, as.integer(min), describe_value(x)),
+              "nbzinbreg_error_input")
+  }
+  if (x > .Machine$integer.max) {
+    abort_nbz(sprintf("`%s` must be at most %d, not %s.",
+                      name, .Machine$integer.max, describe_value(x)),
               "nbzinbreg_error_input")
   }
   invisible(x)
