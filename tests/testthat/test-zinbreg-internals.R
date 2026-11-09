@@ -332,3 +332,125 @@ test_that("nbreg_fit(compute_se = FALSE) gives the same estimates", {
   expect_false(b$vcov_failed)
   expect_false(b$se_theta_failed)
 })
+
+# ---- corrective follow-up: rank drop, all-frozen count part, start ----------
+
+test_that("nbreg_fit() reports rank_drop, and nbreg() is unchanged", {
+  d <- worked_example()
+  X <- cbind(`(Intercept)` = 1, x = d$x)
+  fit <- zi("nbreg_fit")(X, d$y, rep(0, 8), rep(1, 8), nbreg_control())
+  expect_false(fit$rank_drop)
+  expect_false(zi("nbreg_fit")(X, d$y, rep(0, 8), rep(1, 8), nbreg_control(),
+                               compute_se = FALSE)$rank_drop)
+  expect_false("rank_drop" %in% names(nbreg(y ~ x, d)))
+})
+
+test_that("a count-part rank drop is passed on and counted by EM", {
+  real_fit <- zi("nbreg_fit")
+  # The NB engine reports a rank drop (with divergence) in every M-step; it
+  # stopped early, so its own flags say "maxit" and not converged.
+  local_mocked_bindings(
+    nbreg_fit = function(X, y, offset, w, control, start = NULL,
+                         compute_se = TRUE) {
+      fit <- real_fit(X, y, offset, w, control, start, compute_se)
+      if (!is.null(start$beta)) {
+        fit$rank_drop <- TRUE
+        fit$issues[["maxit"]] <- TRUE
+        fit$converged <- FALSE
+      }
+      fit
+    },
+    .package = "nbzinbreg")
+  d <- sim_zinb()
+  p <- zinb_parts(y ~ x | x, d)
+  n <- length(p$y)
+  cs <- zi("count_mstep")(p$X, p$y, rep(0, n), rep(1, n),
+                          c(`(Intercept)` = 1, x = 0.5), 2, character(),
+                          nbreg_control())
+  expect_true(cs$rank_drop)
+  expect_false(cs$converged)
+  expect_false(cs$issues[["maxit"]])   # the reason is the rank drop
+  em <- run_em(y ~ x | x, d, zinbreg_control(maxit = 5))
+  expect_identical(em$mstep_status[["count_rank_drop"]], 5L)
+  expect_identical(em$mstep_status[["count_maxit"]], 0L)
+  expect_true(em$final$count_rank_drop)
+  expect_false(em$final$count_converged)
+})
+
+test_that("a count part whose coefficients are all frozen updates theta only", {
+  d <- sim_zinb()
+  p <- zinb_parts(y ~ 0 + g | x, d)
+  n <- length(p$y)
+  beta <- c(g = -40)
+  local_mocked_bindings(
+    nbreg_fit = function(...) stop("the NB engine must not be called"),
+    .package = "nbzinbreg")
+  cs <- zi("count_mstep")(p$X, p$y, rep(0, n), rep(1, n), beta, 1.5, "g",
+                          nbreg_control())
+  th <- zi("nb_theta_newton")(p$y, drop(p$X %*% beta), rep(1, n), 1.5,
+                              nbreg_control())
+  expect_true(cs$theta_only)
+  expect_identical(cs$beta, beta)
+  expect_identical(cs$theta, th$theta)
+  expect_identical(cs$q_after, th$ll)
+  expect_gte(cs$q_after, cs$q_before)
+  expect_false(cs$rank_drop)
+})
+
+test_that("EM handles a count part that becomes entirely frozen", {
+  d <- sim_zinb()
+  d$y[d$g == 1] <- 0      # count ~ 0 + g: its only coefficient has no MLE
+  em <- run_em(y ~ 0 + g | x, d)
+  expect_true(em$criteria_met)
+  expect_identical(em$frozen$count, "g")
+  expect_gt(em$mstep_status[["count_theta_only"]], 0L)
+  expect_true(em$final$count_theta_only)
+  expect_true(em$final$count_converged)
+  expect_identical(nrow(em$violations), 0L)
+  expect_true(is.finite(em$theta) && em$theta > 0)
+})
+
+test_that("divergence in the initial NB fit does not freeze anything", {
+  d <- sim_zinb()
+  real_fit <- zi("nbreg_fit")
+  # The initial NB fit (called without start values) falsely reports `x` as
+  # diverging. The ZINB fit must ignore that and match the unaffected fit.
+  local_mocked_bindings(
+    nbreg_fit = function(X, y, offset, w, control, start = NULL,
+                         compute_se = TRUE) {
+      fit <- real_fit(X, y, offset, w, control, start, compute_se)
+      if (is.null(start)) fit$diverging <- "x"
+      fit
+    },
+    .package = "nbzinbreg")
+  em <- run_em(y ~ x | x, d)
+  expect_identical(em$start_diverging, "x")
+  expect_identical(em$frozen$count, character())
+  local_mocked_bindings(nbreg_fit = real_fit, .package = "nbzinbreg")
+  clean <- run_em(y ~ x | x, d)
+  expect_equal(em$beta, clean$beta, tolerance = 1e-8)
+  expect_equal(em$loglik, clean$loglik, tolerance = 1e-10)
+})
+
+test_that("a genuinely diverging count coefficient is found by the ZINB fit itself", {
+  d <- sim_zinb()
+  d$y[d$g == 1] <- 0
+  em <- run_em(y ~ x + g | x, d)
+  expect_identical(em$start_diverging, "g")   # the NB start saw it too...
+  expect_identical(em$frozen$count, "g")      # ...but EM's own check froze it
+})
+
+test_that("a trapping start is escaped by restarting the count M-step", {
+  d <- sim_zinb()
+  d$y[d$g == 1 & d$y > 0][-(1:5)] <- 0  # group 1 keeps 5 positive counts
+  ref <- run_em(y ~ x + g | x, d)
+  expect_identical(ref$frozen$count, character())
+  # beta_g = -30 makes the fitted means of those 5 counts about e^-30; the
+  # warm-started IRLS step cannot be made acceptable by halving
+  trap <- run_em(y ~ x + g | x, d, zinbreg_control(
+    start = list(count = c(1, 0.5, -30), zero = c(0, 0), theta = 2)))
+  expect_gte(trap$mstep_status[["count_restarted"]], 1L)
+  expect_equal(trap$loglik, ref$loglik, tolerance = 1e-8)
+  expect_equal(trap$beta, ref$beta, tolerance = 1e-4)
+  expect_identical(nrow(trap$violations), 0L)
+})

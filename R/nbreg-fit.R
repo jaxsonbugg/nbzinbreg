@@ -433,9 +433,13 @@ nb_theta_newton <- function(y, eta, w, theta, control) {
 # normally.
 #
 # Returns the estimates, standard errors and diagnostic flags. It does not
-# warn; nbreg() reports the flags. With compute_se = FALSE (used by the ZINB
-# M-step, which needs only the estimates) the standard errors are skipped and
-# returned as NA, with vcov_failed and se_theta_failed FALSE.
+# warn; nbreg() reports the flags. `rank_drop` is TRUE when the final pass
+# ended because the weighted model matrix became rank-deficient while some
+# coefficients were already diverging (without divergence that is an error);
+# nbreg() does not use it, the ZINB M-step reports it. With
+# compute_se = FALSE (used by the ZINB M-step, which needs only the
+# estimates) the standard errors are skipped and returned as NA, with
+# vcov_failed and se_theta_failed FALSE.
 nbreg_fit <- function(X, y, offset, w, control, start = NULL,
                       compute_se = TRUE) {
   beta <- if (is.null(start$beta)) {
@@ -520,8 +524,9 @@ nbreg_fit <- function(X, y, offset, w, control, start = NULL,
       loglik = ll, linear.predictors = eta, fitted.values = exp(eta),
       working.weights = wk$weights, iter = pass,
       converged = criteria_met && !any(issues), issues = issues,
-      theta_bound = th$bound, diverging = diverging, vcov_failed = FALSE,
-      se_theta_failed = FALSE, loglik_trace = loglik_trace))
+      theta_bound = th$bound, diverging = diverging, rank_drop = ir$rank_drop,
+      vcov_failed = FALSE, se_theta_failed = FALSE,
+      loglik_trace = loglik_trace))
   }
 
   # Standard errors at the final estimates.
@@ -545,7 +550,7 @@ nbreg_fit <- function(X, y, offset, w, control, start = NULL,
        working.weights = wk$weights, iter = pass,
        converged = criteria_met && !any(issues), issues = issues,
        theta_bound = th$bound, diverging = diverging,
-       vcov_failed = is.null(chol_info),
+       rank_drop = ir$rank_drop, vcov_failed = is.null(chol_info),
        se_theta_failed = th$bound == "none" && is.na(se_theta),
        loglik_trace = loglik_trace)
 }

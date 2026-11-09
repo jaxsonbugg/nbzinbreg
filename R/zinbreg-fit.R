@@ -308,16 +308,70 @@ zero_mstep <- function(Z, offset_zero, tau, tau_c, w, gamma, frozen,
   r
 }
 
+# Count M-step: the NB engine on the free columns, with prior weights
+# w (1 - tau), warm-started at the current estimates. Every flag of the NB
+# engine is passed on:
+#   * issues (maxit, irls_maxit, theta_maxit, halving) and theta_bound;
+#   * drift: coefficients the NB engine found diverging;
+#   * rank_drop: the NB engine stopped early because the weighted model
+#     matrix became rank-deficient while coefficients were diverging. The
+#     M-step then did not finish, so it counts as not converged; the
+#     "maxit" issue that the early stop sets in the NB engine is cleared,
+#     so the reported reason is the rank drop, not an iteration limit.
+#     (A rank drop without divergence is an error in the NB engine, which
+#     zinb_em() reports with the EM iteration number.)
+# If every count coefficient is held fixed, there is nothing for IRLS to
+# fit: only theta is updated, by the NB engine's Newton-Raphson stage, and
+# the NB engine is never called with a model matrix that has no columns.
+#
+# Restart: the warm start can be a trap. For example, a very negative start
+# coefficient for a group that has positive counts gives fitted means near
+# 0 there, so the first IRLS proposal is enormous and no number of halvings
+# makes it acceptable; the M-step would then never move. If the warm-started
+# fit reports a step-halving failure, or stops with a fitting error, the NB
+# engine is run again from its own Poisson start (with the same weights and
+# the current theta), and the better of the two (higher weighted NB
+# log-likelihood) is kept. So no starting value, from the initial NB fit or
+# from the user, can hold the count part in place.
 count_mstep <- function(X, y, offset, wts, beta, theta, frozen, nb_control) {
   sp <- split_frozen(X, beta, offset, frozen)
   q_before <- nb_loglik(y, lin_pred(X, beta, offset), theta, wts)
-  fit <- nbreg_fit(sp$M, y, sp$offset, wts, nb_control,
-                   start = list(beta = beta[sp$free], theta = theta),
-                   compute_se = FALSE)
+  if (!any(sp$free)) {
+    th <- nb_theta_newton(y, sp$offset, wts, theta, nb_control)
+    issues <- c(maxit = FALSE, irls_maxit = FALSE,
+                theta_maxit = !th$converged && !th$halving_failed,
+                halving = th$halving_failed)
+    return(list(beta = beta, theta = th$theta, q_before = q_before,
+                q_after = th$ll, converged = th$converged, issues = issues,
+                theta_bound = th$bound, drift = character(),
+                rank_drop = FALSE, theta_only = TRUE, restarted = FALSE))
+  }
+  warm <- tryCatch(
+    nbreg_fit(sp$M, y, sp$offset, wts, nb_control,
+              start = list(beta = beta[sp$free], theta = theta),
+              compute_se = FALSE),
+    nbzinbreg_error_fit = function(e) e)
+  failed <- inherits(warm, "condition")
+  fit <- warm
+  restarted <- FALSE
+  if (failed || warm$issues[["halving"]]) {
+    cold <- tryCatch(
+      nbreg_fit(sp$M, y, sp$offset, wts, nb_control,
+                start = list(theta = theta), compute_se = FALSE),
+      nbzinbreg_error_fit = function(e) NULL)
+    if (failed && is.null(cold)) stop(warm)  # re-signal the original error
+    if (!is.null(cold) && (failed || cold$loglik > warm$loglik)) {
+      fit <- cold
+      restarted <- TRUE
+    }
+  }
   beta[sp$free] <- fit$coefficients
+  issues <- fit$issues
+  if (fit$rank_drop) issues[["maxit"]] <- FALSE
   list(beta = beta, theta = fit$theta, q_before = q_before,
-       q_after = fit$loglik, converged = fit$converged, issues = fit$issues,
-       theta_bound = fit$theta_bound, drift = fit$diverging)
+       q_after = fit$loglik, converged = fit$converged && !fit$rank_drop,
+       issues = issues, theta_bound = fit$theta_bound, drift = fit$diverging,
+       rank_drop = fit$rank_drop, theta_only = FALSE, restarted = restarted)
 }
 
 # ---------------------------------------------------------------------------
@@ -334,7 +388,13 @@ intercept_index <- function(M, pos) {
 # Starting values: the user's, or
 #   * count part: an NB fit to all the data (the zeros included). If that
 #     fit fails, a Poisson fit and the moment-type theta. Coefficients the NB
-#     fit found diverging (a group whose counts are all zero) start frozen.
+#     fit found diverging are only recorded (`start_diverging`); they are NOT
+#     held fixed. The ZINB model can explain zeros through its zero part, so
+#     a divergence of the plain NB model says nothing final about the ZINB
+#     solution: only the ZINB fit's own checks (in the M-steps and across EM
+#     iterations) can hold a count coefficient fixed. Their start values are
+#     the NB estimates, which the first count M-step (a full IRLS fit with
+#     the ZINB weights) moves freely.
 #   * zero part, a fallback chain:
 #       1. logistic IRLS of I(y == 0) on Z, accepted only if it converged
 #          without step-halving failure, damping or drift (separation);
@@ -350,7 +410,7 @@ zinb_start <- function(X, Z, y, offset, offset_zero, w, control) {
     beta <- stats::setNames(control$start$count, colnames(X))
     gamma <- stats::setNames(control$start$zero, colnames(Z))
     return(list(beta = beta, gamma = gamma, theta = control$start$theta,
-                frozen_count = character(),
+                start_diverging = character(),
                 method = c(count = "user-supplied (`start`)",
                            zero = "user-supplied (`start`)")))
   }
@@ -360,12 +420,12 @@ zinb_start <- function(X, Z, y, offset, offset_zero, w, control) {
   if (!is.null(nb)) {
     beta <- nb$coefficients
     theta <- nb$theta
-    frozen_count <- nb$diverging
+    start_diverging <- nb$diverging
     count_method <- "negative binomial fit"
   } else {
     beta <- stats::setNames(poisson_start(X, y, offset, w, nbc), colnames(X))
     theta <- theta_start_value(y, exp(lin_pred(X, beta, offset)), w, nbc)
-    frozen_count <- character()
+    start_diverging <- character()
     count_method <- "Poisson fit (the negative binomial start failed)"
   }
 
@@ -394,7 +454,8 @@ zinb_start <- function(X, Z, y, offset, offset_zero, w, control) {
         "and the zero part has no intercept)")
     }
   }
-  list(beta = beta, gamma = gamma, theta = theta, frozen_count = frozen_count,
+  list(beta = beta, gamma = gamma, theta = theta,
+       start_diverging = start_diverging,
        method = c(count = count_method, zero = zero_method))
 }
 
@@ -547,7 +608,9 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
   beta <- st$beta
   gamma <- st$gamma
   theta <- st$theta
-  frozen_count <- st$frozen_count
+  # Nothing starts frozen: only the ZINB fit's own checks can hold a
+  # coefficient fixed (see zinb_start()).
+  frozen_count <- character()
   frozen_zero <- character()
   eta <- lin_pred(X, beta, offset)
   zeta <- lin_pred(Z, gamma, offset_zero)
@@ -564,7 +627,8 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
               zero_solve_failed = 0L, zero_damped = 0L,
               count_not_converged = 0L, count_maxit = 0L,
               count_irls_maxit = 0L, count_theta_maxit = 0L,
-              count_halving = 0L)
+              count_halving = 0L, count_rank_drop = 0L,
+              count_theta_only = 0L, count_restarted = 0L)
   violations <- data.frame(iteration = integer(), check = character(),
                            decrease = numeric(), stringsAsFactors = FALSE)
   add_violation <- function(v, it, check, before, after, scale) {
@@ -632,9 +696,15 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
       cs$issues[["theta_maxit"]]
     status["count_halving"] <- status["count_halving"] +
       cs$issues[["halving"]]
+    status["count_rank_drop"] <- status["count_rank_drop"] + cs$rank_drop
+    status["count_theta_only"] <- status["count_theta_only"] + cs$theta_only
+    status["count_restarted"] <- status["count_restarted"] + cs$restarted
     final <- list(zero_converged = zs$converged,
                   zero_halving_failed = zs$halving_failed,
                   count_converged = cs$converged, count_issues = cs$issues,
+                  count_rank_drop = cs$rank_drop,
+                  count_theta_only = cs$theta_only,
+                  count_restarted = cs$restarted,
                   theta_bound = cs$theta_bound)
 
     # Changes in this iteration (frozen coefficients do not move).
@@ -678,5 +748,6 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
        iter = it, criteria_met = criteria_met, final = final,
        mstep_status = status, violations = violations,
        frozen = list(count = frozen_count, zero = frozen_zero),
-       start_method = st$method, loglik_trace = loglik_trace)
+       start_method = st$method, start_diverging = st$start_diverging,
+       loglik_trace = loglik_trace)
 }
