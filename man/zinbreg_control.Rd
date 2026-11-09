@@ -12,55 +12,82 @@ zinbreg_control(
   hessian = c("analytic", "numeric"),
   hessian_check = FALSE,
   monotone_tol = 1e-08,
-  nb_control = nbreg_control()
+  grad_tol = 1e-06,
+  zero_tol = 1e-10,
+  zero_maxit = 50,
+  nb_control = nbreg_control(tol = 1e-10)
 )
 }
 \arguments{
-\item{tol}{Convergence tolerance for the EM algorithm, applied to the
-relative change in the observed-data log-likelihood.}
+\item{tol}{Convergence tolerance for the EM algorithm. EM stops when the
+relative change in the observed-data log-likelihood,
+\code{abs(new - old) / (abs(old) + 0.1)}, is below \code{tol} \strong{and} the relative
+changes in the count coefficients, the zero coefficients and the change
+in \code{log(theta)} are below \code{sqrt(tol)}, \strong{and} the gradient check passes
+(see \code{grad_tol}).}
 
 \item{maxit}{Maximum number of EM iterations. Reaching it gives a warning
 and \code{converged = FALSE}.}
 
-\item{trace}{Logical; if \code{TRUE}, print the progress of each EM iteration.}
+\item{trace}{Logical; if \code{TRUE}, print one line of progress per EM
+iteration.}
 
-\item{start}{Optional list of starting values with elements \code{count},
-\code{zero} and \code{theta}. By default the count part starts from an NB fit and
-the zero part from a logistic fit of \code{I(y == 0)}.}
+\item{start}{Optional starting values: a list with exactly the elements
+\code{count} (the count coefficients), \code{zero} (the zero coefficients) and
+\code{theta} (a positive number). Their lengths are checked against the model
+in \code{\link[=zinbreg]{zinbreg()}}. By default the count part starts from a negative
+binomial fit and the zero part from a logistic fit of \code{I(y == 0)}.}
 
-\item{hessian}{How standard errors are computed: \code{"analytic"} (second
-derivatives worked out by hand) or \code{"numeric"} (numerical
+\item{hessian}{How the standard errors are computed: \code{"analytic"} (second
+derivatives worked out by hand, the default) or \code{"numeric"} (numerical
 differentiation of the log-likelihood with \code{\link[numDeriv:hessian]{numDeriv::hessian()}}).}
 
 \item{hessian_check}{Logical; if \code{TRUE}, also compute the numeric Hessian
-and warn if it disagrees with the analytic one.}
+and warn if it differs from the analytic one by more than a relative
+\code{1e-4}.}
 
-\item{monotone_tol}{EM must never lower the log-likelihood. A decrease is
-reported only if it is larger than \code{monotone_tol * (abs(loglik) + 1)},
-which allows for rounding error.}
+\item{monotone_tol}{EM must never lower the log-likelihood, and each
+M-step must never lower its own part of the EM objective. A decrease is
+reported (with a warning of class \code{nbzinbreg_warning_monotone}) only if it
+is larger than \code{monotone_tol * (abs(value) + 1)}, which allows for
+rounding error.}
 
-\item{nb_control}{Settings for the negative binomial M-step, from
-\code{\link[=nbreg_control]{nbreg_control()}}.}
+\item{grad_tol}{Threshold for the gradient check at termination. The
+Newton decrement \eqn{g^\top (-H)^{-1} g} of the observed-data
+log-likelihood (with \code{g} its gradient and \code{H} its Hessian) must be below
+\code{grad_tol}; half of it approximates the log-likelihood that could still
+be gained. The default \code{1e-6} means the estimates are within about 0.001
+standard errors of the maximum.}
+
+\item{zero_tol, zero_maxit}{Tolerance and maximum number of rounds for the
+logistic IRLS M-step of the zero part. It stops when the relative change
+in its objective is below \code{zero_tol} and the relative change in the zero
+coefficients is below \code{sqrt(zero_tol)}.}
+
+\item{nb_control}{Settings for the negative binomial M-step of the count
+part, from \code{\link[=nbreg_control]{nbreg_control()}}. Its \code{theta_min}, \code{theta_max} and
+\code{theta_warn} also apply to the final estimate of \code{theta}.}
 }
 \value{
-A list of class \code{zinbreg_control} holding the validated settings
-(once implemented).
+A list of class \code{zinbreg_control} holding the validated settings.
 }
 \description{
-Collects the tolerances, iteration limits and other settings used by the EM
-algorithm in \code{\link[=zinbreg]{zinbreg()}}.
-
-\strong{Not yet implemented.} This development version defines the interface
-only; calling the function signals an error of class
-\code{nbzinbreg_not_implemented}.
+Collects and checks the tolerances, iteration limits and other settings
+used by the EM algorithm in \code{\link[=zinbreg]{zinbreg()}}. Every argument is validated, and
+an invalid value stops with an error of class \code{nbzinbreg_error_input} that
+names the argument.
 }
 \section{Provisional}{
 
 \code{tol}, \code{maxit} and \code{trace} are part of the required interface. The other
-arguments are provisional and may change before the function is
-implemented.
+arguments are provisional and may change in later versions.
 }
 
+\examples{
+zinbreg_control()
+zinbreg_control(tol = 1e-10, hessian = "numeric")
+zinbreg_control(start = list(count = c(0.5, 0.1), zero = -1, theta = 2))
+}
 \seealso{
 \code{\link[=zinbreg]{zinbreg()}}, \code{\link[=nbreg_control]{nbreg_control()}}
 }

@@ -147,7 +147,7 @@ nbreg <- function(formula, data, offset = NULL, control = nbreg_control(),
     abort_nbz(sprintf("`model` must be TRUE or FALSE, not %s.",
                       describe_value(model)), "nbzinbreg_error_input")
   }
-  control <- resolve_nbreg_control(control)
+  control <- resolve_control(control, nbreg_control, "nbreg_control")
 
   # ---- model frame ------------------------------------------------------
   mf <- cl[c(1L, match(c("formula", "data", "subset", "weights",
@@ -354,73 +354,6 @@ check_dots <- function(n_dots, dot_names, fun = "nbreg") {
   hints <- c(hints, sprintf(
     "Fitting settings go in `control = %s_control(...)`.", fun))
   abort_nbz(paste(c(msg, hints), collapse = " "), "nbzinbreg_error_input")
-}
-
-# Accept `control` as an nbreg_control object or a named list, and always
-# revalidate it: an nbreg_control object may have been edited after it was
-# created (for example ctrl$tol <- -1), so it is never trusted as is.
-resolve_nbreg_control <- function(control) {
-  if (inherits(control, "nbreg_control")) {
-    if (!is.list(control)) {
-      abort_nbz(paste(
-        "`control` has class \"nbreg_control\" but is not a list. Create it",
-        "with `nbreg_control(...)`."), "nbzinbreg_error_input")
-    }
-    expected <- names(formals(nbreg_control))
-    nms <- names(control)
-    if (is.null(nms) || anyNA(nms) || any(nms == "") || anyDuplicated(nms)) {
-      abort_nbz(paste(
-        "`control` is a malformed nbreg_control object: its elements must",
-        "have unique names. Create it with `nbreg_control(...)`."),
-        "nbzinbreg_error_input")
-    }
-    missing_fields <- setdiff(expected, nms)
-    extra_fields <- setdiff(nms, expected)
-    if (length(missing_fields) || length(extra_fields)) {
-      problems <- c(
-        if (length(missing_fields)) {
-          sprintf("missing field(s) %s",
-                  paste0("`", missing_fields, "`", collapse = ", "))
-        },
-        if (length(extra_fields)) {
-          sprintf("unknown field(s) %s",
-                  paste0("`", extra_fields, "`", collapse = ", "))
-        })
-      abort_nbz(sprintf(paste(
-        "`control` is a modified nbreg_control object with %s. Create it",
-        "with `nbreg_control(...)` instead of editing it."),
-        paste(problems, collapse = " and ")), "nbzinbreg_error_input")
-    }
-    # Re-run every check on the current values.
-    return(do.call(nbreg_control, unclass(control)[expected]))
-  }
-  if (is.list(control)) {
-    nms <- names(control)
-    if (length(control) && (is.null(nms) || anyNA(nms) || any(nms == ""))) {
-      abort_nbz(paste(
-        "Every element of a `control` list must be named, for example",
-        "`list(tol = 1e-10)`. Prefer `control = nbreg_control(...)`."),
-        "nbzinbreg_error_input")
-    }
-    dups <- unique(nms[duplicated(nms)])
-    if (length(dups)) {
-      abort_nbz(sprintf(paste(
-        "The `control` list gives setting(s) %s more than once. Give each",
-        "setting only once."), paste0("`", dups, "`", collapse = ", ")),
-        "nbzinbreg_error_input")
-    }
-    unknown <- setdiff(nms, names(formals(nbreg_control)))
-    if (length(unknown)) {
-      abort_nbz(sprintf(paste(
-        "Unknown setting(s) in `control`: %s. See `?nbreg_control` for the",
-        "available settings."), paste0("`", unknown, "`", collapse = ", ")),
-        "nbzinbreg_error_input")
-    }
-    return(do.call(nbreg_control, control))
-  }
-  abort_nbz(sprintf(
-    "`control` must be created by `nbreg_control()` (or be a list), not %s.",
-    describe_value(control)), "nbzinbreg_error_input")
 }
 
 # Turn an error from stats::model.frame() into a message that explains it,

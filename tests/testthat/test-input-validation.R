@@ -84,6 +84,135 @@ test_that("nbreg_control() rejects invalid theta bounds and thresholds", {
   expect_input_error(nbreg_control(theta_start = "1"), "single finite number")
 })
 
+# ---- zinbreg_control() ------------------------------------------------------
+
+test_that("zinbreg_control() returns validated settings", {
+  ctrl <- zinbreg_control()
+  expect_s3_class(ctrl, "zinbreg_control")
+  expect_identical(names(ctrl), names(formals(zinbreg_control)))
+  expect_identical(ctrl$maxit, 5000L)
+  expect_identical(ctrl$zero_maxit, 50L)
+  expect_identical(ctrl$hessian, "analytic")
+  expect_identical(zinbreg_control(hessian = "numeric")$hessian, "numeric")
+  expect_null(ctrl$start)
+  expect_s3_class(ctrl$nb_control, "nbreg_control")
+  expect_identical(ctrl$nb_control$tol, 1e-10)
+  # a plain list for nb_control is checked and converted
+  ctrl2 <- zinbreg_control(nb_control = list(irls_maxit = 7))
+  expect_s3_class(ctrl2$nb_control, "nbreg_control")
+  expect_identical(ctrl2$nb_control$irls_maxit, 7L)
+  st <- zinbreg_control(start = list(count = c(a = 1L, b = 2L), zero = -1,
+                                     theta = 3))$start
+  expect_identical(st$count, c(a = 1, b = 2))
+  expect_identical(st$theta, 3)
+})
+
+test_that("zinbreg_control() rejects invalid tolerances and limits", {
+  for (arg in c("tol", "monotone_tol", "grad_tol", "zero_tol")) {
+    expect_input_error(do.call(zinbreg_control, setNames(list(0), arg)),
+                       paste0("`", arg, "` must be a number strictly between 0 and 1"))
+    expect_input_error(do.call(zinbreg_control, setNames(list(1), arg)),
+                       "strictly between 0 and 1")
+    expect_input_error(do.call(zinbreg_control, setNames(list(NA_real_), arg)),
+                       "single finite number")
+    expect_input_error(do.call(zinbreg_control, setNames(list("a"), arg)),
+                       "single finite number")
+  }
+  for (arg in c("maxit", "zero_maxit")) {
+    expect_input_error(do.call(zinbreg_control, setNames(list(0), arg)),
+                       paste0("`", arg, "` must be a whole number of at least 1"))
+    expect_input_error(do.call(zinbreg_control, setNames(list(1.5), arg)),
+                       "whole number")
+    expect_input_error(do.call(zinbreg_control,
+                               setNames(list(.Machine$integer.max + 1), arg)),
+                       "must be at most 2147483647")
+  }
+})
+
+test_that("zinbreg_control() rejects invalid flags and options", {
+  expect_input_error(zinbreg_control(trace = NA), "`trace` must be TRUE or FALSE")
+  expect_input_error(zinbreg_control(hessian_check = "yes"),
+                     "`hessian_check` must be TRUE or FALSE")
+  expect_input_error(zinbreg_control(hessian = "numerical"),
+                     "`hessian` must be one of \"analytic\" or \"numeric\", not \"numerical\"")
+  expect_input_error(zinbreg_control(hessian = "num"), "`hessian` must be one of")
+  expect_input_error(zinbreg_control(hessian = NA_character_), "`hessian` must be one of")
+  expect_input_error(zinbreg_control(hessian = 1), "`hessian` must be one of")
+})
+
+test_that("zinbreg_control() checks nb_control", {
+  expect_input_error(zinbreg_control(nb_control = "fast"),
+                     "`nb_control` must be created by `nbreg_control\\(\\)`")
+  expect_input_error(zinbreg_control(nb_control = list(tolerance = 1)),
+                     "Unknown setting.*in `nb_control`.*`tolerance`")
+  expect_input_error(zinbreg_control(nb_control = list(tol = 2)),
+                     "`tol` must be a number strictly between 0 and 1")
+  bad <- nbreg_control()
+  bad$irls_maxit <- -1
+  expect_input_error(zinbreg_control(nb_control = bad),
+                     "`irls_maxit` must be a whole number")
+  extra <- nbreg_control()
+  extra$speed <- 1
+  expect_input_error(zinbreg_control(nb_control = extra),
+                     "`nb_control` is a modified nbreg_control object")
+})
+
+test_that("zinbreg_control() checks start", {
+  expect_input_error(zinbreg_control(start = c(1, 2)),
+                     "`start` must be NULL or a list")
+  expect_input_error(zinbreg_control(start = data.frame(count = 1)),
+                     "`start` must be NULL or a list")
+  expect_input_error(zinbreg_control(start = list(1, 2, 3)),
+                     "Every element of `start` must be named")
+  expect_input_error(zinbreg_control(start = list(count = 1, zero = 1)),
+                     "`start` is missing `theta`")
+  expect_input_error(
+    zinbreg_control(start = list(count = 1, zero = 1, theta = 1, extra = 2)),
+    "`start` has unknown element.*`extra`")
+  expect_input_error(
+    zinbreg_control(start = list(count = 1, count = 2, zero = 1, theta = 1)),
+    "`start` gives `count` more than once")
+  expect_input_error(zinbreg_control(start = list(count = "a", zero = 1, theta = 1)),
+                     "`start\\$count` must be a non-empty numeric vector")
+  expect_input_error(zinbreg_control(start = list(count = 1, zero = c(1, NA),
+                                                  theta = 1)),
+                     "`start\\$zero` must be a non-empty numeric vector of finite")
+  expect_input_error(zinbreg_control(start = list(count = numeric(), zero = 1,
+                                                  theta = 1)),
+                     "`start\\$count` must be a non-empty")
+  expect_input_error(zinbreg_control(start = list(count = 1, zero = 1, theta = 0)),
+                     "`start\\$theta` must be a positive number")
+  expect_input_error(zinbreg_control(start = list(count = 1, zero = 1,
+                                                  theta = c(1, 2))),
+                     "`start\\$theta` must be a single finite number")
+  expect_input_error(zinbreg_control(start = list(count = 1, zero = 1, theta = 1e9)),
+                     "`start\\$theta` .* must lie between `theta_min`")
+})
+
+test_that("zinbreg_control objects are revalidated by resolve_control()", {
+  resolve <- function(x) {
+    nbzinbreg:::resolve_control(x, zinbreg_control, "zinbreg_control")
+  }
+  ctrl <- zinbreg_control()
+  expect_identical(resolve(ctrl), ctrl)
+  bad <- ctrl
+  bad$grad_tol <- 5
+  expect_input_error(resolve(bad), "`grad_tol` must be a number strictly between")
+  bad_nb <- ctrl
+  bad_nb$nb_control$tol <- -1
+  expect_input_error(resolve(bad_nb), "`tol` must be a number strictly between")
+  extra <- ctrl
+  extra$speed <- 1
+  expect_input_error(resolve(extra),
+                     "`control` is a modified zinbreg_control object with unknown field")
+  expect_input_error(resolve(list(tolerance = 1)),
+                     "Unknown setting.*`tolerance`.*`\\?zinbreg_control`")
+  expect_input_error(resolve(list(tol = 1e-9, tol = 1e-10)), "more than once")
+  expect_input_error(resolve("x"),
+                     "`control` must be created by `zinbreg_control\\(\\)`")
+  expect_identical(resolve(list(maxit = 10))$maxit, 10L)
+})
+
 # ---- nbreg(): arguments -----------------------------------------------------
 
 d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4), t = 1:8)
