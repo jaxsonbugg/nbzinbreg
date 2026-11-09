@@ -202,6 +202,62 @@ test_that("nbreg() checks the model matrix", {
                      "Not enough data: 2 observation")
 })
 
+test_that("nbreg() explains model-matrix failures and names the factor", {
+  dg <- d
+  dg$g <- factor(rep(c("a", "b"), 4))
+  dg$h <- factor(rep(c("p", "q"), each = 4))
+  dg$ch <- "k"
+  # a factor reduced to one level by `subset`
+  expect_input_error(nbreg(y ~ x + g, dg, subset = g == "a"),
+                     "Factor\\(s\\) `g` has only one level.*subset")
+  # a constant character covariate
+  expect_input_error(nbreg(y ~ x + ch, dg), "`ch` has only one level")
+  # two factors reduced to one level each
+  expect_input_error(nbreg(y ~ g + h, dg, subset = g == "a" & h == "p"),
+                     "`g`, `h` have only one level")
+  # the original R message is kept for reference
+  expect_input_error(nbreg(y ~ x + ch, dg), "Original error: contrasts")
+})
+
+test_that("nbreg() revalidates nbreg_control objects", {
+  ctrl <- nbreg_control()
+  bad_value <- ctrl
+  bad_value$tol <- -1
+  expect_input_error(nbreg(y ~ x, d, control = bad_value),
+                     "`tol` must be a number strictly between 0 and 1")
+  bad_whole <- ctrl
+  bad_whole$maxit <- 2.5
+  expect_input_error(nbreg(y ~ x, d, control = bad_whole),
+                     "`maxit` must be a whole number")
+  bad_bounds <- ctrl
+  bad_bounds$theta_min <- 1e9
+  expect_input_error(nbreg(y ~ x, d, control = bad_bounds),
+                     "`theta_min` .* must be smaller than `theta_max`")
+  extra <- ctrl
+  extra$speed <- "fast"
+  expect_input_error(nbreg(y ~ x, d, control = extra),
+                     "modified nbreg_control object with unknown field.*`speed`")
+  missing_field <- ctrl
+  missing_field[["irls_tol"]] <- NULL
+  expect_input_error(nbreg(y ~ x, d, control = missing_field),
+                     "missing field.*`irls_tol`")
+  both <- missing_field
+  both$speed <- 1
+  expect_input_error(nbreg(y ~ x, d, control = both),
+                     "missing field.*`irls_tol`.* and unknown field.*`speed`")
+  expect_input_error(nbreg(y ~ x, d,
+                           control = structure("x", class = "nbreg_control")),
+                     "not a list")
+  expect_input_error(nbreg(y ~ x, d,
+                           control = structure(list(1, 2),
+                                               class = "nbreg_control")),
+                     "malformed nbreg_control")
+  # a valid edit is accepted, checked and used
+  good <- ctrl
+  good$tol <- 1e-10
+  expect_identical(nbreg(y ~ x, d, control = good)$control$tol, 1e-10)
+})
+
 test_that("every nbreg() error carries the parent class", {
   expect_error(nbreg(), class = "nbzinbreg_error")
   expect_error(nbreg(y ~ x + I(2 * x), d), class = "nbzinbreg_error")

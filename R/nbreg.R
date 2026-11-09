@@ -188,7 +188,13 @@ nbreg <- function(formula, data, offset = NULL, control = nbreg_control(),
   }
 
   # ---- model matrix -----------------------------------------------------
-  X <- stats::model.matrix(mt, mf)
+  X <- tryCatch(
+    stats::model.matrix(mt, mf),
+    error = function(e) {
+      abort_nbz(explain_model_matrix_error(conditionMessage(e), mf),
+                "nbzinbreg_error_input")
+    }
+  )
   if (ncol(X) == 0L) {
     abort_nbz(paste(
       "The model has no coefficients. Include at least an intercept (for",
@@ -350,8 +356,44 @@ check_dots <- function(n_dots, dot_names, fun = "nbreg") {
   abort_nbz(paste(c(msg, hints), collapse = " "), "nbzinbreg_error_input")
 }
 
+# Accept `control` as an nbreg_control object or a named list, and always
+# revalidate it: an nbreg_control object may have been edited after it was
+# created (for example ctrl$tol <- -1), so it is never trusted as is.
 resolve_nbreg_control <- function(control) {
-  if (inherits(control, "nbreg_control")) return(control)
+  if (inherits(control, "nbreg_control")) {
+    if (!is.list(control)) {
+      abort_nbz(paste(
+        "`control` has class \"nbreg_control\" but is not a list. Create it",
+        "with `nbreg_control(...)`."), "nbzinbreg_error_input")
+    }
+    expected <- names(formals(nbreg_control))
+    nms <- names(control)
+    if (is.null(nms) || anyNA(nms) || any(nms == "") || anyDuplicated(nms)) {
+      abort_nbz(paste(
+        "`control` is a malformed nbreg_control object: its elements must",
+        "have unique names. Create it with `nbreg_control(...)`."),
+        "nbzinbreg_error_input")
+    }
+    missing_fields <- setdiff(expected, nms)
+    extra_fields <- setdiff(nms, expected)
+    if (length(missing_fields) || length(extra_fields)) {
+      problems <- c(
+        if (length(missing_fields)) {
+          sprintf("missing field(s) %s",
+                  paste0("`", missing_fields, "`", collapse = ", "))
+        },
+        if (length(extra_fields)) {
+          sprintf("unknown field(s) %s",
+                  paste0("`", extra_fields, "`", collapse = ", "))
+        })
+      abort_nbz(sprintf(paste(
+        "`control` is a modified nbreg_control object with %s. Create it",
+        "with `nbreg_control(...)` instead of editing it."),
+        paste(problems, collapse = " and ")), "nbzinbreg_error_input")
+    }
+    # Re-run every check on the current values.
+    return(do.call(nbreg_control, unclass(control)[expected]))
+  }
   if (is.list(control)) {
     nms <- names(control)
     if (length(control) && (is.null(nms) || any(nms == ""))) {
@@ -406,6 +448,40 @@ explain_model_frame_error <- function(msg) {
     paste(
       "Could not build the model frame from `formula`, `data` and the other",
       "arguments (for example `subset`).")
+  }
+  sprintf("%s (Original error: %s)", main, msg)
+}
+
+# Turn an error from stats::model.matrix() into a message that explains it.
+# The most common one, "contrasts can be applied only to factors with 2 or
+# more levels", does not say which variable is at fault, so the factor,
+# character and logical covariates with fewer than two distinct values are
+# looked up and named.
+explain_model_matrix_error <- function(msg, mf) {
+  main <- if (grepl("contrasts can be applied only to factors", msg)) {
+    covariates <- setdiff(names(mf),
+                          c(names(mf)[1L], "(weights)", "(offset)"))
+    single <- covariates[vapply(covariates, function(v) {
+      x <- mf[[v]]
+      (is.factor(x) || is.character(x) || is.logical(x)) &&
+        length(unique(x[!is.na(x)])) < 2L
+    }, logical(1))]
+    if (length(single)) {
+      sprintf(paste(
+        "Factor(s) %s %s only one level in the data used for fitting (after",
+        "`subset` and `na.action`), so %s no contrast to estimate. Remove",
+        "%s from the formula, or check `subset`."),
+        paste0("`", single, "`", collapse = ", "),
+        if (length(single) == 1L) "has" else "have",
+        if (length(single) == 1L) "it has" else "they have",
+        if (length(single) == 1L) "it" else "them")
+    } else {
+      paste(
+        "A factor in the model has only one level in the data used for",
+        "fitting, so it has no contrast to estimate.")
+    }
+  } else {
+    "Could not build the model matrix from `formula`."
   }
   sprintf("%s (Original error: %s)", main, msg)
 }
