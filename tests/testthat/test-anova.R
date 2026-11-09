@@ -202,3 +202,50 @@ test_that("overdispersion_test() checks its input", {
   expect_input_error(overdispersion_test(nbreg(art ~ fem, d), alpha = 0.05),
                      "Unused argument\\(s\\) in overdispersion_test\\(\\): `alpha`")
 })
+
+# ---- corrective follow-up: fits that did not converge ------------------------
+
+test_that("a non-converged NB fit gives the statistic but no p-value", {
+  d <- load_biochemists()
+  fit <- suppressWarnings(nbreg(art ~ fem + ment, d,
+                                control = nbreg_control(maxit = 1)))
+  expect_false(fit$converged)
+  expect_warning(od <- overdispersion_test(fit),
+                 class = "nbzinbreg_warning_convergence",
+                 regexp = "did not converge.*p-value is NA")
+  expect_true(is.na(od$p.value))
+  expect_true(is.finite(od$statistic) && od$statistic > 0)
+  expect_match(od$note, "did not converge, so inference is\\s+unreliable")
+  expect_output(print(od), "did not converge")
+  # the same model, converged, keeps its p-value
+  ok <- overdispersion_test(nbreg(art ~ fem + ment, d))
+  expect_false(is.na(ok$p.value))
+})
+
+test_that("non-convergence removes the p-value in the theta-bound cases too", {
+  set.seed(8)
+  d <- data.frame(x = stats::rnorm(300))
+  d$y <- stats::rbinom(300, 10, 0.4)
+  fit <- suppressWarnings(nbreg(y ~ x, d))
+  expect_identical(fit$theta_bound, "upper")
+  # certified Poisson limit, but the fit is marked as not converged
+  nc <- fit
+  nc$converged <- FALSE
+  expect_warning(od <- overdispersion_test(nc),
+                 class = "nbzinbreg_warning_convergence")
+  expect_identical(unname(od$statistic), 0)
+  expect_true(is.na(od$p.value))
+  expect_match(od$note, "Poisson limit.*did not converge")
+  # a truncating bound and no convergence: both warnings, no p-value
+  cut <- nc
+  cut$loglik <- cut$loglik + 2
+  w <- character()
+  od2 <- withCallingHandlers(overdispersion_test(cut), warning = function(cnd) {
+    w <<- c(w, class(cnd)[1L])
+    invokeRestart("muffleWarning")
+  })
+  expect_setequal(w, c("nbzinbreg_warning_theta",
+                       "nbzinbreg_warning_convergence"))
+  expect_true(is.na(od2$p.value))
+  expect_gt(unname(od2$statistic), 3)
+})

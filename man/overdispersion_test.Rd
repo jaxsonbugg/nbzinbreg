@@ -58,7 +58,8 @@ arguments.
 \item \code{nbzinbreg_error_fit}: the Poisson fit failed or did not converge, or the
 NB fit is not at its maximum.
 \item \code{nbzinbreg_warning_theta}: \code{theta} on a bound (see above).
-\item \code{nbzinbreg_warning_convergence}: the NB fit had not converged.
+\item \code{nbzinbreg_warning_convergence}: the NB fit did not converge. The
+statistic is still reported, for diagnosis only, but the p-value is \code{NA}.
 }
 }
 

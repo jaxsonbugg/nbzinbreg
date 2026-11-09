@@ -296,7 +296,8 @@ print.nbzinbreg_anova <- function(x, digits = max(getOption("digits") - 2L,
 #' * `nbzinbreg_error_fit`: the Poisson fit failed or did not converge, or the
 #'   NB fit is not at its maximum.
 #' * `nbzinbreg_warning_theta`: `theta` on a bound (see above).
-#' * `nbzinbreg_warning_convergence`: the NB fit had not converged.
+#' * `nbzinbreg_warning_convergence`: the NB fit did not converge. The
+#'   statistic is still reported, for diagnosis only, but the p-value is `NA`.
 #'
 #' @param object An `nbreg` fit.
 #' @param ... Not used (an error if supplied).
@@ -387,11 +388,20 @@ overdispersion_test <- function(object, ...) {
         format(object$control$theta_min)), "nbzinbreg_warning_theta")
     }
   }
+  # A fit that did not converge is not known to be at its maximum, so the
+  # statistic is kept for diagnosis but no p-value is given (whichever case
+  # above applied, including a certified Poisson limit).
   if (!isTRUE(object$converged)) {
-    note <- c(note, "the negative binomial fit had not converged")
+    p <- NA_real_
+    note <- c(note, paste(
+      "the negative binomial fit did not converge, so inference is",
+      "unreliable: the statistic is shown for diagnosis only and no",
+      "p-value is given"))
     warn_nbz(paste(
-      "The negative binomial fit had not converged, so the test may be",
-      "unreliable."), "nbzinbreg_warning_convergence")
+      "The negative binomial fit did not converge, so the test is",
+      "unreliable: the statistic is reported for diagnosis only, and the",
+      "p-value is NA. Refit the model (for example with a larger `maxit`)",
+      "first."), "nbzinbreg_warning_convergence")
   }
   method <- paste(
     "Likelihood-ratio test for overdispersion (Poisson against negative",
