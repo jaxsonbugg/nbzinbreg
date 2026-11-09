@@ -19,14 +19,19 @@
 \arguments{
 \item{x}{An \code{nbreg} or \code{zinbreg} fit.}
 
-\item{conf.int}{Logical; add confidence limits to \code{tidy()} output.}
+\item{conf.int}{Logical; add Wald confidence limits (\code{conf.low},
+\code{conf.high}) to the \code{tidy()} output.}
 
 \item{conf.level}{Confidence level for \code{conf.int = TRUE}.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used (an error if supplied).}
 }
 \value{
-Once implemented, a data frame.
+\code{tidy()}: a data frame with one row per coefficient and columns
+\code{term}, \code{estimate}, \code{std.error}, \code{statistic}, \code{p.value} (and \code{conf.low},
+\code{conf.high}). \code{glance()}: a one-row data frame with \code{logLik}, \code{AIC},
+\code{BIC}, \code{theta}, \code{SE.theta}, \code{nobs}, \code{df}, \code{df.residual}, \code{iter} and
+\code{converged}.
 }
 \description{
 \code{tidy()} returns a data frame with one row per parameter (estimate,
@@ -36,14 +41,33 @@ zero parts. \code{glance()} returns a one-row data frame of model-level
 statistics (log-likelihood, AIC, BIC, \code{theta}, number of observations,
 convergence). Both are convenient for building tables in reports.
 
-\strong{Not yet implemented.} These methods are documented stubs; each signals
-an error of class \code{nbzinbreg_not_implemented}.
+The \code{zinbreg} methods are \strong{not yet implemented} in this development
+version (they signal \code{nbzinbreg_not_implemented}).
 }
+\details{
+\code{tidy()} gives the same estimates, standard errors, z statistics and
+p-values as the coefficient table of \code{summary()}. With \code{conf.int = TRUE} it
+adds Wald limits from \link[=confint-nbzinbreg]{confint()} (\code{NA} for coefficients
+without a finite estimate). \code{theta} is a model-level quantity and appears
+in \code{glance()}, not as a \code{tidy()} row.
+}
+\section{Errors and warnings}{
+
+\code{nbzinbreg_error_input}: \code{x} of the wrong class, \code{conf.int} not \code{TRUE} or
+\code{FALSE}, \code{conf.level} outside (0, 1), or unused arguments.
+}
+
 \section{Provisional}{
 
-Planned but not yet implemented; the columns returned may change.
+The columns returned may change.
 }
 
+\examples{
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+tidy(fit, conf.int = TRUE)
+glance(fit)
+}
 \seealso{
 \code{\link[generics:tidy]{generics::tidy()}}, \code{\link[generics:glance]{generics::glance()}}
 }

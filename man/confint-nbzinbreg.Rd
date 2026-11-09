@@ -3,46 +3,111 @@
 \name{confint-nbzinbreg}
 \alias{confint-nbzinbreg}
 \alias{confint.nbreg}
+\alias{print.nbzinbreg_confint}
 \alias{confint.zinbreg}
 \title{Confidence intervals for nbreg and zinbreg fits}
 \usage{
 \method{confint}{nbreg}(object, parm, level = 0.95, method = c("profile", "wald"), ...)
+
+\method{print}{nbzinbreg_confint}(x, digits = max(3L, getOption("digits") - 3L), ...)
 
 \method{confint}{zinbreg}(object, parm, level = 0.95, method = c("profile", "wald"), ...)
 }
 \arguments{
 \item{object}{An \code{nbreg} or \code{zinbreg} fit.}
 
-\item{parm}{Which parameters to give intervals for (names or indices);
-all by default.}
+\item{parm}{Which parameters to give intervals for: names (the coefficient
+names and \code{"theta"}) or indices into them; all by default.}
 
-\item{level}{Confidence level.}
+\item{level}{Confidence level, strictly between 0 and 1.}
 
-\item{method}{\code{"profile"} (profile likelihood for \code{theta}) or \code{"wald"}.}
+\item{method}{For \code{theta}: \code{"profile"} (profile likelihood, the default)
+or \code{"wald"}. The coefficients always get Wald intervals.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used (an error if supplied), except for \code{print()}.}
+
+\item{x}{A \code{nbzinbreg_confint} object, for \code{print()}.}
+
+\item{digits}{Number of significant digits to print.}
 }
 \value{
-Once implemented, a matrix with one row per parameter and columns
-for the lower and upper limits.
+A matrix of class \code{nbzinbreg_confint} with one row per parameter
+and columns for the lower and upper limits, labelled as in
+\code{\link[stats:confint]{stats::confint()}}. Attributes: \code{status} (a matrix of the same shape:
+\code{"wald"}, \code{"finite"}, \code{"unbounded"}, ...), \code{method} and \code{level}.
 }
 \description{
 Confidence intervals for the coefficients and for the dispersion parameter
-\code{theta}. For \code{theta} the planned default is a profile-likelihood interval:
-all values of \code{theta} whose maximized log-likelihood lies within
-\code{qchisq(level, 1) / 2} of the maximum. Unlike the Wald interval
-(estimate plus or minus a multiple of the standard error), it always stays
-positive and can be asymmetric.
-
-\strong{Not yet implemented.} These methods are documented stubs; each signals
-an error of class \code{nbzinbreg_not_implemented}.
+\code{theta}.
+\itemize{
+\item \strong{Coefficients:} Wald intervals, estimate plus or minus
+\code{qnorm((1 + level) / 2)} standard errors, as \code{confint.default()} gives
+for \code{glm.nb} and \code{zeroinfl} fits.
+\item \strong{\code{theta}, \code{method = "profile"} (the default):} the profile-likelihood
+interval, all values of \code{theta} whose profile log-likelihood (maximized
+over the coefficients with \code{theta} held fixed) lies within
+\code{qchisq(level, 1) / 2} of the maximum. It is always positive and can be
+asymmetric.
+\item \strong{\code{theta}, \code{method = "wald"}:} the Wald interval on the log scale,
+\verb{exp(log(theta) +- z SE(log theta))}, which also stays positive.
 }
-\section{Provisional}{
 
-Planned but not yet implemented; the arguments beyond those of the
-\code{\link[stats:confint]{stats::confint()}} generic may change.
+\code{confint.zinbreg()} is \strong{not yet implemented} in this development version
+(it signals \code{nbzinbreg_not_implemented}).
+}
+\details{
+\strong{How the profile interval is found.} No root finder is used. The search
+works on \code{log(theta)}: it steps outward from the estimate (first by
+\verb{max(0.1, SE(log theta))}, then doubling the step) until the deviance
+\verb{2 (loglik - profile loglik)} exceeds the cutoff, then bisects between the
+last point inside and the first point outside until they are within
+\code{1e-6} on the log scale. At every trial value the coefficients are refitted
+with \code{theta} held fixed (warm-started, and retried from a fresh start if
+needed); a value is used only if that fit converged.
+
+\strong{Endpoints that are not ordinary numbers.} The \code{"status"} attribute (and
+the printed notes) say what each endpoint is:
+\itemize{
+\item \code{"unbounded"}: the upper limit is \code{Inf}. The profile reaches the search
+bound \code{theta_max} without crossing the cutoff, and the profile is
+certified to have reached its limit as \code{theta} grows (it no longer
+changes, and for \code{nbreg} it equals the Poisson log-likelihood). The data
+are then consistent with no overdispersion at all.
+\item \code{"beyond theta_max"} or \code{"below theta_min"}: the limit lies outside the
+numerical bounds and could not be resolved; it is \code{NA} (with a warning),
+never silently set to the bound or to \code{Inf}.
+\item \code{"inner fit failed"}: a fit with \code{theta} held fixed did not converge;
+that limit is \code{NA}, with a warning.
+\item \code{"diverging"}, \code{"no standard error"}, \code{"theta on a bound"}: no Wald
+interval can be given; the limits are \code{NA}.
 }
 
+If any trial value gives a profile log-likelihood above the fitted maximum
+(by more than \verb{1e-6 * (|loglik| + 1)}), the fit is not at its maximum: the
+model is refitted from there to confirm it, and an error is raised instead
+of an interval around a point that is not the maximum.
+}
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}: \code{object} of the wrong class, an invalid
+\code{parm} (unknown names, out-of-range, non-finite or duplicated indices),
+\code{level} outside (0, 1), an invalid \code{method}, or unused arguments.
+\item \code{nbzinbreg_error_fit}: the fit is not at its maximum (see above).
+\item \code{nbzinbreg_warning_convergence}: an inner fit failed, or the profile is
+not unimodal.
+\item \code{nbzinbreg_warning_theta}: a limit lies beyond \code{theta_max} or below
+\code{theta_min} and is \code{NA}.
+}
+}
+
+\examples{
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+confint(fit)
+confint(fit, "theta", method = "wald")
+confint(fit, 1:2, level = 0.9)
+}
 \seealso{
-\code{\link[=nbreg]{nbreg()}}, \code{\link[=zinbreg]{zinbreg()}}
+\code{\link[=nbreg]{nbreg()}}, \code{\link[=zinbreg]{zinbreg()}}, \code{\link[=tidy.nbreg]{tidy.nbreg()}}
 }

@@ -12,10 +12,10 @@
 
 stubbed <- c(
   # provisional extras
-  "confint.nbreg", "confint.zinbreg", "anova.nbreg", "overdispersion_test",
+  "confint.zinbreg", "anova.nbreg", "overdispersion_test",
   "vuong_test", "simulate.nbreg", "simulate.zinbreg", "boot_se",
   "expected_counts", "rootogram",
-  "tidy.nbreg", "glance.nbreg", "tidy.zinbreg", "glance.zinbreg"
+  "tidy.zinbreg", "glance.zinbreg"
 )
 
 # A minimal call for each stub. Methods are called through their generic on a
@@ -23,7 +23,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  confint.nbreg = function() confint(nb),
   confint.zinbreg = function() confint(zinb),
   anova.nbreg = function() anova(nb),
   overdispersion_test = function() overdispersion_test(nb),
@@ -33,8 +32,6 @@ stub_calls <- list(
   boot_se = function() boot_se(nb),
   expected_counts = function() expected_counts(nb),
   rootogram = function() rootogram(nb),
-  tidy.nbreg = function() tidy(nb),
-  glance.nbreg = function() glance(nb),
   tidy.zinbreg = function() tidy(zinb),
   glance.zinbreg = function() glance(zinb)
 )
