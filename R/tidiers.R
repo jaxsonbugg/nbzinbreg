@@ -8,15 +8,18 @@
 #' statistics (log-likelihood, AIC, BIC, `theta`, number of observations,
 #' convergence). Both are convenient for building tables in reports.
 #'
-#' The `zinbreg` methods are **not yet implemented** in this development
-#' version (they signal `nbzinbreg_not_implemented`).
-#'
 #' @details
 #' `tidy()` gives the same estimates, standard errors, z statistics and
-#' p-values as the coefficient table of `summary()`. With `conf.int = TRUE` it
+#' p-values as the coefficient tables of `summary()`. With `conf.int = TRUE` it
 #' adds Wald limits from [confint()][confint-nbzinbreg] (`NA` for coefficients
 #' without a finite estimate). `theta` is a model-level quantity and appears
-#' in `glance()`, not as a `tidy()` row.
+#' in `glance()`, not as a `tidy()` row (for `zinbreg`, the `Log(theta)` row
+#' of the `summary()` count table is left out).
+#'
+#' For `zinbreg` fits, `tidy()` has a `component` column (`"count"` or
+#' `"zero"`), and `term` is the coefficient name within its part, as in
+#' `coef(fit, model = "count")`. `glance()` adds `newton_decrement`, the
+#' gradient check at the estimates.
 #'
 #' @section Errors and warnings:
 #' `nbzinbreg_error_input`: `x` of the wrong class, `conf.int` not `TRUE` or
@@ -32,15 +35,23 @@
 #' @param ... Not used (an error if supplied).
 #' @return `tidy()`: a data frame with one row per coefficient and columns
 #'   `term`, `estimate`, `std.error`, `statistic`, `p.value` (and `conf.low`,
-#'   `conf.high`). `glance()`: a one-row data frame with `logLik`, `AIC`,
-#'   `BIC`, `theta`, `SE.theta`, `nobs`, `df`, `df.residual`, `iter` and
-#'   `converged`.
+#'   `conf.high`), plus `component` for `zinbreg`. `glance()`: a one-row data
+#'   frame with `logLik`, `AIC`, `BIC`, `theta`, `SE.theta`, `nobs`, `df`,
+#'   `df.residual`, `iter` and `converged`, plus `newton_decrement` for
+#'   `zinbreg`.
 #' @seealso [generics::tidy()], [generics::glance()]
 #' @examples
 #' d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
 #' fit <- nbreg(y ~ x, data = d)
 #' tidy(fit, conf.int = TRUE)
 #' glance(fit)
+#' if (requireNamespace("pscl", quietly = TRUE)) {
+#'   data("bioChemists", package = "pscl")
+#'   zfit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
+#'                   data = bioChemists)
+#'   tidy(zfit)
+#'   glance(zfit)
+#' }
 #' @name tidiers-nbzinbreg
 NULL
 
@@ -80,11 +91,36 @@ glance.nbreg <- function(x, ...) {
 #' @rdname tidiers-nbzinbreg
 #' @export
 tidy.zinbreg <- function(x, conf.int = FALSE, conf.level = 0.95, ...) {
-  not_implemented("tidy.zinbreg")
+  check_fit_class(x, "zinbreg", "x")
+  check_no_dots(...length(), ...names(), "tidy",
+                c("x", "conf.int", "conf.level"))
+  check_flag(conf.int, "conf.int")
+  check_level(conf.level, "conf.level")
+  tabs <- summary(x)$coefficients
+  count <- tabs$count[rownames(tabs$count) != "Log(theta)", , drop = FALSE]
+  part <- function(tab, component) {
+    data.frame(term = rownames(tab), component = component,
+               estimate = unname(tab[, 1]), std.error = unname(tab[, 2]),
+               statistic = unname(tab[, 3]), p.value = unname(tab[, 4]),
+               stringsAsFactors = FALSE)
+  }
+  out <- rbind(part(count, "count"), part(tabs$zero, "zero"))
+  if (conf.int) {
+    ci <- confint(x, parm = names(coef(x)), level = conf.level,
+                  method = "wald")
+    out$conf.low <- unname(ci[, 1])
+    out$conf.high <- unname(ci[, 2])
+  }
+  out
 }
 
 #' @rdname tidiers-nbzinbreg
 #' @export
 glance.zinbreg <- function(x, ...) {
-  not_implemented("glance.zinbreg")
+  check_fit_class(x, "zinbreg", "x")
+  check_no_dots(...length(), ...names(), "glance", "x")
+  data.frame(logLik = x$loglik, AIC = stats::AIC(x), BIC = stats::BIC(x),
+             theta = x$theta, SE.theta = x$SE.theta, nobs = x$nobs,
+             df = x$df, df.residual = x$df.residual, iter = x$iter,
+             converged = x$converged, newton_decrement = x$newton_decrement)
 }

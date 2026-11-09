@@ -52,8 +52,8 @@ asymmetric.
 \verb{exp(log(theta) +- z SE(log theta))}, which also stays positive.
 }
 
-\code{confint.zinbreg()} is \strong{not yet implemented} in this development version
-(it signals \code{nbzinbreg_not_implemented}).
+For \code{zinbreg} fits the coefficients are named as by \code{coef()}
+(\verb{count_*}, \verb{zero_*}), followed by \code{"theta"}.
 }
 \details{
 \strong{How the profile interval is found.} No root finder is used. The search
@@ -63,16 +63,21 @@ works on \code{log(theta)}: it steps outward from the estimate (first by
 last point inside and the first point outside until they are within
 \code{1e-6} on the log scale. At every trial value the coefficients are refitted
 with \code{theta} held fixed (warm-started, and retried from a fresh start if
-needed); a value is used only if that fit converged.
+needed); a value is used only if that fit converged. For \code{zinbreg} each such
+fit is a full EM run with \code{theta} held fixed, which must also pass the
+gradient check over its free parameters, so a profile interval takes many
+EM fits (typically 30 to 60; a minute or more on data of a few thousand
+rows). \code{method = "wald"} is immediate.
 
 \strong{Endpoints that are not ordinary numbers.} The \code{"status"} attribute (and
 the printed notes) say what each endpoint is:
 \itemize{
 \item \code{"unbounded"}: the upper limit is \code{Inf}. The profile reaches the search
 bound \code{theta_max} without crossing the cutoff, and the profile is
-certified to have reached its limit as \code{theta} grows (it no longer
-changes, and for \code{nbreg} it equals the Poisson log-likelihood). The data
-are then consistent with no overdispersion at all.
+certified to have reached its limit as \code{theta} grows: it no longer
+changes, for \code{nbreg} it equals the Poisson log-likelihood, and that limit
+lies inside the likelihood-ratio region at the requested level. The
+data are then consistent with no overdispersion at all.
 \item \code{"beyond theta_max"} or \code{"below theta_min"}: the limit lies outside the
 numerical bounds and could not be resolved; it is \code{NA} (with a warning),
 never silently set to the bound or to \code{Inf}.

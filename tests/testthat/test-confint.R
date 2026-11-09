@@ -248,3 +248,136 @@ test_that("an uncertifiable limit is reported as unresolved, not Inf", {
   expect_identical(attr(ci, "status")["theta", 2], "beyond theta_max")
   expect_true(is.na(unclass(ci)["theta", 2]))
 })
+
+# ---- zinbreg ----------------------------------------------------------------
+
+sim_zinb_ci <- function(n = 400, seed = 1) {
+  set.seed(seed)
+  x <- stats::rnorm(n)
+  y <- ifelse(stats::runif(n) < stats::plogis(-0.5 + 0.8 * x), 0,
+              stats::rnbinom(n, size = 2, mu = exp(1 + 0.5 * x)))
+  data.frame(y = y, x = x, g = rep(0:1, each = n / 2))
+}
+
+# Profile log-likelihood at fixed theta, maximized independently by optim()
+# (allowed in tests): the reference for the zinbreg profile.
+optim_profile <- function(fit, theta) {
+  X <- fit$x
+  Z <- fit$z
+  p <- ncol(X)
+  ll <- get("zinb_loglik", envir = asNamespace("nbzinbreg"))
+  f <- function(par) {
+    -ll(unname(fit$y), drop(X %*% par[seq_len(p)]) + fit$offset$count,
+        drop(Z %*% par[-seq_len(p)]) + fit$offset$zero, theta,
+        fit$prior.weights)
+  }
+  o <- stats::optim(c(fit$coefficients$count, fit$coefficients$zero), f,
+                    method = "BFGS",
+                    control = list(reltol = 1e-14, maxit = 2000))
+  -o$value
+}
+
+test_that("zinbreg Wald intervals match confint() of a zeroinfl fit", {
+  skip_if_not_installed("pscl")
+  d <- sim_zinb_ci()
+  fit <- zinbreg(y ~ x | x, d)
+  ref <- pscl::zeroinfl(y ~ x | x, d, dist = "negbin",
+                        control = pscl::zeroinfl.control(reltol = 1e-12))
+  ci <- confint(fit, parm = 1:4, level = 0.9)
+  expect_identical(rownames(unclass(ci)), names(coef(fit)))
+  expect_equal(unclass(ci)[seq_len(4), ], stats::confint(ref, level = 0.9),
+               tolerance = 1e-3, ignore_attr = TRUE)
+  w <- unclass(confint(fit, "theta", method = "wald"))["theta", ]
+  z <- stats::qnorm(0.975)
+  expect_equal(unname(w), fit$theta * exp(c(-z, z) * fit$SE.logtheta))
+})
+
+test_that("the zinbreg profile limits agree with an independent maximization", {
+  d <- sim_zinb_ci()
+  fit <- zinbreg(y ~ x | x, d)
+  ci <- confint(fit, "theta")
+  expect_identical(unname(attr(ci, "status")["theta", ]), c("finite", "finite"))
+  lim <- unclass(ci)["theta", ]
+  expect_lt(lim[[1]], fit$theta)
+  expect_gt(lim[[2]], fit$theta)
+  q <- stats::qchisq(0.95, 1)
+  for (th in lim) {
+    dev <- 2 * (fit$loglik - optim_profile(fit, th))
+    expect_lt(abs(dev - q), 1e-4)
+  }
+})
+
+test_that("the zinbreg profile works on bioChemists", {
+  skip_on_cran()
+  d <- load_biochemists()
+  fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment, data = d)
+  ci <- confint(fit, "theta")
+  lim <- unclass(ci)["theta", ]
+  expect_true(all(is.finite(lim)))
+  for (th in lim) {
+    dev <- 2 * (fit$loglik - optim_profile(fit, th))
+    expect_lt(abs(dev - stats::qchisq(0.95, 1)), 1e-4)
+  }
+})
+
+test_that("EM with theta held fixed is monotone and leaves theta alone", {
+  d <- sim_zinb_ci()
+  fit <- zinbreg(y ~ x | x, d)
+  em_fn <- get("zinb_em", envir = asNamespace("nbzinbreg"))
+  ctl <- fit$control
+  ctl$start <- list(count = fit$coefficients$count,
+                    zero = fit$coefficients$zero, theta = fit$theta)
+  for (th in c(fit$theta, 1, 10)) {
+    em <- em_fn(fit$x, fit$z, unname(fit$y), fit$offset$count,
+                fit$offset$zero, fit$prior.weights, ctl, fixed_theta = th)
+    expect_true(em$converged)
+    expect_identical(em$theta, th)
+    expect_identical(em$theta_bound, "fixed")
+    expect_identical(nrow(em$violations), 0L)
+    expect_false("Log(theta)" %in% names(em$gradient$gradient)[
+      !(names(em$gradient$gradient) %in% em$gradient$excluded)])
+    expect_lte(em$loglik, fit$loglik + 1e-8)
+    expect_equal(em$loglik, optim_profile(fit, th), tolerance = 1e-8)
+  }
+  # at theta-hat the profile is the maximum itself
+  em <- em_fn(fit$x, fit$z, unname(fit$y), fit$offset$count, fit$offset$zero,
+              fit$prior.weights, ctl, fixed_theta = fit$theta)
+  expect_equal(em$loglik, fit$loglik, tolerance = 1e-10)
+})
+
+test_that("zinbreg profile certification needs a flat limit inside the region", {
+  certify <- get("zinb_profile_certify", envir = asNamespace("nbzinbreg"))
+  fit <- zinbreg(y ~ x | x, sim_zinb_ci())
+  q <- stats::qchisq(0.95, 1)
+  flat <- function(d) {
+    function(phi, start) list(ok = TRUE, ll = fit$loglik - d / 2, start = start)
+  }
+  expect_true(certify(fit, flat(q - 1), 0.95)(NULL))
+  expect_false(certify(fit, flat(q + 0.01), 0.95)(NULL))
+  # still rising: not at its limit
+  rising <- function(phi, start) {
+    list(ok = TRUE, ll = fit$loglik - 1 - 1 / phi, start = start)
+  }
+  expect_false(certify(fit, rising, 0.95)(NULL))
+  failing <- function(phi, start) list(ok = FALSE, ll = NA_real_, start = start)
+  expect_false(certify(fit, failing, 0.95)(NULL))
+})
+
+test_that("zinbreg confint() reports diverging coefficients and checks inputs", {
+  d <- sim_zinb_ci()
+  d$y[d$g == 1 & d$y == 0] <- 1     # no zeros in group 1: zero_g diverges
+  fit <- suppressWarnings(zinbreg(y ~ x | x + g, d))
+  ci <- confint(fit, c("zero_g", "count_x"))
+  expect_true(all(is.na(unclass(ci)["zero_g", ])))
+  expect_identical(unname(attr(ci, "status")["zero_g", ]), c("diverging", "diverging"))
+  expect_true(all(is.finite(unclass(ci)["count_x", ])))
+  expect_input_error(confint(fit, "x"),
+                     "Unknown parameter.*`count_\\(Intercept\\)`")
+  expect_input_error(confint(fit, method = 1), "`method` must be one of")
+  expect_input_error(confint(fit, level = 0), "`level`")
+  expect_input_error(confint(fit, nope = 1), "Unused argument")
+  off_max <- zinbreg(y ~ x | x, sim_zinb_ci())
+  off_max$loglik <- off_max$loglik - 1
+  expect_error(confint(off_max, "theta"), class = "nbzinbreg_error_fit",
+               regexp = "zinbreg fit is not at its maximum")
+})

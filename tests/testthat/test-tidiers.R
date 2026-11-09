@@ -42,3 +42,31 @@ test_that("tidy() and glance() check their arguments", {
   expect_error(glance(fit, 1), class = "nbzinbreg_error_input",
                regexp = "unnamed extra argument")
 })
+
+test_that("tidy() and glance() for zinbreg follow summary() and confint()", {
+  d <- load_biochemists()
+  fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment, data = d)
+  td <- tidy(fit, conf.int = TRUE)
+  expect_identical(names(td), c("term", "component", "estimate", "std.error",
+                                "statistic", "p.value", "conf.low",
+                                "conf.high"))
+  expect_identical(td$component, rep(c("count", "zero"), c(6, 2)))
+  expect_identical(td$term, c(names(fit$coefficients$count),
+                              names(fit$coefficients$zero)))
+  s <- summary(fit)$coefficients
+  expect_equal(as.matrix(td[td$component == "count", 3:6]),
+               s$count[1:6, ], ignore_attr = TRUE)
+  expect_equal(as.matrix(td[td$component == "zero", 3:6]), s$zero,
+               ignore_attr = TRUE)
+  ci <- confint(fit, parm = 1:8, method = "wald")
+  expect_equal(td$conf.low, unname(unclass(ci)[, 1]))
+  g <- glance(fit)
+  expect_identical(nrow(g), 1L)
+  expect_equal(g$newton_decrement, fit$newton_decrement)
+  expect_equal(g$AIC, AIC(fit))
+  expect_error(tidy(fit, conf.level = NA), class = "nbzinbreg_error_input")
+  expect_error(glance(fit, extra = 1), class = "nbzinbreg_error_input",
+               regexp = "Unused argument\\(s\\) in glance\\(\\): `extra`")
+  expect_error(tidy(nbreg(art ~ fem, d), component = "x"),
+               class = "nbzinbreg_error_input")
+})

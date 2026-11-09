@@ -12,10 +12,9 @@
 
 stubbed <- c(
   # provisional extras
-  "confint.zinbreg", "anova.nbreg", "overdispersion_test",
+  "anova.nbreg", "overdispersion_test",
   "vuong_test", "simulate.nbreg", "simulate.zinbreg", "boot_se",
-  "expected_counts", "rootogram",
-  "tidy.zinbreg", "glance.zinbreg"
+  "expected_counts", "rootogram"
 )
 
 # A minimal call for each stub. Methods are called through their generic on a
@@ -23,7 +22,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  confint.zinbreg = function() confint(zinb),
   anova.nbreg = function() anova(nb),
   overdispersion_test = function() overdispersion_test(nb),
   vuong_test = function() vuong_test(zinb, nb),
@@ -31,9 +29,7 @@ stub_calls <- list(
   simulate.zinbreg = function() simulate(zinb),
   boot_se = function() boot_se(nb),
   expected_counts = function() expected_counts(nb),
-  rootogram = function() rootogram(nb),
-  tidy.zinbreg = function() tidy(zinb),
-  glance.zinbreg = function() glance(zinb)
+  rootogram = function() rootogram(nb)
 )
 
 test_that("every listed stub signals the not-implemented condition", {

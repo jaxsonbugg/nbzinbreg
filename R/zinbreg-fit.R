@@ -374,6 +374,56 @@ count_mstep <- function(X, y, offset, wts, beta, theta, frozen, nb_control) {
        rank_drop = fit$rank_drop, theta_only = FALSE, restarted = restarted)
 }
 
+# Count M-step with theta held fixed (for zinb_em(fixed_theta = )): the IRLS
+# stage of the NB engine on the free columns, warm-started, with weights
+# w (1 - tau). Same safeguards as count_mstep():
+#   * every column held fixed: nothing to fit, the M-step is trivially done;
+#   * a step-halving failure (a trapping start) is retried from the NB
+#     engine's Poisson start, keeping the better result;
+#   * a rank drop without divergence is an error, as in the NB engine.
+# theta_bound is reported as "fixed", so that log(theta) is left out of the
+# gradient check.
+count_mstep_fixed <- function(X, y, offset, wts, beta, theta, frozen,
+                              nb_control) {
+  sp <- split_frozen(X, beta, offset, frozen)
+  q_before <- nb_loglik(y, lin_pred(X, beta, offset), theta, wts)
+  no_issues <- c(maxit = FALSE, irls_maxit = FALSE, theta_maxit = FALSE,
+                 halving = FALSE)
+  if (!any(sp$free)) {
+    return(list(beta = beta, theta = theta, q_before = q_before,
+                q_after = q_before, converged = TRUE, issues = no_issues,
+                theta_bound = "fixed", drift = character(), rank_drop = FALSE,
+                theta_only = FALSE, restarted = FALSE))
+  }
+  r <- nb_irls(sp$M, y, sp$offset, wts, beta[sp$free], theta, nb_control)
+  restarted <- FALSE
+  if (r$halving_failed) {
+    cold <- tryCatch(poisson_start(sp$M, y, sp$offset, wts, nb_control),
+                     nbzinbreg_error = function(e) NULL)
+    if (!is.null(cold)) {
+      names(cold) <- colnames(sp$M)
+      r2 <- nb_irls(sp$M, y, sp$offset, wts, cold, theta, nb_control)
+      if (r2$ll > r$ll) {
+        r <- r2
+        restarted <- TRUE
+      }
+    }
+  }
+  if (r$rank_drop && length(r$diverging) == 0L) {
+    abort_nbz(paste(
+      "The weighted model matrix of the count part became rank-deficient",
+      "with theta held fixed."), "nbzinbreg_error_fit")
+  }
+  beta[sp$free] <- r$beta
+  issues <- no_issues
+  issues[["irls_maxit"]] <- !r$converged && !r$halving_failed && !r$rank_drop
+  issues[["halving"]] <- r$halving_failed
+  list(beta = beta, theta = theta, q_before = q_before, q_after = r$ll,
+       converged = r$converged && !r$rank_drop, issues = issues,
+       theta_bound = "fixed", drift = r$diverging, rank_drop = r$rank_drop,
+       theta_only = FALSE, restarted = restarted)
+}
+
 # ---------------------------------------------------------------------------
 # Starting values
 # ---------------------------------------------------------------------------
@@ -605,23 +655,32 @@ zinb_structural <- function(X, Z, y, w) {
 #                 iteration converged, AND no monotonicity violation. It is
 #                 never TRUE when the gradient check is unavailable.
 # zinbreg() turns the flags into warnings.
+#
+# `fixed_theta` (used by the profile-likelihood interval for theta): when
+# given, theta is held at that value. The count M-step then updates only the
+# count coefficients (count_mstep_fixed()), and log(theta) is left out of the
+# gradient check (theta_bound is reported as "fixed"). Everything else
+# (monotonicity, M-step flags, divergence, the stopping rule) is unchanged.
+# With fixed_theta = NULL (the default) the fit is exactly as before.
 zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
-                    hooks = list()) {
+                    hooks = list(), fixed_theta = NULL) {
   pos <- w > 0
   nbc <- control$nb_control
   tol <- control$tol
   mtol <- control$monotone_tol
   zero_step <- if (is.null(hooks$zero_mstep)) zero_mstep else hooks$zero_mstep
-  count_step <- if (is.null(hooks$count_mstep)) {
-    count_mstep
-  } else {
+  count_step <- if (!is.null(hooks$count_mstep)) {
     hooks$count_mstep
+  } else if (!is.null(fixed_theta)) {
+    count_mstep_fixed
+  } else {
+    count_mstep
   }
 
   st <- zinb_start(X, Z, y, offset, offset_zero, w, control)
   beta <- st$beta
   gamma <- st$gamma
-  theta <- st$theta
+  theta <- if (is.null(fixed_theta)) st$theta else fixed_theta
   # Nothing starts frozen: only the ZINB fit's own checks can hold a
   # coefficient fixed (see zinb_start()).
   frozen_count <- character()

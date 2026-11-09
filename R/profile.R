@@ -305,3 +305,79 @@ confint_status_text <- c(
     "refit)"),
   `below theta_min` = "unresolved: the limit lies below theta_min",
   `inner fit failed` = "a fit with theta held fixed did not converge")
+
+# ---------------------------------------------------------------------------
+# The zinbreg profile
+# ---------------------------------------------------------------------------
+
+# Settings for the EM refits behind a zinbreg profile: progress messages
+# off, and a start list (with theta at the value being profiled).
+zinb_profile_control <- function(object, start, theta, maxit = NULL) {
+  ctl <- object$control
+  ctl$trace <- FALSE
+  ctl$nb_control$trace <- FALSE
+  if (!is.null(maxit)) ctl$maxit <- maxit
+  ctl$start <- list(count = start$count, zero = start$zero, theta = theta)
+  ctl
+}
+
+# l_p(theta) for a zinbreg fit: EM with theta held fixed
+# (zinb_em(fixed_theta = )), warm-started at `start`. It counts only if EM
+# converged in full, including the gradient check over the free parameters.
+# If it did not, it is retried once from the fit's own estimates with twice
+# as many EM iterations; ok = FALSE if that fails too.
+zinb_profile_function <- function(object) {
+  original <- list(count = object$coefficients$count,
+                   zero = object$coefficients$zero)
+  run <- function(theta, start, maxit = NULL) {
+    tryCatch(
+      zinb_em(object$x, object$z, unname(object$y), object$offset$count,
+              object$offset$zero, object$prior.weights,
+              zinb_profile_control(object, start, theta, maxit),
+              fixed_theta = theta),
+      nbzinbreg_error = function(e) NULL)
+  }
+  function(phi, start) {
+    theta <- exp(phi)
+    em <- run(theta, start)
+    ok <- !is.null(em) && isTRUE(em$converged)
+    if (!ok) {
+      em <- run(theta, original, retry_limit(object$control$maxit, 2))
+      ok <- !is.null(em) && isTRUE(em$converged)
+    }
+    list(ok = ok, ll = if (ok) em$loglik else NA_real_,
+         start = if (ok) list(count = em$beta, zero = em$gamma) else start)
+  }
+}
+
+# May the upper limit of a zinbreg profile be reported as Inf? There is no
+# zero-inflated Poisson fit to compare with, so the limit is certified from
+# the profile itself: both inner fits converged, the profile no longer
+# changes (|l_p(theta_max) - l_p(theta_max / 100)| < tol), and that limit
+# lies inside the likelihood-ratio region at the requested level,
+# 2 (l_hat - l_p(theta_max)) < q - 2 tol. Otherwise FALSE (unresolved).
+zinb_profile_certify <- function(object, prof, level) {
+  q <- stats::qchisq(level, 1)
+  function(start) {
+    tol <- profile_tolerance(object$loglik)
+    hi <- log(object$control$nb_control$theta_max)
+    a <- prof(hi, start)
+    b <- prof(hi - log(100), start)
+    if (!a$ok || !b$ok) return(FALSE)
+    abs(a$ll - b$ll) < tol && 2 * (object$loglik - a$ll) < q - 2 * tol
+  }
+}
+
+# Refit the full zinbreg model from a profile point above the fitted
+# maximum; returns the best log-likelihood found.
+zinb_profile_refit <- function(object) {
+  function(above) {
+    theta <- exp(above$phi)
+    em <- tryCatch(
+      zinb_em(object$x, object$z, unname(object$y), object$offset$count,
+              object$offset$zero, object$prior.weights,
+              zinb_profile_control(object, above$start, theta)),
+      nbzinbreg_error = function(e) NULL)
+    if (is.null(em)) above$ll else max(em$loglik, above$ll)
+  }
+}

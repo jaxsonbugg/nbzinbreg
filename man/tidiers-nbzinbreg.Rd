@@ -29,9 +29,10 @@
 \value{
 \code{tidy()}: a data frame with one row per coefficient and columns
 \code{term}, \code{estimate}, \code{std.error}, \code{statistic}, \code{p.value} (and \code{conf.low},
-\code{conf.high}). \code{glance()}: a one-row data frame with \code{logLik}, \code{AIC},
-\code{BIC}, \code{theta}, \code{SE.theta}, \code{nobs}, \code{df}, \code{df.residual}, \code{iter} and
-\code{converged}.
+\code{conf.high}), plus \code{component} for \code{zinbreg}. \code{glance()}: a one-row data
+frame with \code{logLik}, \code{AIC}, \code{BIC}, \code{theta}, \code{SE.theta}, \code{nobs}, \code{df},
+\code{df.residual}, \code{iter} and \code{converged}, plus \code{newton_decrement} for
+\code{zinbreg}.
 }
 \description{
 \code{tidy()} returns a data frame with one row per parameter (estimate,
@@ -40,16 +41,19 @@ interval); for \code{zinbreg} fits a \code{component} column marks the count and
 zero parts. \code{glance()} returns a one-row data frame of model-level
 statistics (log-likelihood, AIC, BIC, \code{theta}, number of observations,
 convergence). Both are convenient for building tables in reports.
-
-The \code{zinbreg} methods are \strong{not yet implemented} in this development
-version (they signal \code{nbzinbreg_not_implemented}).
 }
 \details{
 \code{tidy()} gives the same estimates, standard errors, z statistics and
-p-values as the coefficient table of \code{summary()}. With \code{conf.int = TRUE} it
+p-values as the coefficient tables of \code{summary()}. With \code{conf.int = TRUE} it
 adds Wald limits from \link[=confint-nbzinbreg]{confint()} (\code{NA} for coefficients
 without a finite estimate). \code{theta} is a model-level quantity and appears
-in \code{glance()}, not as a \code{tidy()} row.
+in \code{glance()}, not as a \code{tidy()} row (for \code{zinbreg}, the \code{Log(theta)} row
+of the \code{summary()} count table is left out).
+
+For \code{zinbreg} fits, \code{tidy()} has a \code{component} column (\code{"count"} or
+\code{"zero"}), and \code{term} is the coefficient name within its part, as in
+\code{coef(fit, model = "count")}. \code{glance()} adds \code{newton_decrement}, the
+gradient check at the estimates.
 }
 \section{Errors and warnings}{
 
@@ -67,6 +71,13 @@ d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
 fit <- nbreg(y ~ x, data = d)
 tidy(fit, conf.int = TRUE)
 glance(fit)
+if (requireNamespace("pscl", quietly = TRUE)) {
+  data("bioChemists", package = "pscl")
+  zfit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
+                  data = bioChemists)
+  tidy(zfit)
+  glance(zfit)
+}
 }
 \seealso{
 \code{\link[generics:tidy]{generics::tidy()}}, \code{\link[generics:glance]{generics::glance()}}

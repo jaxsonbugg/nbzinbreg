@@ -15,8 +15,8 @@
 #' * **`theta`, `method = "wald"`:** the Wald interval on the log scale,
 #'   `exp(log(theta) +- z SE(log theta))`, which also stays positive.
 #'
-#' `confint.zinbreg()` is **not yet implemented** in this development version
-#' (it signals `nbzinbreg_not_implemented`).
+#' For `zinbreg` fits the coefficients are named as by `coef()`
+#' (`count_*`, `zero_*`), followed by `"theta"`.
 #'
 #' @details
 #' **How the profile interval is found.** No root finder is used. The search
@@ -26,15 +26,20 @@
 #' last point inside and the first point outside until they are within
 #' `1e-6` on the log scale. At every trial value the coefficients are refitted
 #' with `theta` held fixed (warm-started, and retried from a fresh start if
-#' needed); a value is used only if that fit converged.
+#' needed); a value is used only if that fit converged. For `zinbreg` each such
+#' fit is a full EM run with `theta` held fixed, which must also pass the
+#' gradient check over its free parameters, so a profile interval takes many
+#' EM fits (typically 30 to 60; a minute or more on data of a few thousand
+#' rows). `method = "wald"` is immediate.
 #'
 #' **Endpoints that are not ordinary numbers.** The `"status"` attribute (and
 #' the printed notes) say what each endpoint is:
 #' * `"unbounded"`: the upper limit is `Inf`. The profile reaches the search
 #'   bound `theta_max` without crossing the cutoff, and the profile is
-#'   certified to have reached its limit as `theta` grows (it no longer
-#'   changes, and for `nbreg` it equals the Poisson log-likelihood). The data
-#'   are then consistent with no overdispersion at all.
+#'   certified to have reached its limit as `theta` grows: it no longer
+#'   changes, for `nbreg` it equals the Poisson log-likelihood, and that limit
+#'   lies inside the likelihood-ratio region at the requested level. The
+#'   data are then consistent with no overdispersion at all.
 #' * `"beyond theta_max"` or `"below theta_min"`: the limit lies outside the
 #'   numerical bounds and could not be resolved; it is `NA` (with a warning),
 #'   never silently set to the bound or to `Inf`.
@@ -134,7 +139,31 @@ print.nbzinbreg_confint <- function(x,
 #' @export
 confint.zinbreg <- function(object, parm, level = 0.95,
                             method = c("profile", "wald"), ...) {
-  not_implemented("confint.zinbreg")
+  check_fit_class(object, "zinbreg")
+  check_no_dots(...length(), ...names(), "confint",
+                c("object", "parm", "level", "method"))
+  check_level(level)
+  method <- check_choice(method, c("profile", "wald"), "method")
+  est <- coef(object)
+  parm <- check_parm(if (missing(parm)) NULL else parm, c(names(est), "theta"),
+                     missing(parm))
+  theta_ci <- NULL
+  if ("theta" %in% parm) {
+    theta_ci <- if (method == "wald") {
+      wald_theta(object$theta, object$SE.logtheta, object$theta_bound, level)
+    } else {
+      prof <- zinb_profile_function(object)
+      profile_theta_ci(prof, zinb_profile_refit(object),
+                       zinb_profile_certify(object, prof, level),
+                       object$loglik, object$theta, object$SE.logtheta,
+                       list(count = object$coefficients$count,
+                            zero = object$coefficients$zero),
+                       level, object$control$nb_control$theta_min,
+                       object$control$nb_control$theta_max, "zinbreg")
+    }
+  }
+  confint_table(parm, est, sqrt(diag(object$vcov)), object$diverging, level,
+                theta_ci, "theta", method)
 }
 
 #' Likelihood-ratio tests for nested nbreg fits
