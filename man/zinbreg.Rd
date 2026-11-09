@@ -18,74 +18,200 @@ zinbreg(
 }
 \arguments{
 \item{formula}{A two-part formula \code{y ~ x1 + x2 | z1 + z2}: count-model
-covariates before the bar, zero-model covariates after it. Without a bar,
-the same covariates are used in both parts.}
+covariates before the bar, zero-model covariates after it. Use \verb{| 1} for
+a zero part with only an intercept. Without a bar (\code{y ~ x1 + x2}) the
+whole right-hand side, including any \code{offset()} terms, is used for both
+parts, as in \code{pscl::zeroinfl()}; to keep an offset in the count part
+only, write it before the bar (\code{y ~ x + offset(log(t)) | x}). \code{offset()}
+terms are allowed in either part. The response must contain
+non-negative whole numbers, with at least one zero.}
 
-\item{data}{A data frame containing the variables in \code{formula}.}
+\item{data}{A data frame (or list or environment) containing the variables
+in \code{formula}. If missing, variables are taken from the environment in
+which \code{formula} was created.}
 
 \item{offset}{Optional numeric vector added to the linear predictor of the
-count part. \code{NULL} (the default) means no offset argument.}
+count part, for example the log of an exposure time, with one value per
+row of \code{data}. It is added to any \code{offset()} terms of the count part.
+\code{NULL} (the default) means no offset argument.}
 
-\item{control}{A list of settings from \code{\link[=zinbreg_control]{zinbreg_control()}}.}
+\item{control}{A list of settings from \code{\link[=zinbreg_control]{zinbreg_control()}}. A plain list is
+also accepted and is checked by passing it to \code{\link[=zinbreg_control]{zinbreg_control()}}.}
 
-\item{weights}{Optional non-negative prior weights, one per observation.}
+\item{weights}{Optional non-negative prior weights, one per observation.
+Each observation's contribution to the log-likelihood is multiplied by
+its weight; a weight of 0 leaves it out.}
 
 \item{subset}{Optional expression selecting the rows of \code{data} to use.}
 
 \item{na.action}{How to handle missing values; defaults to
 \code{getOption("na.action")}.}
 
-\item{model}{Logical; if \code{TRUE}, the model frame is kept in the result.}
+\item{model}{Logical; if \code{TRUE} (the default), the model frame is kept in
+the result.}
 
-\item{...}{Currently unused.}
+\item{...}{Not used. Supplying anything here is an error, so that a
+misspelled argument is not silently ignored.}
 }
 \value{
-Once implemented, an object of class \code{zinbreg}, containing at least
-the count and zero coefficients, their variance-covariance matrix,
-\code{theta}, \code{log(theta)} and its standard error, the log-likelihood, the
-number of iterations, a convergence flag, the fitted values and the
-matched call.
+An object of class \code{zinbreg}, a list containing:
+\describe{
+\item{\code{coefficients}}{List with the \code{count} and \code{zero} coefficient
+vectors.}
+\item{\code{vcov}}{Covariance matrix of the count and zero coefficients, with
+names \verb{count_*} and \verb{zero_*}.}
+\item{\code{vcov_full}}{Covariance matrix including \code{Log(theta)}.}
+\item{\code{theta}, \code{SE.theta}, \code{SE.logtheta}}{The dispersion estimate, its
+standard error (delta method) and the standard error of
+\code{log(theta)}.}
+\item{\code{loglik}, \code{df}}{The maximized log-likelihood and the number of
+estimated parameters, \eqn{p + q + 1}.}
+\item{\code{iter}, \code{converged}}{Number of EM iterations and whether the fit
+converged (see Details).}
+\item{\code{gradient}, \code{newton_decrement}, \code{gradient_check}}{The analytic
+gradient at the estimates, the Newton decrement, and the result of the
+gradient check.}
+\item{\code{mstep_status}}{Counts of M-steps that did not converge, failed to
+halve a step, were damped, were restarted and so on, over all
+iterations.}
+\item{\code{em_violations}}{Data frame of monotonicity violations (usually
+empty).}
+\item{\code{start_method}}{How the starting values were obtained.}
+\item{\code{theta_bound}}{\code{"none"}, or \code{"upper"}/\code{"lower"} if \code{theta} ended
+on a bound.}
+\item{\code{diverging}}{Names (\verb{count_*}, \verb{zero_*}) of coefficients without a
+finite estimate.}
+\item{\code{fitted.values}}{The fitted means \eqn{(1 - \pi)\mu}.}
+\item{\code{mu}, \code{pi}, \code{linear.predictors}}{Count-part means, structural-zero
+probabilities, and the linear predictors of both parts (including
+offsets).}
+\item{\code{residuals}}{Response residuals \eqn{y - (1 - \pi)\mu}.}
+\item{\code{prior.weights}, \code{offset}, \code{y}, \code{x}, \code{z}}{The weights, the offsets
+of both parts, the (rounded) response and the two model matrices.}
+\item{\code{nobs}, \code{df.residual}}{Number of observations with positive
+weight, and that number minus \code{df}.}
+\item{\code{loglik_trace}}{Log-likelihood after each EM iteration.}
+\item{\code{terms}, \code{model}, \code{xlevels}, \code{contrasts}, \code{na.action}}{Model
+frame information used by the methods.}
+\item{\code{hessian}, \code{hessian_difference}}{The Hessian method used and, with
+\code{hessian_check = TRUE}, the relative difference between the analytic
+and numeric Hessians.}
+\item{\code{offset_arg_used}, \code{formula}, \code{call}, \code{control}}{Whether the
+\code{offset} argument was supplied, the two-part formula, the matched call
+and the settings used.}
+}
 }
 \description{
 Fits a zero-inflated negative binomial (ZINB) model: each observation is
 either a "structural zero" (with probability \code{pi}) or a draw from a
 negative binomial distribution, which can also produce zeros. The model is
-fitted with an EM algorithm whose M-steps are IRLS fits. No general-purpose
-optimizer is used.
-
-\strong{Not yet implemented.} This development version defines the interface
-only; calling the function signals an error of class
-\code{nbzinbreg_not_implemented}.
+fitted with an EM algorithm whose M-steps are IRLS fits, written from
+scratch. No general-purpose optimizer is used. The parameterization and
+the coefficient names are those of \code{pscl::zeroinfl(dist = "negbin")}.
 }
 \details{
 The model is
 \deqn{P(Y_i = 0) = \pi_i + (1 - \pi_i) f_{NB}(0; \mu_i, \theta),}
 \deqn{P(Y_i = y) = (1 - \pi_i) f_{NB}(y; \mu_i, \theta), \quad y \ge 1,}
 with \eqn{\log \mu_i = x_i^\top \beta + o_i} and
-\eqn{\mathrm{logit}\, \pi_i = z_i^\top \gamma}. Because it is a mixture,
-it is not a GLM, so IRLS cannot be applied to it directly.
+\eqn{\mathrm{logit}\, \pi_i = z_i^\top \gamma + o^z_i}. Because it is a
+mixture, it is not a GLM, so IRLS cannot be applied to it directly.
 
-The EM algorithm repeats two steps until the observed-data log-likelihood
-stops changing:
+The EM algorithm treats "is a structural zero" as missing data and
+repeats:
 \itemize{
 \item \strong{E-step:} for each zero, compute the probability \eqn{\tau_i} that it is
 a structural zero (it is 0 for every positive count).
-\item \strong{M-steps:} fit the zero part by logistic IRLS with the fractional
-response \eqn{\tau_i}, and fit the count part with \code{\link[=nbreg]{nbreg()}}'s algorithm
-using prior weights \eqn{1 - \tau_i}.
+\item \strong{Zero M-step:} a logistic IRLS fit of the fractional response
+\eqn{\tau_i} on the zero-part covariates. It never divides by
+\eqn{\pi_i(1 - \pi_i)}, so it stays exact when probabilities are
+extremely close to 0 or 1, and it is damped when its weighted
+cross-product matrix is singular.
+\item \strong{Count M-step:} \code{\link[=nbreg]{nbreg()}}'s algorithm with prior weights
+\eqn{1 - \tau_i}.
 }
 
-EM never lowers the log-likelihood, and the fit checks this at every
-iteration. Standard errors come from the observed information matrix of
-the observed-data log-likelihood in \eqn{(\beta, \gamma, \log\theta)}:
-analytic by default, numeric on request (see \code{\link[=zinbreg_control]{zinbreg_control()}}).
-}
-\section{Provisional}{
+Every iteration is checked: EM must never lower the log-likelihood, and
+neither M-step may lower its own part of the EM objective (generalized
+EM). The flags of every M-step are recorded.
 
-\code{formula}, \code{data}, \code{offset} and \code{control} are the required interface, in
-that order. \code{weights}, \code{subset}, \code{na.action} and \code{model} are provisional.
+EM converges slowly when the zero part is poorly determined, so small
+changes between iterations are not enough to stop. EM stops when the
+changes are small \strong{and} the gradient check passes: the Newton decrement
+\eqn{g^\top (-H)^{-1} g} of the log-likelihood (analytic gradient and
+Hessian) must be at most \code{grad_tol}. The fit is reported as converged only
+if, in addition, the M-steps of the final iteration converged and no
+monotonicity violation occurred.
+
+Standard errors come from the inverse of the negative Hessian of the
+observed-data log-likelihood in \eqn{(\beta, \gamma, \log\theta)}: analytic
+by default, numeric on request (see \code{\link[=zinbreg_control]{zinbreg_control()}}).
+
+Starting values come from a negative binomial fit for the count part and a
+logistic fit of \code{I(y == 0)} for the zero part (with fallbacks if that
+logistic fit separates), unless supplied with
+\code{zinbreg_control(start = )}.
+
+Coefficients that run off to plus or minus infinity are detected per part
+and then held fixed; their standard errors are \code{NA}. See the section
+below.
+}
+\section{Errors and warnings}{
+
+Errors:
+\itemize{
+\item \code{nbzinbreg_error_input}: an invalid argument or invalid data. Besides the
+problems listed in \code{\link[=nbreg]{nbreg()}} (formula, data, unused arguments, control,
+variables, offsets, weights, response values, model matrices), this
+covers a formula with more than one response or more than two
+right-hand parts, a count or zero part without coefficients, a response
+without any zero among the observations with positive weight (there is
+then nothing to model with the zero part; use \code{\link[=nbreg]{nbreg()}}), a non-finite
+zero-part offset, too few observations for the
+\eqn{p + q + 1} parameters, and \code{start} values whose lengths or names do
+not match the model.
+\item \code{nbzinbreg_error_rank}: columns of the count or zero model matrix are
+linear combinations of other columns (the message names the part and
+the columns).
+\item \code{nbzinbreg_error_fit}: an unrecoverable numerical failure (the message
+gives the EM iteration).
 }
 
+Warnings (the fit is still returned):
+\itemize{
+\item \code{nbzinbreg_warning_convergence}: the fit did not converge, with the
+reason(s): EM reached \code{maxit}; the gradient check failed or could not be
+carried out; or an M-step of the final iteration did not converge.
+\code{converged} is then \code{FALSE}.
+\item \code{nbzinbreg_warning_monotone}: EM lowered the log-likelihood, or an
+M-step lowered its part of the EM objective, beyond rounding error.
+\item \code{nbzinbreg_warning_theta}: \code{theta} exceeds \code{theta_warn}, or ended on a
+bound (settings of \code{nb_control}).
+\item \code{nbzinbreg_warning_divergence}: coefficients without a finite estimate,
+explained per part: a zero-part group with no zeros (its structural-zero
+probability goes to 0); a group whose counts are all zero (either part
+can absorb it, so it is not identified); other coefficients detected
+running off to infinity; or no zero inflation at all (every fitted
+probability of a structural zero below \code{1e-8}; \code{\link[=nbreg]{nbreg()}} may be
+adequate). Their estimates are not meaningful and their standard errors
+are \code{NA}.
+\item \code{nbzinbreg_warning_se}: standard errors unavailable or possibly
+inaccurate (non-finite, asymmetric or ill-conditioned Hessian, a
+negative Hessian that is not positive definite, or analytic and numeric
+Hessians that disagree with \code{hessian_check = TRUE}).
+}
+}
+
+\examples{
+if (requireNamespace("pscl", quietly = TRUE)) {
+  data("bioChemists", package = "pscl")
+  fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
+                 data = bioChemists)
+  fit$coefficients
+  fit$theta
+  fit$loglik
+}
+}
 \seealso{
 \code{\link[=zinbreg_control]{zinbreg_control()}}, \code{\link[=nbreg]{nbreg()}}, \link{zinbreg-methods}
 }

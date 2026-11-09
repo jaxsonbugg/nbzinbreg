@@ -156,3 +156,30 @@ Timing: bioChemists 0.10 s (`glm.nb` 0.06 s); NMES1988 0.22 s (`glm.nb` 0.15 s).
 - CI on this commit is checked after pushing; the result is recorded in the next log entry.
 
 **A test-design mistake caught on the way:** the first version of the derivative-equivalence test used a relative tolerance on U, which is a near-zero sum of nearly cancelling pieces. It reported a "difference" of 3e-21 that was only rounding. The test now measures agreement against the size of the pieces being summed.
+
+## 2026-11-09: ZINB, commits 1 to 4 (in progress)
+
+**CI for the NB robustness commit (`1d13e0f`):** all five platforms green, as promised in the previous entry. Every ZINB commit pushed so far is also green or running.
+
+**Done:** `zinbreg_control()` and the shared `resolve_control()`; the EM engine (`R/zinbreg-fit.R`); corrective follow-ups from review (rank drop propagated, all-frozen count part, no freezing from the NB start, M-step restart, unavailable gradient check never counted as convergence); the analytic Hessian and gradient check (`R/zinbreg-hessian.R`); `zinbreg()` itself.
+
+**Departures from the plan, for review:**
+- `grad_tol` defaults to 1e-8, not 1e-6. Every estimate is within sqrt(delta) standard errors of the maximum, and the bioChemists zero intercept has SE 1.32, so 1e-6 allows an error of up to 1.3e-3 (above the 1e-3 tolerance). Measured with 1e-8: bioChemists coefficients/SEs 4.8e-5/2.8e-5, NMES1988 1.4e-5/6.4e-6, for about 18 more EM iterations.
+- The gradient check also stops EM (EM keeps iterating while it fails), not only diagnoses at the end. EM converges linearly; on bioChemists the change criteria alone stop about 1e-2 from the maximum. No optimizer is involved.
+- Coefficients detected as diverging are held fixed for the rest of EM. Otherwise a vanishing column made the count M-step's weighted design singular. Their SEs are NA.
+- A formula without `|` copies the whole right-hand side, `offset()` terms included, into the zero part, as `pscl::zeroinfl()` does; checked against zeroinfl for all three offset styles.
+
+**Reference investigation: `zeroinfl(weights = )` (recorded as the plan requires; needs the owner's agreement).**
+With integer weights 1 to 3 on bioChemists (`art ~ fem + mar + kid5 + ment | ment`, seed 7), `zinbreg()` and `zeroinfl()` differed by 0.03 in coefficients and 0.009 in SEs. The tolerance was not relaxed; the procedure was followed:
+1. Convergence: both report it (zeroinfl optim code 0; our Newton decrement 8.7e-9). Our log-likelihood is 0.205 higher.
+2. Definitions: our `zinb_loglik()` at zeroinfl's estimates gives exactly zeroinfl's log-likelihood (-3051.294).
+3. Restarts: zeroinfl restarted from our estimates stays there (difference 1e-13, log-likelihood -3051.088). Our EM restarted from zeroinfl's estimates returns to ours. `zeroinfl(EM = TRUE)` lands on the same point as its default method. At that point our analytic gradient reaches 5.5 and the Newton decrement is 0.42, so it is not a maximum.
+4. Identifiability: kappa(-H) about 2.7e4; no divergence.
+
+**Conclusion:** zeroinfl's weighted fit stops at a point that is not a maximum; our estimates are the maximum. With frequency weights the weighted likelihood equals the likelihood of the data with each row repeated w times. `zeroinfl()` on the repeated rows agrees with `zinbreg()` to 1e-5 in coefficients and 4e-6 in SEs. The weights reference test therefore uses the repeated-rows fit, with the 1e-3 tolerances unchanged.
+
+**Problems caught along the way:**
+- The first EM-level drift check flagged the bioChemists zero intercept during ordinary slow convergence. Rows with pi of about 1e-30 (high `ment`) moved because of another coefficient. Movement is now credited only to the candidate coefficients, and steps must not be shrinking.
+- `tau - pi` was computed as 0 when both round to 1, which stalled a coefficient at about 40. 1 - tau is now carried accurately.
+- A very negative start for a group with positive counts left the count M-step stuck (log-likelihood -678.2 instead of -340.9). A restart from the NB engine's own start fixes it.
+- `paste0("count_", character(0))` returned `"count_"`, which put stray names into the excluded-parameter list. The analytic Hessian was symmetric only to 4e-15; it is now exactly symmetric.

@@ -341,15 +341,26 @@ check_dots <- function(n_dots, dot_names, fun = "nbreg") {
     sprintf("%d unnamed extra argument(s) were supplied.", n_dots)
   }
   hints <- character()
-  if (any(named %in% c("family", "link"))) {
+  if (fun == "zinbreg" && any(named %in% c("family", "link", "dist"))) {
+    hints <- c(hints, paste(
+      "`zinbreg()` always fits a zero-inflated negative binomial model (NB2",
+      "count part with a log link, logit zero part); it has no `dist`,",
+      "`link` or `family` argument."))
+  } else if (any(named %in% c("family", "link"))) {
     hints <- c(hints, sprintf(paste(
       "`%s()` always fits a negative binomial (NB2) model with a log link;",
       "it has no `family` or `link` argument."), fun))
   }
   if ("init.theta" %in% named) {
-    hints <- c(hints, sprintf(paste(
-      "To choose a starting value for theta, use",
-      "`control = %s_control(theta_start = ...)`."), fun))
+    hints <- c(hints, if (fun == "zinbreg") {
+      paste(
+        "To choose starting values, use `control = zinbreg_control(start =",
+        "list(count = ..., zero = ..., theta = ...))`.")
+    } else {
+      sprintf(paste(
+        "To choose a starting value for theta, use",
+        "`control = %s_control(theta_start = ...)`."), fun)
+    })
   }
   hints <- c(hints, sprintf(
     "Fitting settings go in `control = %s_control(...)`.", fun))

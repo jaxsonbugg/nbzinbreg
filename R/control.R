@@ -267,9 +267,24 @@ check_start <- function(start, nb_control) {
 # `cls`) or as a named list, and always revalidate it: an object may have been
 # edited after it was created (for example ctrl$tol <- -1), so it is never
 # trusted as is. `arg` is the argument name used in messages ("control", or
-# "nb_control" inside zinbreg_control()).
+# "nb_control" inside zinbreg_control()). The other model's control object
+# (an easy mix-up) gets its own message rather than a list of unknown
+# settings.
 resolve_control <- function(control, constructor, cls, arg = "control") {
   fun <- cls  # the constructor has the same name as the class
+  other <- setdiff(c("nbreg_control", "zinbreg_control"), cls)
+  if (!inherits(control, cls) && inherits(control, other)) {
+    abort_nbz(sprintf(
+      "`%s` was created by `%s()`, but `%s()` is needed here.%s", arg,
+      other, fun,
+      if (other == "nbreg_control") {
+        paste(
+          " Settings for the count-part M-step go in",
+          "`zinbreg_control(nb_control = nbreg_control(...))`.")
+      } else {
+        ""
+      }), "nbzinbreg_error_input")
+  }
   if (inherits(control, cls)) {
     if (!is.list(control)) {
       abort_nbz(sprintf(paste(

@@ -11,8 +11,6 @@
 # list and the code disagree, so a forgotten update cannot slip through.
 
 stubbed <- c(
-  # required fitting interface
-  "zinbreg",
   # required methods, zinbreg
   "print.zinbreg", "summary.zinbreg", "print.summary.zinbreg",
   "coef.zinbreg", "vcov.zinbreg", "logLik.zinbreg", "fitted.zinbreg",
@@ -29,7 +27,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  zinbreg = function() zinbreg(),
   print.zinbreg = function() print(zinb),
   summary.zinbreg = function() summary(zinb),
   print.summary.zinbreg = function() print(structure(list(), class = "summary.zinbreg")),

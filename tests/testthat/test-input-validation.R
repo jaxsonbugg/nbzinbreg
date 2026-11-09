@@ -400,8 +400,156 @@ test_that("every nbreg() error carries the parent class", {
 
 # ---- zinbreg() --------------------------------------------------------------
 
-test_that("zinbreg() rejects bad input with informative errors", {
-  skip("planned: zinbreg() implementation phase")
-  # Planned cases: as for nbreg(), plus two-part formula problems and data
-  # without any zeros.
+dz <- data.frame(
+  x = rep(1:10, 3) / 10,
+  z = rep(c(0.3, -0.1, 0.8, 0.2, -0.5), 6),
+  y = c(0, 1, 0, 3, 0, 2, 0, 0, 5, 1, 0, 4, 0, 1, 0, 0, 2, 7, 0, 1,
+        0, 3, 0, 0, 1, 6, 0, 2, 0, 1),
+  t = rep(1:3, 10)
+)
+
+test_that("zinbreg() checks the formula", {
+  expect_input_error(zinbreg(), "`formula` is missing")
+  expect_input_error(zinbreg("y ~ x", dz), "not a character string")
+  expect_input_error(zinbreg(1, dz), "`formula` must be a formula")
+  expect_input_error(zinbreg(no_such_formula, dz),
+                     "`formula` could not be evaluated")
+  expect_input_error(zinbreg(~ x | z, dz), "`formula` has no response")
+  expect_input_error(zinbreg(y ~ x | z | t, dz),
+                     "has 3 parts on the right of `~`.*at most\\s+two")
+  expect_input_error(zinbreg(y | t ~ x | z, dz),
+                     "exactly one response on the left of `~`, not 2 parts")
+  expect_input_error(zinbreg(y ~ x | 0, dz),
+                     "zero part has no coefficients.*`\\| 1`.*`nbreg\\(\\)`")
+  expect_input_error(zinbreg(y ~ x | -1, dz), "zero part has no coefficients")
+  expect_input_error(zinbreg(y ~ 0 | z, dz),
+                     "count part has no coefficients")
+})
+
+test_that("zinbreg() checks data, dots, model and control", {
+  expect_input_error(zinbreg(y ~ x | z, as.matrix(dz)), "not a matrix")
+  expect_input_error(zinbreg(y ~ x | z, 5), "`data` must be a data frame")
+  expect_input_error(zinbreg(y ~ x | z, dz[0, ]), "`data` has no rows")
+  expect_input_error(zinbreg(y ~ x | z, dz, dist = "negbin"),
+                     "Unused argument.*`dist`.*no `dist`, `link` or `family`")
+  expect_input_error(zinbreg(y ~ x | z, dz, link = "logit"),
+                     "zero-inflated negative binomial")
+  expect_input_error(zinbreg(y ~ x | z, dz, init.theta = 1),
+                     "zinbreg_control\\(start =")
+  expect_input_error(zinbreg(y ~ x | z, dz, EM = TRUE),
+                     "`EM`.*control = zinbreg_control")
+  expect_input_error(zinbreg(y ~ x | z, dz, model = NA),
+                     "`model` must be TRUE or FALSE")
+  expect_input_error(zinbreg(y ~ x | z, dz, control = "fast"),
+                     "`control` must be created by `zinbreg_control\\(\\)`")
+  # the other model's control object
+  expect_input_error(zinbreg(y ~ x | z, dz, control = nbreg_control()),
+                     paste0("created by `nbreg_control\\(\\)`, but ",
+                            "`zinbreg_control\\(\\)` is needed.*",
+                            "nb_control = nbreg_control"))
+  expect_input_error(nbreg(y ~ x, d, control = zinbreg_control()),
+                     paste0("created by `zinbreg_control\\(\\)`, but ",
+                            "`nbreg_control\\(\\)` is needed here.$"))
+  expect_input_error(zinbreg(y ~ x | z, dz, control = list(tol = -1)),
+                     "`tol` must be a number strictly between 0 and 1")
+  expect_input_error(zinbreg(y ~ x | z, dz, control = list(speed = 1)),
+                     "Unknown setting.*`speed`")
+  bad <- zinbreg_control()
+  bad$nb_control$theta_max <- -1
+  expect_input_error(zinbreg(y ~ x | z, dz, control = bad),
+                     "`theta_max` must be a positive number")
+})
+
+test_that("zinbreg() explains model-frame problems in either part", {
+  expect_input_error(zinbreg(y ~ x | nope, dz), "Variable `nope` was not found")
+  expect_input_error(zinbreg(y ~ nope | z, dz), "Variable `nope` was not found")
+  expect_input_error(zinbreg(y ~ x | z, dz, offset = 1:3),
+                     "`offset` must have one value per row")
+  expect_input_error(zinbreg(y ~ x | z, dz, weights = 1:3),
+                     "`weights` must have one value per row")
+  dn <- dz
+  dn$z[4] <- NA
+  expect_input_error(zinbreg(y ~ x | z, dn, na.action = stats::na.fail),
+                     "na.action = na.fail")
+  expect_input_error(zinbreg(y ~ x | z, dz, subset = x > 100),
+                     "No observations are left")
+})
+
+test_that("zinbreg() checks the response, weights and offsets", {
+  expect_input_error(zinbreg(I(y - 1) ~ x | z, dz), "non-negative counts")
+  expect_input_error(zinbreg(I(y + 0.5) ~ x | z, dz), "whole numbers")
+  dd <- dz
+  dd$f <- factor(dd$y)
+  expect_input_error(zinbreg(f ~ x | z, dd), "not a factor")
+  expect_input_error(zinbreg(y ~ x | z, transform(dz, y = 0)),
+                     "Every response value .* is zero")
+  expect_input_error(zinbreg(y ~ x | z, dz, weights = c(-1, rep(1, 29))),
+                     "`weights` must be non-negative")
+  expect_input_error(zinbreg(y ~ x | z, dz, weights = rep(0, 30)),
+                     "All `weights` are zero")
+  expect_input_error(zinbreg(y ~ x | z, dz, offset = rep("a", 30)),
+                     "offset.*numeric")
+  expect_input_error(zinbreg(y ~ x | z, dz, offset = log(t - 1)),
+                     "offset contains 10 missing or infinite")
+  expect_input_error(zinbreg(y ~ x + offset(log(t - 1)) | z, dz),
+                     "^The offset contains 10 missing or infinite")
+  expect_input_error(zinbreg(y ~ x | z + offset(log(t - 1)), dz),
+                     "^The zero-part offset contains 10 missing or infinite")
+})
+
+test_that("zinbreg() needs zeros among the observations with positive weight", {
+  no_zeros <- transform(dz, y = y + 1)
+  expect_input_error(zinbreg(y ~ x | z, no_zeros),
+                     "no zeros among the observations with positive weight.*`nbreg\\(\\)`")
+  # zeros that carry weight 0 do not count
+  w <- ifelse(dz$y == 0, 0, 1)
+  expect_input_error(zinbreg(y ~ x | z, dz, weights = w),
+                     sprintf(paste0("positive\\s+weight \\(%d zero\\(s\\) have ",
+                                    "weight 0 and do not count\\)"),
+                             sum(dz$y == 0)))
+  # one zero with positive weight is enough to try
+  w[which(dz$y == 0)[1]] <- 1
+  expect_error(suppressWarnings(zinbreg(y ~ x | z, dz, weights = w)), NA)
+})
+
+test_that("zinbreg() checks both model matrices", {
+  dd <- dz
+  dd$z2 <- 2 * dd$z
+  expect_error(zinbreg(y ~ x | z + z2, dd), class = "nbzinbreg_error_rank",
+               regexp = "zero-part model matrix is rank-deficient: `z2`")
+  dd$x2 <- dd$x * 3
+  expect_error(zinbreg(y ~ x + x2 | z, dd), class = "nbzinbreg_error_rank",
+               regexp = "count-part model matrix is rank-deficient: `x2`")
+  expect_input_error(zinbreg(y ~ x | I(c(Inf, z[-1])), dz),
+                     "of the zero part contain infinite values")
+  dd$g <- factor(rep("a", 30))
+  expect_input_error(zinbreg(y ~ x | z + g, dd), "`g` has only one level")
+  expect_input_error(zinbreg(y ~ x | z, dz[1:4, ]), "Not enough data")
+  expect_input_error(
+    zinbreg(y ~ x | z, dz, weights = c(rep(1, 5), rep(0, 25))),
+    "Not enough data: 5 observation\\(s\\) with positive weight for 5")
+})
+
+test_that("zinbreg() checks start against the model", {
+  st <- function(count, zero) {
+    zinbreg_control(start = list(count = count, zero = zero, theta = 1))
+  }
+  expect_input_error(zinbreg(y ~ x | z, dz, control = st(1, c(0, 0))),
+                     "`start\\$count` has 1 value\\(s\\), but the count part has 2")
+  expect_input_error(zinbreg(y ~ x | z, dz, control = st(c(0, 0), 1:3)),
+                     "`start\\$zero` has 3 value\\(s\\), but the zero part has 2")
+  expect_input_error(zinbreg(y ~ x | z, dz,
+                             control = st(c(a = 0, b = 0), c(0, 0))),
+                     "names of `start\\$count` .* do not match")
+  expect_input_error(zinbreg(y ~ x | z, dz,
+                             control = st(c(x = 0, x = 0), c(0, 0))),
+                     "do not match")
+  # an invalid starting point for the fit
+  expect_input_error(zinbreg(y ~ x | z, dz, control = st(c(800, 0), c(0, 0))),
+                     "starting values give an invalid log-likelihood")
+})
+
+test_that("every zinbreg() error carries the parent class", {
+  expect_error(zinbreg(), class = "nbzinbreg_error")
+  expect_error(zinbreg(y ~ x | z + I(2 * z), dz), class = "nbzinbreg_error")
 })
