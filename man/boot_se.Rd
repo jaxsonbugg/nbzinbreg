@@ -2,37 +2,97 @@
 % Please edit documentation in R/simulate.R
 \name{boot_se}
 \alias{boot_se}
+\alias{print.nbzinbreg_boot}
 \title{Parametric bootstrap standard errors}
 \usage{
-boot_se(object, R = 199, seed = NULL, ...)
+boot_se(object, R = 199, seed = NULL, progress = FALSE, ...)
+
+\method{print}{nbzinbreg_boot}(x, digits = max(3L, getOption("digits") - 3L), ...)
 }
 \arguments{
 \item{object}{An \code{nbreg} or \code{zinbreg} fit.}
 
 \item{R}{Number of bootstrap replicates.}
 
-\item{seed}{Optional random seed for reproducibility.}
+\item{seed}{\code{NULL}, or a whole number for \code{\link[=set.seed]{set.seed()}}.}
 
-\item{...}{Further arguments, currently unused.}
+\item{progress}{Logical; if \code{TRUE}, report progress every 10\%.}
+
+\item{...}{Not used (an error if supplied), except for \code{print()}.}
+
+\item{x}{An \code{nbzinbreg_boot} object, for \code{print()}.}
+
+\item{digits}{Number of significant digits to print.}
 }
 \value{
-Once implemented, a named vector of bootstrap standard errors.
+An object of class \code{nbzinbreg_boot}, a list with \code{estimate},
+\code{se_model} (from the information matrix), \code{se_boot} (bootstrap), \code{used}
+(replicates used for each parameter), \code{boundary} (replicates with that
+parameter on a boundary), \code{status} (counts of the replicate outcomes),
+\code{failures}, \code{R}, \code{replicates} (the matrix of refitted estimates, \code{NA}
+where left out), \code{notes}, and the attribute \code{"seed"}.
 }
 \description{
 Simulates \code{R} new data sets from a fitted model, refits the model to each,
-and reports the standard deviation of the refitted estimates. This gives
-an independent check on the standard errors computed from the information
+and reports the standard deviation of the refitted estimates. This is an
+independent check on the standard errors computed from the information
 matrix.
-
-\strong{Not yet implemented.} This function is a documented stub; it signals an
-error of class \code{nbzinbreg_not_implemented}.
 }
-\section{Provisional}{
+\details{
+\strong{Bootstrap data.} A row with prior weight \code{w} stands for \code{w} independent
+observations, so \code{w} responses are drawn for it independently (a row of
+weight 0 gets none) and the refit uses the distinct values with their
+multiplicities as weights. This is exactly the bootstrap of the fully
+expanded data. Weights that are not whole numbers have no such meaning and
+are refused. The total number of draws per data set is limited to 1e7.
 
-Planned but not yet implemented; the name, arguments and output may
-change.
+\strong{Safeguarded refits.} Each data set is refitted starting from the
+original estimates. If that refit fails or does not converge, it is retried
+from the default starting values, and for \code{zinbreg} (with a zero-part
+intercept) once more from the NB-boundary start (count part at the
+estimates, \code{pi} near 0). Only a data set whose refits all fail is a
+\strong{numerical failure}.
+
+\strong{Boundary data sets are kept.} A simulated data set can have a maximum
+likelihood estimate on a boundary: a coefficient running off to infinity,
+a collapsed zero part (no zero inflation, including a simulated response
+without any zero), or \code{theta} on a bound. These are valid samples, so the
+data set is kept and only the affected parameters are left out of that
+replicate. For each parameter, the bootstrap standard error is the standard
+deviation over the usable replicates in which it has a finite, identified
+estimate. If more than 5\% of the usable replicates put a parameter on a
+boundary, its bootstrap distribution has mass at infinity or on a bound,
+and its standard error is reported as \code{NA} ("unbounded bootstrap
+distribution"). Coefficients that already diverge in the original fit get
+\code{NA} too.
+
+\strong{Numerical failures} are dropped and counted. Up to 10\% of \code{R} gives an
+\code{nbzinbreg_warning_bootstrap} warning with the counts (dropping them may
+bias the standard errors downward, if the failed samples are unusual
+ones). More than 10\% gives an \code{nbzinbreg_error_fit}.
+
+\strong{Parameters.} For \code{nbreg}: the coefficients and \code{theta}. For \code{zinbreg}:
+the count and zero coefficients (named as by \code{coef()}) and \code{log(theta)}.
+Each \code{zinbreg} refit is a full EM fit, so \code{R} refits take some time;
+\code{progress = TRUE} reports progress every 10\%.
+}
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}: \code{object} of the wrong class, \code{R} not a whole
+number from 2 to 100,000, an invalid \code{seed} or \code{progress}, non-integer or
+vanishing frequency weights, a data set of more than 1e7 draws, or
+unused arguments.
+\item \code{nbzinbreg_error_fit}: more than 10\% of the replicates failed.
+\item \code{nbzinbreg_warning_bootstrap}: some replicates failed and were dropped.
+}
 }
 
+\examples{
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+boot_se(fit, R = 50, seed = 1)
+}
 \seealso{
-\code{\link[=simulate.nbreg]{simulate.nbreg()}}
+\code{\link[=simulate.nbreg]{simulate.nbreg()}}, \code{\link[=confint.nbreg]{confint.nbreg()}}
 }

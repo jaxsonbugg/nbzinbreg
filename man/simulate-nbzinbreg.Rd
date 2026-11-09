@@ -15,12 +15,14 @@
 
 \item{nsim}{Number of response vectors to simulate.}
 
-\item{seed}{Optional random seed, as for \code{\link[stats:simulate]{stats::simulate()}}.}
+\item{seed}{\code{NULL}, or a whole number for \code{\link[=set.seed]{set.seed()}}.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used (an error if supplied).}
 }
 \value{
-Once implemented, a data frame with one column per simulation.
+A data frame with one column per simulation (\code{sim_1}, \code{sim_2},
+...) and one row per row of the fitted data, with the attribute \code{"seed"}
+as in \code{\link[stats:simulate]{stats::simulate()}}.
 }
 \description{
 Draws new response vectors from a fitted model, keeping the covariates
@@ -28,16 +30,30 @@ fixed. For an \code{nbreg} fit each response is a negative binomial draw with
 the fitted mean and \code{theta}; for a \code{zinbreg} fit a structural zero is drawn
 first with probability \eqn{\pi_i}, and otherwise a negative binomial
 draw.
-
-\strong{Not yet implemented.} These methods are documented stubs; each signals
-an error of class \code{nbzinbreg_not_implemented}.
 }
-\section{Provisional}{
+\details{
+One response is drawn for every row of the fitted data (including rows with
+weight 0), as \code{stats::simulate()} does: it simulates the model at each
+covariate row. Prior weights are not used; a frequency-weighted parametric
+bootstrap, in which a row of weight \code{w} stands for \code{w} independent
+observations, is what \code{\link[=boot_se]{boot_se()}} does.
 
-Planned but not yet implemented; arguments beyond those of the
-\code{\link[stats:simulate]{stats::simulate()}} generic may change.
+Random numbers follow the conventions of \code{\link[stats:simulate]{stats::simulate()}}: with
+\code{seed = NULL} the current stream is used (and its state recorded); otherwise
+\code{set.seed(seed)} is used and the caller's stream is restored afterwards.
+}
+\section{Errors and warnings}{
+
+\code{nbzinbreg_error_input}: \code{nsim} not a whole number of at least 1, a result
+of more than 1e8 values (\code{nsim} times the number of rows), a \code{seed} that
+\code{set.seed()} cannot use exactly, or unused arguments.
 }
 
+\examples{
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+simulate(fit, nsim = 3, seed = 1)
+}
 \seealso{
 \code{\link[=boot_se]{boot_se()}}
 }

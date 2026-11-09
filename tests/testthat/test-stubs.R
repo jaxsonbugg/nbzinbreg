@@ -12,7 +12,7 @@
 
 stubbed <- c(
   # provisional extras
-  "vuong_test", "simulate.nbreg", "simulate.zinbreg", "boot_se",
+  "vuong_test",
   "expected_counts", "rootogram"
 )
 
@@ -22,9 +22,6 @@ nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
   vuong_test = function() vuong_test(zinb, nb),
-  simulate.nbreg = function() simulate(nb),
-  simulate.zinbreg = function() simulate(zinb),
-  boot_se = function() boot_se(nb),
   expected_counts = function() expected_counts(nb),
   rootogram = function() rootogram(nb)
 )
