@@ -20,53 +20,61 @@ nbreg_control(
 )
 }
 \arguments{
-\item{tol}{Convergence tolerance for the outer loop. The fit stops when the
+\item{tol}{Convergence tolerance for the outer loop (one IRLS stage plus
+one Newton-Raphson stage per pass). The fit has converged when the
 relative change in the log-likelihood,
-\code{abs(new - old) / (abs(old) + 0.1)}, falls below \code{tol}.}
+\code{abs(new - old) / (abs(old) + 0.1)}, is below \code{tol} \strong{and} the changes
+in the coefficients and in \code{log(theta)} between passes are below
+\code{sqrt(tol)}.}
 
-\item{maxit}{Maximum number of outer iterations (each one IRLS stage plus
-one Newton-Raphson stage). Reaching it gives a warning and
-\code{converged = FALSE}.}
+\item{maxit}{Maximum number of outer passes. Reaching it gives a warning
+and \code{converged = FALSE}.}
 
-\item{trace}{Logical; if \code{TRUE}, print the progress of each iteration.}
+\item{trace}{Logical; if \code{TRUE}, print one line of progress per pass.}
 
-\item{irls_tol, irls_maxit}{Tolerance on the relative change in the
-coefficients, and maximum number of rounds, for the IRLS stage.}
+\item{irls_tol}{Tolerance for the IRLS stage (with \code{theta} held fixed): it
+stops when the relative change in the log-likelihood is below \code{irls_tol}
+and the relative change in the coefficients is below \code{sqrt(irls_tol)}.}
 
-\item{theta_tol, theta_maxit}{Tolerance on the change in \code{log(theta)}, and
-maximum number of rounds, for the Newton-Raphson stage.}
+\item{irls_maxit}{Maximum number of rounds in one IRLS stage.}
 
-\item{theta_start}{Optional starting value for \code{theta}. By default a moment
-estimate from an initial Poisson fit is used.}
+\item{theta_tol}{Tolerance for the Newton-Raphson stage: it stops when the
+step in \code{log(theta)} is smaller than \code{theta_tol}.}
 
-\item{theta_min, theta_max}{Bounds that keep \code{theta} inside a numerically
-safe range.}
+\item{theta_maxit}{Maximum number of rounds in one Newton-Raphson stage.}
+
+\item{theta_start}{Optional starting value for \code{theta}. By default a
+moment-type estimate from an initial Poisson fit is used.}
+
+\item{theta_min, theta_max}{Bounds for \code{theta}. They constrain the
+parameter; the likelihood itself is never altered. A fit that ends on a
+bound is reported with a warning.}
 
 \item{theta_warn}{Estimates of \code{theta} above this value trigger a warning
-that the data look Poisson (no overdispersion).}
+that the data show little or no overdispersion (a Poisson model may be
+adequate). Must satisfy \verb{theta_min < theta_warn <= theta_max}.}
 
-\item{max_halving}{Maximum number of times a step is halved when it lowers
-the log-likelihood or produces non-finite values.}
+\item{max_halving}{Maximum number of times a step is halved (backtracking)
+when it would lower the log-likelihood or lead to invalid values.}
 }
 \value{
-A list of class \code{nbreg_control} holding the validated settings
-(once implemented).
+A list of class \code{nbreg_control} holding the validated settings.
 }
 \description{
-Collects the tolerances, iteration limits and other settings used by
-\code{\link[=nbreg]{nbreg()}}.
-
-\strong{Not yet implemented.} This development version defines the interface
-only; calling the function signals an error of class
-\code{nbzinbreg_not_implemented}.
+Collects and checks the tolerances, iteration limits and other settings
+used by \code{\link[=nbreg]{nbreg()}}. Every argument is validated, and an invalid value stops
+with an error of class \code{nbzinbreg_error_input} that names the argument.
 }
 \section{Provisional}{
 
 \code{tol}, \code{maxit} and \code{trace} are part of the required interface. The other
-arguments are provisional and may change before the function is
-implemented.
+arguments are provisional and may change in later versions.
 }
 
+\examples{
+nbreg_control()
+nbreg_control(tol = 1e-10, maxit = 200)
+}
 \seealso{
 \code{\link[=nbreg]{nbreg()}}, \code{\link[=zinbreg_control]{zinbreg_control()}}
 }
