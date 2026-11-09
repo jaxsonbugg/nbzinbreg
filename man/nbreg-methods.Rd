@@ -32,7 +32,14 @@
 
 \method{nobs}{nbreg}(object, ...)
 
-\method{predict}{nbreg}(object, newdata, type = c("link", "response"), se.fit = FALSE, ...)
+\method{predict}{nbreg}(
+  object,
+  newdata,
+  type = c("link", "response"),
+  se.fit = FALSE,
+  offset = NULL,
+  ...
+)
 }
 \arguments{
 \item{x, object}{An \code{nbreg} fit (or, for \code{print.summary.nbreg()}, its
@@ -40,25 +47,36 @@ summary).}
 
 \item{digits}{Number of significant digits to print.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used.}
 
 \item{type}{For \code{residuals()}: \code{"response"} (\eqn{y - \hat\mu}) or
-\code{"pearson"} (the response residual divided by the estimated standard
-deviation \eqn{\sqrt{\hat\mu + \hat\mu^2/\hat\theta}}). For \code{predict()}:
-\code{"link"} (the linear predictor) or \code{"response"} (the expected count).}
+\code{"pearson"} (the response residual times the square root of the prior
+weight, divided by the estimated standard deviation
+\eqn{\sqrt{\hat\mu + \hat\mu^2/\hat\theta}}). For \code{predict()}: \code{"link"}
+(the linear predictor, on the log scale) or \code{"response"} (the expected
+count).}
 
-\item{newdata}{Optional data frame of new covariate values for
-\code{predict()}; by default the fitted data are used.}
+\item{newdata}{Optional data frame of covariate values for \code{predict()}. If
+omitted, predictions are for the data used in the fit.}
 
-\item{se.fit}{Logical; if \code{TRUE}, \code{predict()} also returns standard errors
-(provisional).}
+\item{se.fit}{Logical; if \code{TRUE}, \code{predict()} also returns standard errors.
+On the link scale they are \eqn{\sqrt{x^\top V x}}; on the response scale
+they are \eqn{\hat\mu} times that (the delta method). They treat \code{theta}
+as known, like the coefficient standard errors.}
+
+\item{offset}{For \code{predict()} with \code{newdata}, only when the model was
+fitted with the \code{offset} argument: the offset values for the new rows.
+Needed when the original offset cannot be recomputed from \code{newdata}
+(for example when it was a stand-alone numeric vector). Offsets written
+as \code{offset()} terms in the formula are always taken from \code{newdata}.}
 }
 \value{
-Once implemented: \code{coef()} a named vector, \code{vcov()} a matrix,
-\code{logLik()} an object of class \code{logLik}, \code{fitted()} and \code{residuals()}
-numeric vectors, \code{nobs()} an integer, \code{predict()} a numeric vector (or a
-list with \code{fit} and \code{se.fit}), and \code{summary()} an object of class
-\code{summary.nbreg}.
+\code{coef()} a named vector; \code{vcov()} a matrix; \code{logLik()} an object
+of class \code{logLik}; \code{fitted()} and \code{residuals()} numeric vectors; \code{nobs()}
+the number of observations with positive weight; \code{predict()} a numeric
+vector, or with \code{se.fit = TRUE} a list with elements \code{fit} and \code{se.fit};
+\code{summary()} an object of class \code{summary.nbreg}; the print methods return
+their argument invisibly.
 }
 \description{
 Standard methods for objects returned by \code{\link[=nbreg]{nbreg()}}: printing, summaries
@@ -66,16 +84,29 @@ with a coefficient table, extracting coefficients, the variance-covariance
 matrix, the log-likelihood (with a \code{df} attribute, so \code{AIC()} and \code{BIC()}
 work), fitted values, residuals, the number of observations, and
 predictions.
-
-\strong{Not yet implemented.} These methods are documented stubs; each signals
-an error of class \code{nbzinbreg_not_implemented}.
 }
-\section{Provisional}{
+\details{
+Fitted values and residuals follow \code{na.action}: with
+\code{\link[stats:na.fail]{stats::na.exclude()}} they are padded with \code{NA} to the length of the
+original data.
 
-The \code{se.fit} argument of \code{predict()} is provisional. The other methods and
-arguments are part of the required interface.
+For \code{predict()} with \code{newdata} and a model fitted with the \code{offset}
+argument, the original offset expression is re-evaluated in \code{newdata} when
+it refers to at least one of its columns (for example \code{offset = log(t)}
+with a column \code{t}). Otherwise the offset for the new rows must be supplied
+with \verb{offset =}; it is never silently reused from the fit.
 }
-
+\examples{
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+fit
+summary(fit)
+coef(fit)
+AIC(fit)
+residuals(fit, type = "pearson")
+predict(fit, newdata = data.frame(x = c(2.5, 9)), type = "response",
+        se.fit = TRUE)
+}
 \seealso{
 \code{\link[=nbreg]{nbreg()}}
 }

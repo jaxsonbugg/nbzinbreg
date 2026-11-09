@@ -158,14 +158,14 @@ estimates, standard errors and p-values are not meaningful.
 # The 8-observation example used in the package's design notes
 d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
 fit <- nbreg(y ~ x, data = d)
-fit$coefficients
-fit$theta
+fit
+summary(fit)
 
 # Article counts of biochemistry PhD students
 if (requireNamespace("pscl", quietly = TRUE)) {
   data("bioChemists", package = "pscl")
   fit2 <- nbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
-  fit2$coefficients
+  summary(fit2)
 }
 }
 \seealso{

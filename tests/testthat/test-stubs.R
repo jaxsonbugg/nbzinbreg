@@ -13,10 +13,6 @@
 stubbed <- c(
   # required fitting interface
   "zinbreg", "zinbreg_control",
-  # required methods, nbreg
-  "print.nbreg", "summary.nbreg", "print.summary.nbreg", "coef.nbreg",
-  "vcov.nbreg", "logLik.nbreg", "fitted.nbreg", "residuals.nbreg",
-  "nobs.nbreg", "predict.nbreg",
   # required methods, zinbreg
   "print.zinbreg", "summary.zinbreg", "print.summary.zinbreg",
   "coef.zinbreg", "vcov.zinbreg", "logLik.zinbreg", "fitted.zinbreg",
@@ -35,16 +31,6 @@ zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
   zinbreg = function() zinbreg(),
   zinbreg_control = function() zinbreg_control(),
-  print.nbreg = function() print(nb),
-  summary.nbreg = function() summary(nb),
-  print.summary.nbreg = function() print(structure(list(), class = "summary.nbreg")),
-  coef.nbreg = function() coef(nb),
-  vcov.nbreg = function() vcov(nb),
-  logLik.nbreg = function() logLik(nb),
-  fitted.nbreg = function() fitted(nb),
-  residuals.nbreg = function() residuals(nb),
-  nobs.nbreg = function() nobs(nb),
-  predict.nbreg = function() predict(nb),
   print.zinbreg = function() print(zinb),
   summary.zinbreg = function() summary(zinb),
   print.summary.zinbreg = function() print(structure(list(), class = "summary.zinbreg")),
