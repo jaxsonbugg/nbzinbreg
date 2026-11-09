@@ -93,3 +93,49 @@ Every project change is logged here with the date and the reason. Newest entries
 - The whole status section, which is marked with HTML comments, is deleted once the package is finished. That is also an item in the final checklist in `dev/requirements.md`.
 
 **Checks:** the README knits; the usage examples are plain code blocks and are not run; the links to `dev/` files are absolute GitHub links, so they also work on the future pkgdown home page.
+
+## 2026-11-08: Negative binomial regression (`nbreg()`) implemented and verified
+
+**Verification level reached:** `nbreg()`, `nbreg_control()` and all required `nbreg` methods are implemented and verified against `MASS::glm.nb()`. `zinbreg()` is still a stub.
+
+**What (in commits):**
+1. Classed condition helpers and `nbreg_control()` validation.
+   - Corrective commit: `check_whole()` now rejects iteration limits above the integer maximum.
+2. The internal engine `R/nbreg-fit.R`.
+   - IRLS for the coefficients, with backtracking.
+   - Newton-Raphson for log(theta), with a safeguarded direction and an Armijo line search.
+   - The exact likelihood throughout (no clipping), with overflow-safe working quantities.
+   - A Poisson start whose first coefficient vector comes from one weighted least-squares step; a weighted moment start for theta using `sum(weights)`.
+   - Exact finite sums for large theta.
+   - Divergence diagnostics (a numerical check, and an exact check for all-zero groups).
+3. `nbreg()` with exhaustive input checking and classed warnings.
+   - Follow-up commit: model-matrix errors are classified and name the one-level factor; `nbreg_control` objects are always revalidated.
+4. The required methods: `print`, `summary`, `print.summary`, `coef`, `vcov`, `logLik`, `fitted`, `residuals`, `nobs`, `predict`. `predict` handles `newdata`, `se.fit` and offsets.
+
+**Checks (Gates A and B):**
+- `devtools::test()`: 438 checks pass, 0 fail; 6 skipped (the zinbreg placeholders).
+- `R CMD check` via devtools: 0 errors, 0 warnings, 1 note (the local clock check).
+- A plain `R CMD build` + `R CMD check --no-manual`, with no devtools and no Rtools workaround: "Status: OK".
+- CI for the methods commit: all five platforms green.
+- Side-by-side with `glm.nb()` (tight settings), with `nbreg()` at its default settings:
+
+| Data | max abs diff: coefficients | SEs | theta | SE(theta) | log-likelihood |
+|---|---|---|---|---|---|
+| bioChemists | 5.6e-8 | 5.9e-10 | 2.2e-8 | 1.1e-6 | 1.1e-12 |
+| NMES1988 | 3.4e-7 | 9.2e-10 | 7.8e-9 | 4.2e-7 | 1.1e-10 |
+| required | 1e-5 | 1e-5 | 1e-4 | (1e-4) | 1e-4 |
+
+Timing: bioChemists 0.10 s (`glm.nb` 0.06 s); NMES1988 0.22 s (`glm.nb` 0.15 s).
+
+**Behaviour on awkward data** (where `glm.nb()` is silent or cryptic):
+- Poisson-like data: theta goes to its upper bound, with a theta warning.
+- An all-zero group: a divergence warning naming the coefficient. Theta and the other coefficients match `glm.nb` exactly.
+- An all-zero response: a clear error.
+- A collinear column: an error naming it.
+- A non-integer response: an error.
+- Legitimately small fitted means: no warning.
+
+**Problems caught along the way:**
+- A test showed that a zero stored with rounding noise (-1e-10) was rejected as negative before rounding. The negative check now allows rounding error.
+- A probe showed that a character offset produced an unclassed base-R error from `model.offset()`; it is now wrapped.
+- The owner's review caught three more: integer overflow in `check_whole()`, unwrapped `model.matrix()` errors, and edited `nbreg_control` objects being trusted. All three were fixed in follow-up commits with tests.

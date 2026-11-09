@@ -4,13 +4,18 @@ R package `nbzinbreg`: negative binomial (NB) and zero-inflated negative binomia
 
 ## Package map
 
-- `R/nbreg.R`, `R/zinbreg.R`: the user-facing fitting functions. Required arguments come first and in this order: `formula, data, offset, control`.
-- `R/control.R`: `nbreg_control()`, `zinbreg_control()`.
-- `R/methods-nbreg.R`, `R/methods-zinbreg.R`: the required S3 methods.
+- `R/nbreg.R`, `R/zinbreg.R`: the user-facing fitting functions. Required arguments come first and in this order: `formula, data, offset = NULL, control`. `nbreg.R` also holds the shared input checks (`check_formula_arg()`, `check_response()`, `check_weights()`, `check_offset()`, `explain_model_frame_error()`, ...), which `zinbreg()` should reuse.
+- `R/nbreg-fit.R`: the internal NB engine (`nbreg_fit()` and its stages). It returns flags and never warns; `nbreg()` turns the flags into warnings. The ZINB M-step should call `nbreg_fit()` with prior weights 1 - tau.
+- `R/control.R`: `nbreg_control()` (implemented), `zinbreg_control()` (stub).
+- `R/methods-nbreg.R` (implemented), `R/methods-zinbreg.R` (stubs): the required S3 methods.
 - `R/inference.R`, `R/simulate.R`, `R/diagnostics.R`, `R/tidiers.R`: provisional extras (their documentation says so).
-- `R/utils.R`: internal helpers, including `not_implemented()`.
-- Planned internal files (not created yet): `R/nbreg-fit.R`, `R/zinbreg-fit.R`, `R/zinbreg-hessian.R`; see `dev/design.md`.
-- `tests/testthat/`: the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`), the stub list (`test-stubs.R`), and skipped placeholder files for the planned tests.
+- `R/utils.R`: internal helpers: `not_implemented()`, the classed-condition helpers `abort_nbz()` / `warn_nbz()`, and the scalar validators.
+- Planned internal files (not created yet): `R/zinbreg-fit.R`, `R/zinbreg-hessian.R`; see `dev/design.md`.
+- `tests/testthat/`: the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`), the stub list (`test-stubs.R`), the NB tests (`test-nbreg-*.R`, `test-methods.R`, `test-input-validation.R`), and skipped placeholders for the zinbreg tests.
+
+## Errors and warnings
+
+Raise every error and warning through `abort_nbz(message, class)` / `warn_nbz(message, class)` with one of the documented classes (`nbzinbreg_error_input`, `_rank`, `_fit`; `nbzinbreg_warning_convergence`, `_theta`, `_divergence`, `_se`). Never use plain `stop()` or `warning()` for user-facing problems. Messages name the argument, say what was received (with how many offending values and the first few), and say how to fix it. Wrap calls to base functions that can fail on user input (`model.frame()`, `model.matrix()`, `model.offset()`) so their errors become classed errors that keep the original text. Every new error needs a test that checks its class and a key phrase.
 
 ## Stubs and what "done" means
 

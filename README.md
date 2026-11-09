@@ -12,8 +12,8 @@ Negative binomial (NB) and zero-inflated negative binomial (ZINB)
 regression in R, with the estimation written from scratch: iteratively
 reweighted least squares (IRLS) and Newton-Raphson for NB, and the EM
 algorithm with IRLS steps for ZINB. No general-purpose optimizer is
-used. Results will be validated against `MASS::glm.nb()` and
-`pscl::zeroinfl()`.
+used. NB results are validated against `MASS::glm.nb()`; ZINB results
+will be validated against `pscl::zeroinfl()`.
 
 <!-- status: start -->
 
@@ -22,19 +22,20 @@ used. Results will be validated against `MASS::glm.nb()` and
 
 ## Status
 
-Package skeleton verified; statistical functions not yet implemented.
+Negative binomial regression is implemented and validated; the
+zero-inflated model is not implemented yet.
 
-| Part                                                    | Status         |
-|---------------------------------------------------------|----------------|
-| Package skeleton (installs, documented, CI)             | ✅ Done        |
-| `nbreg()`: negative binomial regression                 | ⬜ Not started |
-| `zinbreg()`: zero-inflated NB regression                | ⬜ Not started |
-| Methods (`print`, `summary`, `predict`, …)              | ⬜ Not started |
+| Part | Status |
+|----|----|
+| Package skeleton (installs, documented, CI) | ✅ Done |
+| `nbreg()`: negative binomial regression | ✅ Done |
+| `zinbreg()`: zero-inflated NB regression | ⬜ Not started |
+| Methods (`print`, `summary`, `predict`, …) | 🚧 In progress (done for `nbreg`) |
 | Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
-| Benchmarks against `glm.nb()` and `zeroinfl()`          | ⬜ Not started |
-| Simulation study                                        | ⬜ Not started |
-| NMES1988 data analysis                                  | ⬜ Not started |
-| Report and website                                      | ⬜ Not started |
+| Benchmarks against `glm.nb()` and `zeroinfl()` | ⬜ Not started |
+| Simulation study | ⬜ Not started |
+| NMES1988 data analysis | ⬜ Not started |
+| Report and website | ⬜ Not started |
 
 Details: [progress
 log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
@@ -56,14 +57,36 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 
 ### Negative binomial regression
 
-*Planned interface: this does not run yet.*
-
 ``` r
 library(nbzinbreg)
 data("bioChemists", package = "pscl")
 
 fit_nb <- nbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
 summary(fit_nb)
+#> 
+#> Call:
+#> nbreg(formula = art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+#> 
+#> Pearson residuals:
+#>     Min      1Q  Median      3Q     Max 
+#> -1.2677 -0.8754 -0.2613  0.4983  6.6573 
+#> 
+#> Coefficients:
+#>              Estimate Std. Error z value Pr(>|z|)    
+#> (Intercept)  0.256144   0.137348   1.865 0.062191 .  
+#> femWomen    -0.216418   0.072636  -2.979 0.002887 ** 
+#> marMarried   0.150489   0.082097   1.833 0.066791 .  
+#> kid5        -0.176415   0.052813  -3.340 0.000837 ***
+#> phd          0.015271   0.035873   0.426 0.670326    
+#> ment         0.029082   0.003214   9.048  < 2e-16 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Theta: 2.264 (SE 0.2712)
+#> Log-likelihood: -1560.96 on 7 df
+#> AIC: 3135.92;  BIC: 3169.65
+#> Observations: 915;  residual df: 909
+#> Outer passes: 4;  converged: yes
 ```
 
 ### Zero-inflated negative binomial regression

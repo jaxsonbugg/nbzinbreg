@@ -44,25 +44,25 @@ The reference functions may be used in tests, benchmarks, and the report, but ne
 ## 4. Package requirements
 
 - [ ] Installs with `devtools::install_github("jaxsonbugg/nbzinbreg")` in a fresh R session.
-- [ ] Imports listed in `Imports:`; test/vignette-only packages (MASS, pscl, AER, testthat, ...) in `Suggests:`.
-- [ ] `devtools::check()` finishes with 0 errors and 0 warnings; any remaining NOTEs explained in the README.
-- [ ] GitHub Actions `check-standard` workflow, with its passing badge in the README.
+- [x] Imports listed in `Imports:`; test/vignette-only packages (MASS, pscl, AER, testthat, ...) in `Suggests:`.
+- [x] `devtools::check()` finishes with 0 errors and 0 warnings; any remaining NOTEs explained in the README. (True now; re-checked at the end.)
+- [x] GitHub Actions `check-standard` workflow, with its passing badge in the README.
 - [x] Package name is valid and not on CRAN (checked, see `dev/progress_log.md`).
-- [ ] Exported functions: `nbreg(formula, data, offset, control)`, `zinbreg(formula, data, offset, control)`, `nbreg_control()`, `zinbreg_control()`.
-- [ ] `zinbreg` formula form `y ~ x1 + x2 | z1 + z2` (count covariates, then zero covariates); without `|`, the same covariates are used in both parts.
-- [ ] Returned S3 objects (class `nbreg` / `zinbreg`) contain at least: coefficients, variance-covariance matrix, theta and its SE, log-likelihood, number of iterations, a convergence flag, fitted values, and the matched call.
-- [ ] S3 methods for both classes: `print`, `summary` (coefficient table with estimates, SEs, z values, p-values) with `print.summary`, `coef`, `vcov`, `logLik` (with a `df` attribute so `AIC()` / `BIC()` work), `fitted`, `residuals` (response and Pearson), `nobs`, `predict` (with `newdata`).
-- [ ] `predict` for `zinbreg` supports `type = "response"` (`(1 - pi) * mu`), `"count"` (`mu`), and `"zero"` (`pi`).
-- [ ] roxygen2 documentation with runnable `@examples` for every exported function.
-- [ ] testthat tests: (i) `nbreg()` vs `MASS::glm.nb()` and `zinbreg()` vs `pscl::zeroinfl()` within the tolerances below; (ii) basic behavior (offset, single-covariate model, informative errors for bad input). Use `skip_if_not_installed("pscl")`.
-- [ ] README with installation instructions, a short usage example, and the CI badge.
+- [ ] Exported functions: `nbreg(formula, data, offset, control)`, `zinbreg(formula, data, offset, control)`, `nbreg_control()`, `zinbreg_control()`. *(nbreg and nbreg_control: done; zinbreg and zinbreg_control: pending)*
+- [ ] `zinbreg` formula form `y ~ x1 + x2 | z1 + z2` (count covariates, then zero covariates); without `|`, the same covariates are used in both parts. *(pending)*
+- [ ] Returned S3 objects (class `nbreg` / `zinbreg`) contain at least: coefficients, variance-covariance matrix, theta and its SE, log-likelihood, number of iterations, a convergence flag, fitted values, and the matched call. *(nbreg: done; zinbreg: pending)*
+- [ ] S3 methods for both classes: `print`, `summary` (coefficient table with estimates, SEs, z values, p-values) with `print.summary`, `coef`, `vcov`, `logLik` (with a `df` attribute so `AIC()` / `BIC()` work), `fitted`, `residuals` (response and Pearson), `nobs`, `predict` (with `newdata`). *(nbreg: done; zinbreg: pending)*
+- [ ] `predict` for `zinbreg` supports `type = "response"` (`(1 - pi) * mu`), `"count"` (`mu`), and `"zero"` (`pi`). *(pending)*
+- [ ] roxygen2 documentation with runnable `@examples` for every exported function. *(nbreg, nbreg_control and the nbreg methods: done; the rest when implemented)*
+- [ ] testthat tests: (i) `nbreg()` vs `MASS::glm.nb()` and `zinbreg()` vs `pscl::zeroinfl()` within the tolerances below; (ii) basic behavior (offset, single-covariate model, informative errors for bad input). Use `skip_if_not_installed("pscl")`. *(nbreg: done; zinbreg: pending)*
+- [ ] README with installation instructions, a short usage example, and the CI badge. *(done for NB; the ZINB example becomes executable when zinbreg works)*
 - [ ] pkgdown website published with GitHub Pages; link in the README and in the repo's About box.
-- [ ] Edge cases: warn if theta-hat becomes very large (Poisson limit) or if `maxit` is hit without convergence.
-- [ ] The GitHub repository is public.
+- [ ] Edge cases: warn if theta-hat becomes very large (Poisson limit) or if `maxit` is hit without convergence. *(nbreg: done; zinbreg: pending)*
+- [x] The GitHub repository is public.
 
 ### Current status of section 4
 
-Package skeleton verified; statistical implementation not started. Every required function and method exists with its required signature and roxygen documentation, but is a stub that signals "not yet implemented". So none of the items above is ticked except the package name. The design for the implementation is in `dev/design.md`.
+`nbreg()`, `nbreg_control()` and all required `nbreg` methods are implemented and verified: they match `MASS::glm.nb()` within the required tolerances at default settings (details in `dev/progress_log.md`). `zinbreg()`, `zinbreg_control()`, the `zinbreg` methods and the extras are still documented stubs. Items that cover both models are ticked only when both are done. The design is in `dev/design.md`.
 
 ### Planned extras beyond the requirements (provisional)
 
@@ -73,8 +73,8 @@ Chosen by the owner. They are built only after `nbreg()` and `zinbreg()` match t
 - [ ] `vuong_test()` for ZINB vs NB (reference: `pscl::vuong()`)
 - [ ] `simulate()` methods and `boot_se()` parametric bootstrap standard errors
 - [ ] `expected_counts()` and `rootogram()` for observed vs expected count frequencies
-- [ ] `predict()` extras: `se.fit` and `type = "prob"` (reference: `pscl::predict.zeroinfl()`)
-- [ ] glm-style `weights`, `subset` and `na.action` arguments
+- [ ] `predict()` extras: `se.fit` and `type = "prob"` (reference: `pscl::predict.zeroinfl()`) *(se.fit done for nbreg; zinbreg pending)*
+- [ ] glm-style `weights`, `subset` and `na.action` arguments *(done for nbreg; zinbreg pending)*
 - [ ] `tidy()` and `glance()` methods
 - [ ] `zinbreg_control(hessian = "numeric")` alongside the analytic Hessian
 
@@ -82,8 +82,8 @@ Chosen by the owner. They are built only after `nbreg()` and `zinbreg()` match t
 
 These come from independent reviews of the skeleton commits. Each is handled in the phase named, not earlier.
 
-- [ ] **`check_whole()` integer overflow** (fix now, before NB commit 2). Reject whole numbers above `.Machine$integer.max` (2147483647), since the control functions convert them with `as.integer()`. Add tests for `maxit`, `irls_maxit`, `theta_maxit` and `max_halving`.
-- [ ] **Optional offset default** (NB phase for `nbreg()`, ZINB phase for `zinbreg()`). Use `offset = NULL`, keeping the positional order `formula, data, offset, control`. Test omitted offsets, and positional calls both with and without an offset.
+- [x] **`check_whole()` integer overflow** (fix now, before NB commit 2). *Done in its own corrective commit.* Reject whole numbers above `.Machine$integer.max` (2147483647), since the control functions convert them with `as.integer()`. Add tests for `maxit`, `irls_maxit`, `theta_maxit` and `max_halving`.
+- [ ] **Optional offset default** (NB phase for `nbreg()`, ZINB phase for `zinbreg()`). Use `offset = NULL`, keeping the positional order `formula, data, offset, control`. Test omitted offsets, and positional calls both with and without an offset. *(nbreg: done and tested; zinbreg: signature updated, behaviour pending)*
 - [ ] **ZINB parameter ordering** (ZINB phase). Choose one documented convention for the order of the count coefficients, the zero coefficients and `log(theta)`. Use it consistently in the Hessian, the covariance matrix, `coef()`, `vcov()`, `summary()`, `confint()` and `tidy()`, and test that they agree.
 - [ ] **ZINB versus NB comparison** (optional-inference phase). A conventional chi-squared likelihood-ratio test is not valid here. The NB model lies on the boundary of the ZINB parameter space (pi = 0, meaning the zero-model intercept goes to minus infinity), and the remaining zero-model coefficients are then unidentified. Use a statistically justified procedure, for example a parametric bootstrap of the likelihood-ratio statistic, or document the limitations. Do not apply a chi-squared reference distribution automatically. The same caution applies to the Vuong test when it is used to test for zero inflation. The current `vuong_test()` documentation must be revised to match.
 - [ ] **Prohibited-call detector review** (package-verification phase).
@@ -171,13 +171,13 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 
 The skeleton verification and the first CI runs are done. These checks remain, because they depend on code that does not exist yet:
 
-- [ ] `nbreg()` meets every reference tolerance against `MASS::glm.nb()` (section 5).
+- [x] `nbreg()` meets every reference tolerance against `MASS::glm.nb()` (section 5). *Largest differences: 3.4e-7 (coefficients), 9e-10 (SEs), 2.2e-8 (theta), 1.1e-12 (log-likelihood).*
 - [ ] `zinbreg()` meets every reference tolerance against `pscl::zeroinfl()` (section 5).
-- [ ] All five CI configurations pass after the statistical code is added, and again after each later phase.
+- [ ] All five CI configurations pass after the statistical code is added, and again after each later phase. *(Passed after the NB phase: all five green for the nbreg methods commit.)*
 - [ ] The README describes only tested functionality, and each model's usage example becomes executed code once that model is implemented and tested.
 - [ ] The Quarto report renders both as the PDF and as pkgdown HTML from the single source `vignettes/articles/report.qmd`.
 - [ ] The published GitHub Pages site displays its figures and supporting assets correctly.
-- [ ] The local Rtools workaround (`options(buildtools.check = ...)`) does not hide real build failures. Confirm with a plain `R CMD build` and `R CMD check` (no devtools) and with CI.
+- [ ] The local Rtools workaround (`options(buildtools.check = ...)`) does not hide real build failures. Confirm with a plain `R CMD build` and `R CMD check` (no devtools) and with CI. *Confirmed after the NB phase: plain `R CMD build` and `R CMD check --no-manual` gave "Status: OK". Re-check after later phases.*
 
 ## 11. Grading weights (for prioritizing effort)
 
