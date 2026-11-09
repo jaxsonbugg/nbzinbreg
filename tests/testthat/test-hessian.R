@@ -180,6 +180,48 @@ test_that("a fit stopped early fails the gradient check", {
   expect_gt(early$gradient$decrement, 1e-8)
 })
 
+test_that("an unavailable gradient check never counts as convergence", {
+  pp <- parts(bio_formula, load_biochemists())
+  # -H not positive definite at every check: the check is unavailable
+  local_mocked_bindings(
+    gradient_check = function(grad, H, keep, grad_tol) {
+      list(available = FALSE, ok = FALSE, decrement = NA_real_,
+           max_scaled = NA_real_)
+    },
+    .package = "nbzinbreg")
+  em <- zh("zinb_em")(pp$X, pp$Z, pp$y, pp$o, pp$o, pp$w, zinbreg_control())
+  expect_identical(em$stop_reason, "gradient_unavailable")
+  expect_false(em$criteria_met)
+  expect_false(em$converged)
+  expect_false(em$gradient$available)
+  expect_lt(em$iter, 5000L)   # it stopped; it did not run to maxit
+  # the same when EM ends at maxit and the final check is unavailable
+  em2 <- zh("zinb_em")(pp$X, pp$Z, pp$y, pp$o, pp$o, pp$w,
+                       zinbreg_control(maxit = 3))
+  expect_identical(em2$stop_reason, "maxit")
+  expect_false(em2$converged)
+  expect_false(em2$gradient$available)
+})
+
+test_that("the engine's converged flag needs every condition", {
+  pp <- parts(bio_formula, load_biochemists())
+  ok <- zh("zinb_em")(pp$X, pp$Z, pp$y, pp$o, pp$o, pp$w, zinbreg_control())
+  expect_identical(ok$stop_reason, "converged")
+  expect_true(ok$criteria_met)
+  expect_true(ok$converged)
+  early <- zh("zinb_em")(pp$X, pp$Z, pp$y, pp$o, pp$o, pp$w,
+                         zinbreg_control(maxit = 10))
+  expect_identical(early$stop_reason, "maxit")
+  expect_false(early$converged)
+  # change criteria and gradient check met, but the final count M-step
+  # cannot meet its own (unreachable) tolerance
+  stuck <- zh("zinb_em")(pp$X, pp$Z, pp$y, pp$o, pp$o, pp$w, zinbreg_control(
+    nb_control = nbreg_control(tol = 1e-15, maxit = 1)))
+  expect_true(stuck$criteria_met)
+  expect_false(stuck$final$count_converged)
+  expect_false(stuck$converged)
+})
+
 test_that("zinb_excluded() leaves out diverging and flat directions", {
   X <- cbind(`(Intercept)` = 1, a = c(0, 1, 0, 1))
   Z <- cbind(`(Intercept)` = 1, b = c(1, 0, 0, 1))

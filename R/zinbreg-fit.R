@@ -591,11 +591,20 @@ zinb_structural <- function(X, Z, y, w) {
 # decrement <= grad_tol; see gradient_check()). EM converges linearly, so
 # small changes between iterations do not by themselves mean the maximum is
 # near; while the gradient check fails, EM simply continues. If the check is
-# unavailable (-H not positive definite), EM stops and the check is reported
-# as unavailable. A stalled iteration, which changes nothing, meets the
-# change criteria too; the M-step flags then show why it stalled.
+# unavailable (-H not positive definite), EM stops, because more iterations
+# would not make it available, but the fit is NOT converged: convergence to
+# a maximum cannot be confirmed. A stalled iteration, which changes nothing,
+# meets the change criteria too; the M-step flags then show why it stalled.
 #
-# Returns the estimates and every flag; zinbreg() decides what to report.
+# Returns the estimates and every flag, including
+#   stop_reason:  "converged" (change criteria met and gradient check
+#                 passed), "gradient_unavailable" or "maxit";
+#   criteria_met: TRUE only for stop_reason "converged";
+#   converged:    criteria_met, AND the gradient check available and passed
+#                 at the final estimates, AND both M-steps of the final
+#                 iteration converged, AND no monotonicity violation. It is
+#                 never TRUE when the gradient check is unavailable.
+# zinbreg() turns the flags into warnings.
 zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
                     hooks = list()) {
   pos <- w > 0
@@ -646,6 +655,7 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
   loglik_trace <- ll
   states <- list(list(beta = beta, gamma = gamma, ll = ll))
   criteria_met <- FALSE
+  stop_reason <- "maxit"
   final <- NULL
   grad <- NULL
   grad_iter <- NA_integer_
@@ -759,8 +769,14 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
           it, if (grad$ok) "passed" else if (grad$available) "not yet passed"
           else "unavailable", format(signif(grad$decrement, 3))))
       }
-      if (grad$ok || !grad$available) {
+      if (grad$available && grad$ok) {
         criteria_met <- TRUE
+        stop_reason <- "converged"
+        break
+      }
+      if (!grad$available) {
+        # Stop, but this is not convergence (see above).
+        stop_reason <- "gradient_unavailable"
         break
       }
     }
@@ -773,10 +789,14 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
                                  theta, frozen, structural, theta_bound,
                                  control$grad_tol)
   }
+  converged <- criteria_met && isTRUE(grad$available) && isTRUE(grad$ok) &&
+    !is.null(final) && final$zero_converged && final$count_converged &&
+    nrow(violations) == 0L
 
   list(beta = beta, gamma = gamma, theta = theta, loglik = ll,
        eta = eta, zeta = zeta, tau = zinb_e_step(y, eta, zeta, theta, w)$tau,
-       iter = it, criteria_met = criteria_met, final = final,
+       iter = it, criteria_met = criteria_met, stop_reason = stop_reason,
+       converged = converged, final = final,
        theta_bound = theta_bound, mstep_status = status,
        violations = violations, frozen = frozen, structural = structural,
        zero_collapsed = zero_part_collapsed(zeta, w), gradient = grad,
