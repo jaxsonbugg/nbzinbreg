@@ -65,6 +65,14 @@ test_that("check_parm() resolves names and indices", {
   expect_input_error(cp(factor("x"), nms, FALSE), "names or indices")
 })
 
+test_that("check_parm() rejects infinite indices with a classed error", {
+  nms <- c("(Intercept)", "x", "theta")
+  cp <- xu("check_parm")
+  for (bad in list(Inf, -Inf, c(1, Inf), c(-Inf, 2), c(1, NaN))) {
+    expect_input_error(cp(bad, nms, FALSE), "whole numbers from 1 to 3")
+  }
+})
+
 test_that("check_count_arg(), check_no_dots() and check_fit_class()", {
   expect_silent(xu("check_count_arg")(10, "R"))
   expect_input_error(xu("check_count_arg")(0, "R"), "`R` must be a whole number of at least 1")
@@ -152,6 +160,37 @@ test_that("frequency weights must be whole numbers for a bootstrap", {
   expect_identical(cfw(c(1, 2 + 1e-10), "boot_se()"), c(1, 2))
   expect_input_error(cfw(c(1, 0.5, 2.25), "boot_se()"),
                      "boot_se\\(\\) needs frequency weights .* 2 non-integer weight\\(s\\), for example 0.50 and 2.25")
+})
+
+test_that("positive weights that would round to 0 are refused", {
+  cfw <- xu("check_frequency_weights")
+  # within the 1e-8 rounding tolerance of 0, but not 0: would be dropped
+  expect_input_error(cfw(c(1, 1e-9, 2), "boot_se()"),
+                     "1 positive\\s+weight\\(s\\) smaller than 1, for example 1e-09, which would round to 0")
+  expect_input_error(cfw(c(1e-12, 3e-10), "boot_se()"), "2 positive")
+  # rounding noise near positive whole numbers is still accepted
+  expect_identical(cfw(c(1 - 1e-10, 2 + 1e-9, 0), "boot_se()"), c(1, 2, 0))
+})
+
+test_that("the bootstrap size is checked before anything is allocated", {
+  cbs <- xu("check_bootstrap_size")
+  expect_identical(cbs(c(2, 3, 0), "boot_se()"), 5)
+  limit <- xu("max_bootstrap_draws")
+  expect_silent(cbs(c(limit - 1, 1), "boot_se()"))
+  expect_input_error(cbs(c(limit, 1), "boot_se()"),
+                     "boot_se\\(\\) would simulate 10,000,001 individual observations per replicate.*limit of 10,000,000")
+  # no integer overflow: the sum is formed in double precision
+  expect_input_error(cbs(c(.Machine$integer.max, .Machine$integer.max), "x"),
+                     "4,294,967,294 individual")
+  expect_input_error(cbs(c(1e308, 1e308), "x"), "Inf individual")
+  # bootstrap_sample() refuses an oversized data set without drawing it
+  d <- sim_counts(10, zero_inflated = FALSE)
+  fit <- nbreg(y ~ x, d)
+  local_mocked_bindings(
+    simulate_rows = function(...) stop("must not be reached"),
+    .package = "nbzinbreg")
+  expect_input_error(xu("bootstrap_sample")(fit, c(2e7, rep(1, 9))),
+                     "The bootstrap would simulate 20,000,009")
 })
 
 test_that("the weighted bootstrap sample equals refitting expanded data", {

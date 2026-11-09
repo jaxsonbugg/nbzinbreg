@@ -95,7 +95,9 @@ check_parm <- function(parm, names, missing_parm) {
                 "nbzinbreg_error_input")
     }
   } else if (is.numeric(parm) && !is.factor(parm)) {
-    if (length(parm) == 0L || anyNA(parm) ||
+    # Finiteness is checked first: Inf - round(Inf) is NaN, and the later
+    # comparisons would then give NA instead of TRUE/FALSE.
+    if (length(parm) == 0L || anyNA(parm) || any(!is.finite(parm)) ||
         any(abs(parm - round(parm)) > 0) || any(parm < 1) ||
         any(parm > length(names))) {
       abort_nbz(sprintf(paste(
@@ -184,12 +186,18 @@ simulate_rows <- function(object, counts) {
   list(row = idx, y = y)
 }
 
-# Frequency weights for a parametric bootstrap: whole numbers (to 1e-8).
-# Row i stands for w_i independent observations. Weights that are not whole
-# numbers have no such meaning, so a bootstrap is refused for them.
+# Frequency weights for a parametric bootstrap: whole numbers. Row i stands
+# for w_i independent observations. Weights that are not whole numbers have
+# no such meaning, so a bootstrap is refused for them.
+#   * Rounding noise is tolerated: a positive weight within 1e-8 of a
+#     positive whole number (for example 2 + 1e-10) is rounded to it.
+#   * A positive weight that would round to 0 (for example 1e-9) is refused:
+#     rounding it would silently remove an observation from the fit.
+#   * Weights of exactly 0 stay 0 (those rows are not in the fit).
 check_frequency_weights <- function(w, what) {
   pos <- w > 0
   frac <- pos & abs(w - round(w)) > 1e-8
+  vanishing <- pos & !frac & round(w) < 1
   if (any(frac)) {
     abort_nbz(sprintf(paste(
       "%s needs frequency weights (whole numbers): each row then stands for",
@@ -198,7 +206,37 @@ check_frequency_weights <- function(w, what) {
       "such meaning."), what, sum(frac), format_values(w[frac])),
       "nbzinbreg_error_input")
   }
+  if (any(vanishing)) {
+    abort_nbz(sprintf(paste(
+      "%s needs frequency weights (whole numbers). This fit has %d positive",
+      "weight(s) smaller than 1, for example %s, which would round to 0 and",
+      "silently drop those observations. Use whole-number weights, or weight",
+      "0 to leave a row out."), what, sum(vanishing),
+      format_values(w[vanishing])), "nbzinbreg_error_input")
+  }
   round(w)
+}
+
+# Upper limit on the number of individual draws in one bootstrap data set,
+# sum(w): every replicate simulates that many responses and sorts them, which
+# needs about 40 bytes of working memory per draw (1e7 draws is roughly
+# 400 MB). The sum is formed in double precision, so it cannot overflow
+# (huge weights give a huge or infinite sum, which fails the check), and it
+# is checked before any vector of that length is allocated.
+max_bootstrap_draws <- 1e7
+
+check_bootstrap_size <- function(w_int, what) {
+  total <- sum(as.numeric(w_int))
+  if (!is.finite(total) || total > max_bootstrap_draws) {
+    abort_nbz(sprintf(paste(
+      "%s would simulate %s individual observations per replicate (the sum",
+      "of the frequency weights), more than the limit of %s (about 400 MB of",
+      "working memory). Fit the model to fewer or smaller-weighted rows."),
+      what, format(total, big.mark = ",", scientific = FALSE),
+      format(max_bootstrap_draws, big.mark = ",", scientific = FALSE)),
+      "nbzinbreg_error_input")
+  }
+  invisible(total)
 }
 
 # One bootstrap data set under frequency weights: w_i independent draws for
@@ -206,7 +244,11 @@ check_frequency_weights <- function(w, what) {
 # their multiplicities as weights. Refitting this is exactly refitting the
 # fully expanded data, without forming it. (Drawing once per row and keeping
 # weight w_i would treat the w_i observations as identical copies.)
+# Callers (boot_se() and the bootstrap LR test) run check_bootstrap_size()
+# once before their replicate loop; it is repeated here as a safeguard, so
+# no oversized allocation can happen even if a caller forgets.
 bootstrap_sample <- function(object, w_int) {
+  check_bootstrap_size(w_int, "The bootstrap")
   d <- simulate_rows(object, w_int)
   o <- order(d$row, d$y)
   r <- d$row[o]
