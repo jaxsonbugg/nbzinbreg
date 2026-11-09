@@ -433,8 +433,11 @@ nb_theta_newton <- function(y, eta, w, theta, control) {
 # normally.
 #
 # Returns the estimates, standard errors and diagnostic flags. It does not
-# warn; nbreg() reports the flags.
-nbreg_fit <- function(X, y, offset, w, control, start = NULL) {
+# warn; nbreg() reports the flags. With compute_se = FALSE (used by the ZINB
+# M-step, which needs only the estimates) the standard errors are skipped and
+# returned as NA, with vcov_failed and se_theta_failed FALSE.
+nbreg_fit <- function(X, y, offset, w, control, start = NULL,
+                      compute_se = TRUE) {
   beta <- if (is.null(start$beta)) {
     poisson_start(X, y, offset, w, control)
   } else {
@@ -508,9 +511,20 @@ nbreg_fit <- function(X, y, offset, w, control, start = NULL) {
     halving = ir$halving_failed || th$halving_failed
   )
 
-  # Standard errors at the final estimates.
   p <- ncol(X)
   wk <- nb_working(y, eta, offset, theta, w)
+  if (!compute_se) {
+    vcov <- matrix(NA_real_, p, p, dimnames = list(colnames(X), colnames(X)))
+    return(list(
+      coefficients = beta, vcov = vcov, theta = theta, SE.theta = NA_real_,
+      loglik = ll, linear.predictors = eta, fitted.values = exp(eta),
+      working.weights = wk$weights, iter = pass,
+      converged = criteria_met && !any(issues), issues = issues,
+      theta_bound = th$bound, diverging = diverging, vcov_failed = FALSE,
+      se_theta_failed = FALSE, loglik_trace = loglik_trace))
+  }
+
+  # Standard errors at the final estimates.
   info <- crossprod(X * sqrt(wk$weights))
   chol_info <- tryCatch(chol(info), error = function(e) NULL)
   vcov <- if (is.null(chol_info)) {
