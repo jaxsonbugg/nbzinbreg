@@ -42,6 +42,19 @@ test_that("the offset argument equals an offset() term of the count part", {
   expect_identical(z$offset$count, rep(0, nrow(d)))
 })
 
+test_that("offset defaults to NULL and works positionally", {
+  d <- sim_zi()
+  expect_null(formals(zinbreg)$offset)
+  expect_identical(names(formals(zinbreg))[1:4],
+                   c("formula", "data", "offset", "control"))
+  named <- zinbreg(y ~ x | x, d, offset = log(t))
+  positional <- zinbreg(y ~ x | x, d, log(t))
+  expect_identical(all_coefs(positional), all_coefs(named))
+  without <- zinbreg(y ~ x | x, d, NULL, zinbreg_control(maxit = 5000))
+  expect_identical(all_coefs(without), all_coefs(zinbreg(y ~ x | x, d)))
+  expect_false(without$offset_arg_used)
+})
+
 test_that("integer weights are the same as repeated rows", {
   d <- sim_zi(200)
   w <- rep(1:2, length.out = nrow(d))

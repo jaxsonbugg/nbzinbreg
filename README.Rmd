@@ -23,8 +23,7 @@ Negative binomial (NB) and zero-inflated negative binomial (ZINB) regression
 in R, with the estimation written from scratch: iteratively reweighted least
 squares (IRLS) and Newton-Raphson for NB, and the EM algorithm with IRLS steps
 for ZINB. No general-purpose optimizer is used. NB results are validated
-against `MASS::glm.nb()`; ZINB results will be validated against
-`pscl::zeroinfl()`.
+against `MASS::glm.nb()`, and ZINB results against `pscl::zeroinfl()`.
 
 <!-- status: start -->
 <!-- Temporary section: delete everything from "status: start" to
@@ -32,15 +31,16 @@ against `MASS::glm.nb()`; ZINB results will be validated against
 
 ## Status
 
-Negative binomial regression is implemented and validated; the
-zero-inflated model is not implemented yet.
+Negative binomial and zero-inflated negative binomial regression are
+implemented and validated, with all required methods. The extras,
+benchmarks, simulation study, data analysis and report come next.
 
 | Part | Status |
 |---|---|
 | Package skeleton (installs, documented, CI) | ✅ Done |
 | `nbreg()`: negative binomial regression | ✅ Done |
-| `zinbreg()`: zero-inflated NB regression | ⬜ Not started |
-| Methods (`print`, `summary`, `predict`, …) | 🚧 In progress (done for `nbreg`) |
+| `zinbreg()`: zero-inflated NB regression | ✅ Done |
+| Methods (`print`, `summary`, `predict`, …) | ✅ Done |
 | Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
 | Benchmarks against `glm.nb()` and `zeroinfl()` | ⬜ Not started |
 | Simulation study | ⬜ Not started |
@@ -74,9 +74,7 @@ summary(fit_nb)
 
 ### Zero-inflated negative binomial regression
 
-*Planned interface: this does not run yet.*
-
-``` r
+```{r zinb-example}
 library(nbzinbreg)
 data("bioChemists", package = "pscl")
 

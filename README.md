@@ -12,8 +12,8 @@ Negative binomial (NB) and zero-inflated negative binomial (ZINB)
 regression in R, with the estimation written from scratch: iteratively
 reweighted least squares (IRLS) and Newton-Raphson for NB, and the EM
 algorithm with IRLS steps for ZINB. No general-purpose optimizer is
-used. NB results are validated against `MASS::glm.nb()`; ZINB results
-will be validated against `pscl::zeroinfl()`.
+used. NB results are validated against `MASS::glm.nb()`, and ZINB
+results against `pscl::zeroinfl()`.
 
 <!-- status: start -->
 
@@ -22,20 +22,21 @@ will be validated against `pscl::zeroinfl()`.
 
 ## Status
 
-Negative binomial regression is implemented and validated; the
-zero-inflated model is not implemented yet.
+Negative binomial and zero-inflated negative binomial regression are
+implemented and validated, with all required methods. The extras,
+benchmarks, simulation study, data analysis and report come next.
 
-| Part | Status |
-|----|----|
-| Package skeleton (installs, documented, CI) | ✅ Done |
-| `nbreg()`: negative binomial regression | ✅ Done |
-| `zinbreg()`: zero-inflated NB regression | ⬜ Not started |
-| Methods (`print`, `summary`, `predict`, …) | 🚧 In progress (done for `nbreg`) |
+| Part                                                    | Status         |
+|---------------------------------------------------------|----------------|
+| Package skeleton (installs, documented, CI)             | ✅ Done        |
+| `nbreg()`: negative binomial regression                 | ✅ Done        |
+| `zinbreg()`: zero-inflated NB regression                | ✅ Done        |
+| Methods (`print`, `summary`, `predict`, …)              | ✅ Done        |
 | Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
-| Benchmarks against `glm.nb()` and `zeroinfl()` | ⬜ Not started |
-| Simulation study | ⬜ Not started |
-| NMES1988 data analysis | ⬜ Not started |
-| Report and website | ⬜ Not started |
+| Benchmarks against `glm.nb()` and `zeroinfl()`          | ⬜ Not started |
+| Simulation study                                        | ⬜ Not started |
+| NMES1988 data analysis                                  | ⬜ Not started |
+| Report and website                                      | ⬜ Not started |
 
 Details: [progress
 log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
@@ -91,8 +92,6 @@ summary(fit_nb)
 
 ### Zero-inflated negative binomial regression
 
-*Planned interface: this does not run yet.*
-
 ``` r
 library(nbzinbreg)
 data("bioChemists", package = "pscl")
@@ -101,6 +100,44 @@ data("bioChemists", package = "pscl")
 # covariates separately.
 fit_zinb <- zinbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
 summary(fit_zinb)
+#> 
+#> Call:
+#> zinbreg(formula = art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+#> 
+#> Pearson residuals:
+#>     Min      1Q  Median      3Q     Max 
+#> -1.2942 -0.7601 -0.2909  0.4448  6.4155 
+#> 
+#> Count model coefficients (negative binomial with log link):
+#>               Estimate Std. Error z value Pr(>|z|)    
+#> (Intercept)  0.4167473  0.1435962   2.902  0.00371 ** 
+#> femWomen    -0.1955061  0.0755925  -2.586  0.00970 ** 
+#> marMarried   0.0975830  0.0844519   1.155  0.24789    
+#> kid5        -0.1517319  0.0542061  -2.799  0.00512 ** 
+#> phd         -0.0006999  0.0362696  -0.019  0.98460    
+#> ment         0.0247861  0.0034924   7.097 1.27e-12 ***
+#> Log(theta)   0.9763605  0.1354682   7.207 5.71e-13 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Zero-inflation model coefficients (binomial with logit link):
+#>             Estimate Std. Error z value Pr(>|z|)   
+#> (Intercept)  -0.1917     1.3228  -0.145  0.88475   
+#> femWomen      0.6359     0.8489   0.749  0.45378   
+#> marMarried   -1.4994     0.9386  -1.597  0.11017   
+#> kid5          0.6284     0.4428   1.419  0.15582   
+#> phd          -0.0377     0.3080  -0.122  0.90257   
+#> ment         -0.8823     0.3162  -2.790  0.00527 **
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Theta: 2.655 (SE 0.3596)
+#> Log-likelihood: -1549.99 on 13 df
+#> AIC: 3125.98;  BIC: 3188.63
+#> Observations: 915;  residual df: 902
+#> EM iterations: 123;  converged: yes
+#> Gradient check: Newton decrement 8.47e-09 (grad_tol 1e-08)
+#> Starting values: count part from negative binomial fit; zero part from logistic fit of I(y == 0)
 ```
 
 ## Check results

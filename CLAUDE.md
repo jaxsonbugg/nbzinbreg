@@ -4,18 +4,24 @@ R package `nbzinbreg`: negative binomial (NB) and zero-inflated negative binomia
 
 ## Package map
 
-- `R/nbreg.R`, `R/zinbreg.R`: the user-facing fitting functions. Required arguments come first and in this order: `formula, data, offset = NULL, control`. `nbreg.R` also holds the shared input checks (`check_formula_arg()`, `check_response()`, `check_weights()`, `check_offset()`, `explain_model_frame_error()`, ...), which `zinbreg()` should reuse.
-- `R/nbreg-fit.R`: the internal NB engine (`nbreg_fit()` and its stages). It returns flags and never warns; `nbreg()` turns the flags into warnings. The ZINB M-step should call `nbreg_fit()` with prior weights 1 - tau.
-- `R/control.R`: `nbreg_control()` (implemented), `zinbreg_control()` (stub).
-- `R/methods-nbreg.R` (implemented), `R/methods-zinbreg.R` (stubs): the required S3 methods.
-- `R/inference.R`, `R/simulate.R`, `R/diagnostics.R`, `R/tidiers.R`: provisional extras (their documentation says so).
+- `R/nbreg.R`, `R/zinbreg.R`: the user-facing fitting functions. Required arguments come first and in this order: `formula, data, offset = NULL, control`. `nbreg.R` also holds the shared input checks (`check_formula_arg()`, `check_response()`, `check_weights()`, `check_offset()`, `explain_model_frame_error()`, ...), which `zinbreg()` reuses. `zinbreg.R` also turns the EM flags into warnings and decides `converged`.
+- `R/nbreg-fit.R`: the internal NB engine (`nbreg_fit()` and its stages). It returns flags and never warns; `nbreg()` turns the flags into warnings. The ZINB count M-step calls it with prior weights 1 - tau and `compute_se = FALSE`.
+- `R/zinbreg-fit.R`: the internal EM engine (`zinb_em()`): the log-space log-likelihood, the E-step, the stable logistic M-step (`logit_irls()`), the count M-step with restart, the starting values, the generalized-EM checks and the divergence detection. It never warns.
+- `R/zinbreg-hessian.R`: the analytic gradient and Hessian, the gradient check (Newton decrement), the numeric Hessian option and the checks before inversion.
+- `R/control.R`: `nbreg_control()`, `zinbreg_control()` and the shared `resolve_control()`.
+- `R/methods-nbreg.R`, `R/methods-zinbreg.R`: the required S3 methods for both classes.
+- `R/inference.R`, `R/simulate.R`, `R/diagnostics.R`, `R/tidiers.R`: provisional extras (their documentation says so); still stubs.
 - `R/utils.R`: internal helpers: `not_implemented()`, the classed-condition helpers `abort_nbz()` / `warn_nbz()`, and the scalar validators.
-- Planned internal files (not created yet): `R/zinbreg-fit.R`, `R/zinbreg-hessian.R`; see `dev/design.md`.
-- `tests/testthat/`: the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`), the stub list (`test-stubs.R`), the NB tests (`test-nbreg-*.R`, `test-methods.R`, `test-input-validation.R`), and skipped placeholders for the zinbreg tests.
+- `tests/testthat/`:
+  - the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`) and the stub list (`test-stubs.R`);
+  - the NB tests (`test-nbreg-*.R`);
+  - the ZINB tests (`test-zinbreg-*.R`, `test-hessian.R`);
+  - the shared `test-methods.R` and `test-input-validation.R`;
+  - a skipped placeholder for the extras.
 
 ## Errors and warnings
 
-Raise every error and warning through `abort_nbz(message, class)` / `warn_nbz(message, class)` with one of the documented classes (`nbzinbreg_error_input`, `_rank`, `_fit`; `nbzinbreg_warning_convergence`, `_theta`, `_divergence`, `_se`). Never use plain `stop()` or `warning()` for user-facing problems. Messages name the argument, say what was received (with how many offending values and the first few), and say how to fix it. Wrap calls to base functions that can fail on user input (`model.frame()`, `model.matrix()`, `model.offset()`) so their errors become classed errors that keep the original text. Every new error needs a test that checks its class and a key phrase.
+Raise every error and warning through `abort_nbz(message, class)` / `warn_nbz(message, class)` with one of the documented classes (`nbzinbreg_error_input`, `_rank`, `_fit`; `nbzinbreg_warning_convergence`, `_monotone`, `_theta`, `_divergence`, `_se`). Never use plain `stop()` or `warning()` for user-facing problems. Messages name the argument, say what was received (with how many offending values and the first few), and say how to fix it. Wrap calls to base functions that can fail on user input (`model.frame()`, `model.matrix()`, `model.offset()`) so their errors become classed errors that keep the original text. Every new error needs a test that checks its class and a key phrase.
 
 ## Stubs and what "done" means
 
@@ -40,7 +46,7 @@ The rule is enforced automatically by `tests/testthat/test-prohibited-calls.R`, 
 
 ## Statistics first
 
-Implement the equations from the project description exactly (NB: IRLS for the regression coefficients with weights `w = a * theta * mu / (theta + mu)` and working response `z = (eta - offset) + (y - mu) / mu`, alternated with Newton-Raphson for theta, ideally on the `log(theta)` scale. ZINB: EM algorithm with the E-step posterior `tau`, a logistic IRLS M-step for the zero part, and the NB fit reused with prior weights `1 - tau` for the count part). If the code ever differs from the equations, say so and explain why instead of silently changing it. The EM log-likelihood must never decrease; check this at each iteration while debugging.
+Implement the equations from the project description exactly (NB: IRLS for the regression coefficients with weights `w = a * theta * mu / (theta + mu)` and working response `z = (eta - offset) + (y - mu) / mu`, alternated with Newton-Raphson for theta, ideally on the `log(theta)` scale. ZINB: EM algorithm with the E-step posterior `tau`, a logistic IRLS M-step for the zero part, and the NB fit reused with prior weights `1 - tau` for the count part). If the code ever differs from the equations, say so and explain why instead of silently changing it. The EM log-likelihood must never decrease: `zinb_em()` checks this, and each M-step's part of the EM objective, at every iteration, and the check cannot be turned off.
 
 ## Explain everything (standing rule)
 

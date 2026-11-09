@@ -49,3 +49,47 @@ A running record of how Claude Code is used in this project. It is the raw mater
     - the near-integer response check rejecting −1e-10 as negative;
     - an unclassed offset error from `model.offset()`;
     - two wrong expectations in Claude's own tests (a print-format assumption, and an unexpected warning on a tiny data set).
+
+### 2026-11-09: `zinbreg()` implementation
+
+- **Asked Claude to:** plan, then implement, `zinbreg()`, `zinbreg_control()` and all required `zinbreg` methods with exhaustive input checking, following the reviewed plan. The work was pushed commit by commit for review.
+- **What Claude produced:**
+  - the control function and the shared control resolver;
+  - the EM engine (`R/zinbreg-fit.R`);
+  - the analytic Hessian and gradient check (`R/zinbreg-hessian.R`);
+  - `zinbreg()` and the methods;
+  - 640 new test expectations (498 before this phase, 1138 after).
+- **How it was checked:**
+  - every reference case was compared with `pscl::zeroinfl(reltol = 1e-12)` at the required tolerances, with both Hessian methods;
+  - the analytic gradient and Hessian were compared with `numDeriv`;
+  - every divergence and fallback scenario was first run as a probe script, before tests were written;
+  - each regression test was confirmed to fail on the old code;
+  - full `R CMD check`, plain `R CMD check`, and CI on five platforms after every pushed commit.
+- **Problems found and how they were corrected:**
+  - **In the owner's plan review (before any code was written),** six gaps in Claude's first ZINB plan:
+    - non-converged M-steps could be treated as converged;
+    - the logistic step was unstable when pi (1 − pi) underflows, and had no fallback start;
+    - divergence detection was reused from the NB part instead of being specific to each part;
+    - there was no gradient check at termination;
+    - `type = "prob"` could allocate an enormous matrix;
+    - a higher log-likelihood than the reference could have excused coefficient differences.
+  - **The owner's code reviews caught, after pushed commits:**
+    - the count M-step's rank-drop flag was not passed on;
+    - a count part with every coefficient held fixed would have called the NB engine with a zero-column matrix;
+    - coefficients the initial NB fit flagged were frozen, which could constrain a valid ZINB solution;
+    - an unavailable gradient check could still count as convergence;
+    - `print()` lacked the EM iteration count;
+    - prediction standard errors could show 0 when no covariance matrix existed;
+    - Pearson residuals were NaN when the fitted variance underflowed.
+
+    Each was fixed in its own commit with regression tests.
+  - **Claude's own probes and tests caught:**
+    - the first EM-level drift check flagged the bioChemists zero intercept during ordinary slow convergence;
+    - `tau − pi` cancelled to 0 when both rounded to 1;
+    - a bad starting value left the count M-step stuck (log-likelihood −678.2 instead of −340.9), which led to the M-step restart;
+    - a stray `"count_"` name came from `paste0()` on an empty vector;
+    - the Hessian was symmetric only to 4e-15;
+    - the monotonicity warning used a wrong column name;
+    - several wrong expectations in Claude's own tests (an index, a count of zeros, and a tolerance tighter than EM's stopping rule).
+  - **A judgment the owner had to make:** with weights, `zeroinfl()` disagreed with `zinbreg()` by 0.03. Claude did not relax the tolerance. It investigated and showed that zeroinfl's weighted fit stops at a point that is not a maximum. The owner agreed to use `zeroinfl()` on repeated rows as the reference for integer frequency weights.
+  - **A plan value changed with evidence:** `grad_tol` became 1e-8 instead of 1e-6, because 1e-6 could allow errors above the 1e-3 tolerance on bioChemists. This is recorded in `dev/progress_log.md`.

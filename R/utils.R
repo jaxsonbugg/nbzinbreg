@@ -32,9 +32,10 @@ not_implemented <- function(what) {
 #   errors:   nbzinbreg_error_input  (an argument or the data are invalid)
 #             nbzinbreg_error_rank   (collinear model-matrix columns)
 #             nbzinbreg_error_fit    (an unrecoverable numerical failure)
-#   warnings: nbzinbreg_warning_convergence (an iteration limit was reached)
+#   warnings: nbzinbreg_warning_convergence (the fit did not converge)
+#             nbzinbreg_warning_monotone    (EM lowered its objective)
 #             nbzinbreg_warning_theta       (theta very large or on a bound)
-#             nbzinbreg_warning_divergence  (coefficients running to -Inf)
+#             nbzinbreg_warning_divergence  (coefficients running to +-Inf)
 #             nbzinbreg_warning_se          (standard errors unavailable)
 #
 # Each also carries the parent class nbzinbreg_error or nbzinbreg_warning.

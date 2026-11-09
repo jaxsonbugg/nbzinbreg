@@ -201,3 +201,23 @@ With integer weights 1 to 3 on bioChemists (`art ~ fem + mar + kid5 + ment | men
 | required | | 1e-3 | 1e-3 | 1e-3 | 1e-3 | 1e-3 | | | |
 
 Every fit converged. Our log-likelihood is lower by only a few times 1e-9, so it is within `grad_tol` of zeroinfl's maximum. Timings are from one run on the development laptop and vary between runs. EM with full IRLS M-steps is several times slower than zeroinfl's BFGS; most of the time is spent in `dnbinom()` within the NB M-step.
+
+## 2026-11-09: ZINB, follow-ups, Gate B and documentation
+
+**Follow-ups to the methods commit (from review, `1984046`):**
+- `print()` shows the EM iteration count.
+- Prediction standard errors are NA, never a misleading 0, when the covariance matrix is unavailable: entirely, or for a coefficient whose row derivative underflows.
+- Pearson residuals stay finite when the fitted variance underflows; those rows are computed on the log scale, and every other row is unchanged.
+
+Each regression test was confirmed to fail on the previous code. `devtools::test()`: 1133 passed, 0 failed. `devtools::check()`: 0 errors, 0 warnings. Plain `R CMD check`: Status: OK.
+
+**Gate B:** CI on the methods commit (`32083d2`) is green on all five platforms (Ubuntu devel, oldrel-1 and release; Windows release; macOS release).
+
+**Documentation commit:**
+- README: the ZINB row and the methods row are ✅, and the ZINB example is executed. The extras row stays ⬜: the plan said 🚧, but nothing in the extras exists yet, and status rows change only for implemented, tested work.
+- NEWS updated.
+- `dev/design.md`: Part 2 now describes the implementation as built, including the parameter convention, and `check_monotone` is gone (the check is mandatory).
+- `dev/requirements.md`: items ticked with notes.
+- `CLAUDE.md`: package map and warning classes.
+- The AI-use log has a ZINB entry.
+- A test for positional `offset` in `zinbreg()` was added, so the review item on the `offset = NULL` default could be closed for both models.
