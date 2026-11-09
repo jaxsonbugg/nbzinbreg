@@ -12,7 +12,6 @@
 
 stubbed <- c(
   # provisional extras
-  "anova.nbreg", "overdispersion_test",
   "vuong_test", "simulate.nbreg", "simulate.zinbreg", "boot_se",
   "expected_counts", "rootogram"
 )
@@ -22,8 +21,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  anova.nbreg = function() anova(nb),
-  overdispersion_test = function() overdispersion_test(nb),
   vuong_test = function() vuong_test(zinb, nb),
   simulate.nbreg = function() simulate(nb),
   simulate.zinbreg = function() simulate(zinb),

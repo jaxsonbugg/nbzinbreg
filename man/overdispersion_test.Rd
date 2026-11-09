@@ -9,28 +9,66 @@ overdispersion_test(object, ...)
 \arguments{
 \item{object}{An \code{nbreg} fit.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used (an error if supplied).}
 }
 \value{
-Once implemented, an object of class \code{htest}.
+An object of class \code{htest} with the statistic \code{LR}, the
+\code{p.value}, the estimate of \code{theta}, the null value \code{theta = Inf}, and a
+\code{note} (also shown in \code{method}) when one of the special cases applies.
 }
 \description{
 Tests whether the negative binomial model fits better than the Poisson
-model, which is its limit as \code{theta} goes to infinity. Because that null
-value lies on the boundary of the parameter space, the likelihood-ratio
-statistic is referred to an equal mixture of a point mass at zero and a
-chi-squared distribution with one degree of freedom, which halves the
-usual p-value.
-
-\strong{Not yet implemented.} This function is a documented stub; it signals an
-error of class \code{nbzinbreg_not_implemented}.
+model, which is its limit as \code{theta} goes to infinity. The Poisson model is
+refitted (by IRLS, with the same covariates, offset and weights), and the
+likelihood-ratio statistic \code{LR = 2 (loglik_NB - loglik_Poisson)} is
+computed. Because the null value \code{theta = Inf} lies on the boundary of the
+parameter space, \code{LR} is referred to an equal mixture of a point mass at 0
+and a chi-squared distribution with 1 degree of freedom, so the p-value is
+half the usual one: \code{p = P(chisq(1) > LR) / 2}. This is the test of
+\code{pscl::odTest()}.
 }
-\section{Provisional}{
-
-Planned but not yet implemented; the name, arguments and output may
-change. The planned reference for testing is \code{pscl::odTest()}.
+\details{
+\strong{\code{theta} on its upper bound.} The fit keeps \code{theta} below \code{theta_max}
+(1e8 by default), a computational bound, not the true limit. If the fit
+ended there:
+\itemize{
+\item if the NB log-likelihood equals the Poisson one (within
+\verb{1e-6 * (|loglik| + 1)}) and still rises toward the bound, the fit is at
+the Poisson limit: \code{LR = 0} and \code{p = 0.5}, with a note;
+\item otherwise the bound cuts off a real improvement: \code{LR} is reported at
+\code{theta_max}, but the p-value is \code{NA}, with an
+\code{nbzinbreg_warning_theta} asking for a larger \code{theta_max}.
 }
 
+\strong{\code{theta} on its lower bound.} \code{LR} is then a lower bound for the true
+statistic, so the p-value is an upper bound. It is reported with a note and
+an \code{nbzinbreg_warning_theta}.
+
+\strong{A negative statistic} beyond rounding is impossible at the maxima. The
+NB model is then refitted from the Poisson estimates; if that beats the
+stored fit, the fit is not at its maximum and an \code{nbzinbreg_error_fit} is
+raised.
+}
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}: \code{object} is not an \code{nbreg} fit (for a \code{zinbreg}
+fit the zero-inflated Poisson comparison is not available), or unused
+arguments.
+\item \code{nbzinbreg_error_fit}: the Poisson fit failed or did not converge, or the
+NB fit is not at its maximum.
+\item \code{nbzinbreg_warning_theta}: \code{theta} on a bound (see above).
+\item \code{nbzinbreg_warning_convergence}: the NB fit had not converged.
+}
+}
+
+\examples{
+if (requireNamespace("pscl", quietly = TRUE)) {
+  data("bioChemists", package = "pscl")
+  fit <- nbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+  overdispersion_test(fit)
+}
+}
 \seealso{
 \code{\link[=anova.nbreg]{anova.nbreg()}}, \code{\link[=vuong_test]{vuong_test()}}
 }
