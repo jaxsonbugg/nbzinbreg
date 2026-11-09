@@ -222,20 +222,34 @@ test_that("a broken M-step is caught by the generalized-EM checks", {
   expect_true(all(em$violations$decrease > 0))
 })
 
-test_that("non-converged M-steps are counted, and the final ones recorded", {
+test_that("M-steps that stop early are counted, and EM still converges", {
   d <- sim_zinb()
   full <- run_em(y ~ x | x, d)
+  # one NB pass per M-step: unconverged mid-run, converged at the end
   weak_nb <- run_em(y ~ x | x, d, zinbreg_control(
     nb_control = nbreg_control(tol = 1e-10, maxit = 1)))
   expect_gt(weak_nb$mstep_status[["count_not_converged"]], 0L)
   expect_gt(weak_nb$mstep_status[["count_maxit"]], 0L)
-  expect_false(weak_nb$final$count_converged)
-  # EM still reaches the same maximum (generalized EM)
+  expect_true(weak_nb$criteria_met)
+  expect_true(weak_nb$final$count_converged)
   expect_equal(weak_nb$loglik, full$loglik, tolerance = 1e-6)
   weak_zero <- run_em(y ~ x | x, d, zinbreg_control(zero_maxit = 1))
   expect_gt(weak_zero$mstep_status[["zero_not_converged"]], 0L)
-  expect_false(weak_zero$final$zero_converged)
+  expect_true(weak_zero$final$zero_converged)
   expect_equal(weak_zero$loglik, full$loglik, tolerance = 1e-6)
+})
+
+test_that("an M-step that has not converged in the final iteration is recorded", {
+  d <- sim_zinb()
+  # tolerances the one-round M-steps can never meet
+  nb_never <- run_em(y ~ x | x, d, zinbreg_control(
+    nb_control = nbreg_control(tol = 1e-15, maxit = 1)))
+  expect_false(nb_never$final$count_converged)
+  expect_true(nb_never$final$zero_converged)
+  zero_never <- run_em(y ~ x | x, d, zinbreg_control(zero_maxit = 1,
+                                                     zero_tol = 1e-15))
+  expect_false(zero_never$final$zero_converged)
+  expect_true(zero_never$final$count_converged)
 })
 
 test_that("reaching maxit leaves the EM criteria unmet", {

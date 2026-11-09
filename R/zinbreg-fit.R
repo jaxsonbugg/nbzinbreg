@@ -585,10 +585,15 @@ zinb_structural <- function(X, Z, y, w) {
 #     monotone_tol * (|loglik| + 1).
 # Violations are recorded (with the iteration and the size of the decrease).
 #
-# Stopping: the relative change in the log-likelihood is below tol and the
+# Stopping: the relative change in the log-likelihood is below tol, the
 # relative changes in the free count and zero coefficients and the change in
-# log(theta) are below sqrt(tol) (a stalled iteration, which changes
-# nothing, meets these too; the M-step flags then show why it stalled).
+# log(theta) are below sqrt(tol), AND the gradient check passes (Newton
+# decrement <= grad_tol; see gradient_check()). EM converges linearly, so
+# small changes between iterations do not by themselves mean the maximum is
+# near; while the gradient check fails, EM simply continues. If the check is
+# unavailable (-H not positive definite), EM stops and the check is reported
+# as unavailable. A stalled iteration, which changes nothing, meets the
+# change criteria too; the M-step flags then show why it stalled.
 #
 # Returns the estimates and every flag; zinbreg() decides what to report.
 zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
@@ -637,10 +642,14 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
     }
     v
   }
+  structural <- zinb_structural(X, Z, y, w)
   loglik_trace <- ll
   states <- list(list(beta = beta, gamma = gamma, ll = ll))
   criteria_met <- FALSE
   final <- NULL
+  grad <- NULL
+  grad_iter <- NA_integer_
+  grad_evals <- 0L
   it <- 0L
 
   for (it in seq_len(control$maxit)) {
@@ -738,16 +747,54 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
 
     if (rel_ll < tol && dphi < sqrt(tol) &&
         all(rel_b[keep_b] < sqrt(tol)) && all(rel_g[keep_g] < sqrt(tol))) {
-      criteria_met <- TRUE
-      break
+      grad <- zinb_gradient_status(
+        X, Z, y, offset, offset_zero, w, beta, gamma, theta,
+        list(count = frozen_count, zero = frozen_zero), structural,
+        cs$theta_bound, control$grad_tol)
+      grad_iter <- it
+      grad_evals <- grad_evals + 1L
+      if (control$trace) {
+        message(sprintf(
+          "zinbreg EM iteration %d: gradient check %s (Newton decrement %s)",
+          it, if (grad$ok) "passed" else if (grad$available) "not yet passed"
+          else "unavailable", format(signif(grad$decrement, 3))))
+      }
+      if (grad$ok || !grad$available) {
+        criteria_met <- TRUE
+        break
+      }
     }
+  }
+
+  frozen <- list(count = frozen_count, zero = frozen_zero)
+  theta_bound <- if (is.null(final)) "none" else final$theta_bound
+  if (is.null(grad) || !identical(grad_iter, it)) {
+    grad <- zinb_gradient_status(X, Z, y, offset, offset_zero, w, beta, gamma,
+                                 theta, frozen, structural, theta_bound,
+                                 control$grad_tol)
   }
 
   list(beta = beta, gamma = gamma, theta = theta, loglik = ll,
        eta = eta, zeta = zeta, tau = zinb_e_step(y, eta, zeta, theta, w)$tau,
        iter = it, criteria_met = criteria_met, final = final,
-       mstep_status = status, violations = violations,
-       frozen = list(count = frozen_count, zero = frozen_zero),
-       start_method = st$method, start_diverging = st$start_diverging,
-       loglik_trace = loglik_trace)
+       theta_bound = theta_bound, mstep_status = status,
+       violations = violations, frozen = frozen, structural = structural,
+       zero_collapsed = zero_part_collapsed(zeta, w), gradient = grad,
+       gradient_evaluations = grad_evals, start_method = st$method,
+       start_diverging = st$start_diverging, loglik_trace = loglik_trace)
+}
+
+# The gradient check at the current estimates, over the parameters that are
+# not excluded (see zinb_excluded()). Returns the check together with the
+# gradient, the Hessian and the excluded parameter names.
+zinb_gradient_status <- function(X, Z, y, offset, offset_zero, w, beta, gamma,
+                                 theta, frozen, structural, theta_bound,
+                                 grad_tol) {
+  dv <- zinb_derivs(X, Z, y, offset, offset_zero, w, beta, gamma, theta)
+  excluded <- zinb_excluded(X, Z, frozen, structural,
+                            lin_pred(Z, gamma, offset_zero), w, theta_bound)
+  keep <- !(names(dv$gradient) %in% excluded)
+  chk <- gradient_check(dv$gradient, dv$hessian, keep, grad_tol)
+  c(chk, list(gradient = dv$gradient, hessian = dv$hessian,
+              excluded = excluded))
 }

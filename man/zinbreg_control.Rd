@@ -12,7 +12,7 @@ zinbreg_control(
   hessian = c("analytic", "numeric"),
   hessian_check = FALSE,
   monotone_tol = 1e-08,
-  grad_tol = 1e-06,
+  grad_tol = 1e-08,
   zero_tol = 1e-10,
   zero_maxit = 50,
   nb_control = nbreg_control(tol = 1e-10)
@@ -24,7 +24,9 @@ relative change in the observed-data log-likelihood,
 \code{abs(new - old) / (abs(old) + 0.1)}, is below \code{tol} \strong{and} the relative
 changes in the count coefficients, the zero coefficients and the change
 in \code{log(theta)} are below \code{sqrt(tol)}, \strong{and} the gradient check passes
-(see \code{grad_tol}).}
+(see \code{grad_tol}). EM converges slowly when the zero part is poorly
+determined, so small changes between iterations do not by themselves
+show that the maximum has been reached; the gradient check does.}
 
 \item{maxit}{Maximum number of EM iterations. Reaching it gives a warning
 and \code{converged = FALSE}.}
@@ -52,12 +54,13 @@ reported (with a warning of class \code{nbzinbreg_warning_monotone}) only if it
 is larger than \code{monotone_tol * (abs(value) + 1)}, which allows for
 rounding error.}
 
-\item{grad_tol}{Threshold for the gradient check at termination. The
-Newton decrement \eqn{g^\top (-H)^{-1} g} of the observed-data
-log-likelihood (with \code{g} its gradient and \code{H} its Hessian) must be below
-\code{grad_tol}; half of it approximates the log-likelihood that could still
-be gained. The default \code{1e-6} means the estimates are within about 0.001
-standard errors of the maximum.}
+\item{grad_tol}{Threshold for the gradient check. The Newton decrement
+\eqn{\delta = g^\top (-H)^{-1} g} of the observed-data log-likelihood
+(with \code{g} its gradient and \code{H} its Hessian, both analytic) must be at
+most \code{grad_tol}: half of it approximates the log-likelihood that could
+still be gained, and every estimate is within \eqn{\sqrt{\delta}}
+standard errors of the maximum. EM keeps iterating while the check
+fails. The default \code{1e-8} means within 0.0001 standard errors.}
 
 \item{zero_tol, zero_maxit}{Tolerance and maximum number of rounds for the
 logistic IRLS M-step of the zero part. It stops when the relative change

@@ -108,7 +108,9 @@ nbreg_control <- function(tol = 1e-8, maxit = 100, trace = FALSE,
 #'   `abs(new - old) / (abs(old) + 0.1)`, is below `tol` **and** the relative
 #'   changes in the count coefficients, the zero coefficients and the change
 #'   in `log(theta)` are below `sqrt(tol)`, **and** the gradient check passes
-#'   (see `grad_tol`).
+#'   (see `grad_tol`). EM converges slowly when the zero part is poorly
+#'   determined, so small changes between iterations do not by themselves
+#'   show that the maximum has been reached; the gradient check does.
 #' @param maxit Maximum number of EM iterations. Reaching it gives a warning
 #'   and `converged = FALSE`.
 #' @param trace Logical; if `TRUE`, print one line of progress per EM
@@ -129,12 +131,13 @@ nbreg_control <- function(tol = 1e-8, maxit = 100, trace = FALSE,
 #'   reported (with a warning of class `nbzinbreg_warning_monotone`) only if it
 #'   is larger than `monotone_tol * (abs(value) + 1)`, which allows for
 #'   rounding error.
-#' @param grad_tol Threshold for the gradient check at termination. The
-#'   Newton decrement \eqn{g^\top (-H)^{-1} g} of the observed-data
-#'   log-likelihood (with `g` its gradient and `H` its Hessian) must be below
-#'   `grad_tol`; half of it approximates the log-likelihood that could still
-#'   be gained. The default `1e-6` means the estimates are within about 0.001
-#'   standard errors of the maximum.
+#' @param grad_tol Threshold for the gradient check. The Newton decrement
+#'   \eqn{\delta = g^\top (-H)^{-1} g} of the observed-data log-likelihood
+#'   (with `g` its gradient and `H` its Hessian, both analytic) must be at
+#'   most `grad_tol`: half of it approximates the log-likelihood that could
+#'   still be gained, and every estimate is within \eqn{\sqrt{\delta}}
+#'   standard errors of the maximum. EM keeps iterating while the check
+#'   fails. The default `1e-8` means within 0.0001 standard errors.
 #' @param zero_tol,zero_maxit Tolerance and maximum number of rounds for the
 #'   logistic IRLS M-step of the zero part. It stops when the relative change
 #'   in its objective is below `zero_tol` and the relative change in the zero
@@ -158,7 +161,7 @@ zinbreg_control <- function(tol = 1e-8, maxit = 5000, trace = FALSE,
                             start = NULL,
                             hessian = c("analytic", "numeric"),
                             hessian_check = FALSE, monotone_tol = 1e-8,
-                            grad_tol = 1e-6, zero_tol = 1e-10,
+                            grad_tol = 1e-8, zero_tol = 1e-10,
                             zero_maxit = 50,
                             nb_control = nbreg_control(tol = 1e-10)) {
   check_tolerance(tol, "tol")
