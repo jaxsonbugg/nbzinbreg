@@ -169,7 +169,7 @@ Timing: bioChemists 0.10 s (`glm.nb` 0.06 s); NMES1988 0.22 s (`glm.nb` 0.15 s).
 - Coefficients detected as diverging are held fixed for the rest of EM. Otherwise a vanishing column made the count M-step's weighted design singular. Their SEs are NA.
 - A formula without `|` copies the whole right-hand side, `offset()` terms included, into the zero part, as `pscl::zeroinfl()` does; checked against zeroinfl for all three offset styles.
 
-**Reference investigation: `zeroinfl(weights = )` (recorded as the plan requires; needs the owner's agreement).**
+**Reference investigation: `zeroinfl(weights = )` (recorded as the plan requires; agreed by the owner, see below).**
 With integer weights 1 to 3 on bioChemists (`art ~ fem + mar + kid5 + ment | ment`, seed 7), `zinbreg()` and `zeroinfl()` differed by 0.03 in coefficients and 0.009 in SEs. The tolerance was not relaxed; the procedure was followed:
 1. Convergence: both report it (zeroinfl optim code 0; our Newton decrement 8.7e-9). Our log-likelihood is 0.205 higher.
 2. Definitions: our `zinb_loglik()` at zeroinfl's estimates gives exactly zeroinfl's log-likelihood (-3051.294).
@@ -178,8 +178,26 @@ With integer weights 1 to 3 on bioChemists (`art ~ fem + mar + kid5 + ment | men
 
 **Conclusion:** zeroinfl's weighted fit stops at a point that is not a maximum; our estimates are the maximum. With frequency weights the weighted likelihood equals the likelihood of the data with each row repeated w times. `zeroinfl()` on the repeated rows agrees with `zinbreg()` to 1e-5 in coefficients and 4e-6 in SEs. The weights reference test therefore uses the repeated-rows fit, with the 1e-3 tolerances unchanged.
 
+**Owner decision (2026-11-09):** agreed. For integer frequency weights, the reference is `zeroinfl()` on the repeated rows. This covers integer weights only; fractional weights have no repeated-rows equivalent, and no zeroinfl reference is claimed for them.
+
 **Problems caught along the way:**
 - The first EM-level drift check flagged the bioChemists zero intercept during ordinary slow convergence. Rows with pi of about 1e-30 (high `ment`) moved because of another coefficient. Movement is now credited only to the candidate coefficients, and steps must not be shrinking.
 - `tau - pi` was computed as 0 when both round to 1, which stalled a coefficient at about 40. 1 - tau is now carried accurately.
 - A very negative start for a group with positive counts left the count M-step stuck (log-likelihood -678.2 instead of -340.9). A restart from the NB engine's own start fixes it.
 - `paste0("count_", character(0))` returned `"count_"`, which put stray names into the excluded-parameter list. The analytic Hessian was symmetric only to 4e-15; it is now exactly symmetric.
+- `predict(type = "prob", at = )` (commit 5): pscl's `predict.zeroinfl()` assumes the first value of `at` is 0. With `at = c(5, 0, 2)` its own result is off by up to 0.23 from the matching columns of its default `0:max(y)` matrix. Ours computes each column from its own k. The test of non-consecutive and out-of-order `at` therefore compares with the matching columns of pscl's full matrix, which agree to 7e-7.
+
+**Gate A (commit 5):**
+- `devtools::test()`: 1109 passed, 0 failed, 1 skipped (the provisional extras).
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check --no-manual`: Status: OK.
+- Side by side with `zeroinfl(reltol = 1e-12)`, `zinbreg()` at its default settings (maximum absolute differences):
+
+| Data | Hessian | coefficients | SEs | log theta | SE(log theta) | log-likelihood | Newton decrement | EM iterations | time (zeroinfl) |
+|---|---|---|---|---|---|---|---|---|---|
+| bioChemists | analytic | 4.8e-5 | 2.8e-5 | 4.0e-6 | 1.2e-6 | 4e-9 | 8.5e-9 | 123 | 4.6 s (0.5 s) |
+| bioChemists | numeric | 4.8e-5 | 2.8e-5 | 4.0e-6 | 1.2e-6 | 4e-9 | 8.5e-9 | 123 | 4.9 s |
+| NMES1988 | analytic | 1.4e-5 | 6.4e-6 | 2.3e-6 | 7.3e-8 | 3e-9 | 7.6e-9 | 57 | 6.6 s (2.0 s) |
+| NMES1988 | numeric | 1.4e-5 | 6.4e-6 | 2.3e-6 | 7.3e-8 | 3e-9 | 7.6e-9 | 57 | 12.1 s |
+| required | | 1e-3 | 1e-3 | 1e-3 | 1e-3 | 1e-3 | | | |
+
+Every fit converged. Our log-likelihood is lower by only a few times 1e-9, so it is within `grad_tol` of zeroinfl's maximum. Timings are from one run on the development laptop and vary between runs. EM with full IRLS M-steps is several times slower than zeroinfl's BFGS; most of the time is spent in `dnbinom()` within the NB M-step.

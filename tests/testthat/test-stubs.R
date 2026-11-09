@@ -11,10 +11,6 @@
 # list and the code disagree, so a forgotten update cannot slip through.
 
 stubbed <- c(
-  # required methods, zinbreg
-  "print.zinbreg", "summary.zinbreg", "print.summary.zinbreg",
-  "coef.zinbreg", "vcov.zinbreg", "logLik.zinbreg", "fitted.zinbreg",
-  "residuals.zinbreg", "nobs.zinbreg", "predict.zinbreg",
   # provisional extras
   "confint.nbreg", "confint.zinbreg", "anova.nbreg", "overdispersion_test",
   "vuong_test", "simulate.nbreg", "simulate.zinbreg", "boot_se",
@@ -27,16 +23,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  print.zinbreg = function() print(zinb),
-  summary.zinbreg = function() summary(zinb),
-  print.summary.zinbreg = function() print(structure(list(), class = "summary.zinbreg")),
-  coef.zinbreg = function() coef(zinb),
-  vcov.zinbreg = function() vcov(zinb),
-  logLik.zinbreg = function() logLik(zinb),
-  fitted.zinbreg = function() fitted(zinb),
-  residuals.zinbreg = function() residuals(zinb),
-  nobs.zinbreg = function() nobs(zinb),
-  predict.zinbreg = function() predict(zinb),
   confint.nbreg = function() confint(nb),
   confint.zinbreg = function() confint(zinb),
   anova.nbreg = function() anova(nb),

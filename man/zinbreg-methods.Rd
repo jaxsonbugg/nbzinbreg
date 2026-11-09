@@ -38,6 +38,7 @@
   type = c("response", "count", "zero", "prob"),
   se.fit = FALSE,
   at = NULL,
+  offset = NULL,
   ...
 )
 }
@@ -47,32 +48,48 @@ summary).}
 
 \item{digits}{Number of significant digits to print.}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used.}
 
-\item{model}{For \code{coef()} and \code{vcov()}: \code{"full"} (both parts), \code{"count"}
-or \code{"zero"} (provisional).}
+\item{model}{For \code{coef()} and \code{vcov()}: \code{"full"} (both parts, with names
+\verb{count_*} and \verb{zero_*}), \code{"count"} or \code{"zero"} (one part, without the
+prefix), as in \code{pscl::zeroinfl()}.}
 
-\item{type}{For \code{residuals()}: \code{"response"} or \code{"pearson"}. For
-\code{predict()}: \code{"response"} (the overall mean \eqn{(1 - \pi)\mu}), \code{"count"}
-(the count-part mean \eqn{\mu}), \code{"zero"} (the structural-zero
-probability \eqn{\pi}), or \code{"prob"} (the probabilities
-\eqn{P(Y = k)}, provisional).}
+\item{type}{For \code{residuals()}: \code{"response"} (\eqn{y - \hat f}, with the
+fitted mean \eqn{\hat f = (1 - \hat\pi)\hat\mu}) or \code{"pearson"} (the
+response residual times the square root of the prior weight, divided by
+the estimated standard deviation
+\eqn{\sqrt{\hat f (1 + (\hat\pi + 1/\hat\theta)\hat\mu)}}). For
+\code{predict()}: \code{"response"} (the mean \eqn{(1 - \pi)\mu}), \code{"count"} (the
+count-part mean \eqn{\mu}), \code{"zero"} (the structural-zero probability
+\eqn{\pi}), or \code{"prob"} (the probabilities \eqn{P(Y = k)} for the counts
+in \code{at}).}
 
-\item{newdata}{Optional data frame of new covariate values for
-\code{predict()}; by default the fitted data are used.}
+\item{newdata}{Optional data frame of covariate values for \code{predict()}. If
+omitted, predictions are for the data used in the fit.}
 
 \item{se.fit}{Logical; if \code{TRUE}, \code{predict()} also returns standard errors
-(provisional).}
+by the delta method (not for \code{type = "prob"}). They use the covariance
+matrix of the count and zero coefficients; \code{theta} does not enter these
+predictions. They are \code{NA} for rows that involve a coefficient without a
+finite estimate.}
 
-\item{at}{For \code{type = "prob"}: the counts \eqn{k} at which to evaluate
-\eqn{P(Y = k)} (provisional).}
+\item{at}{For \code{type = "prob"}: the counts \eqn{k} (non-negative whole
+numbers, without duplicates, in any order) at which to evaluate
+\eqn{P(Y = k)}; the columns of the result follow this order. The default
+is \code{0:max(y)}, with \code{y} the response of the fit.}
+
+\item{offset}{For \code{predict()} with \code{newdata}, only when the model was
+fitted with the \code{offset} argument: the count-part offset for the new
+rows. Offsets written as \code{offset()} terms in either part of the formula
+are always taken from \code{newdata}.}
 }
 \value{
-Once implemented: \code{coef()} a named vector, \code{vcov()} a matrix,
-\code{logLik()} an object of class \code{logLik}, \code{fitted()} and \code{residuals()}
-numeric vectors, \code{nobs()} an integer, \code{predict()} a numeric vector (or a
-matrix for \code{type = "prob"}), and \code{summary()} an object of class
-\code{summary.zinbreg}.
+\code{coef()} a named vector; \code{vcov()} a matrix; \code{logLik()} an object
+of class \code{logLik}; \code{fitted()} and \code{residuals()} numeric vectors; \code{nobs()}
+the number of observations with positive weight; \code{predict()} a numeric
+vector (a matrix for \code{type = "prob"}), or with \code{se.fit = TRUE} a list
+with elements \code{fit} and \code{se.fit}; \code{summary()} an object of class
+\code{summary.zinbreg}; the print methods return their argument invisibly.
 }
 \description{
 Standard methods for objects returned by \code{\link[=zinbreg]{zinbreg()}}: printing, summaries
@@ -80,17 +97,39 @@ with coefficient tables for the count and zero parts, extracting
 coefficients, the variance-covariance matrix, the log-likelihood (with a
 \code{df} attribute, so \code{AIC()} and \code{BIC()} work), fitted values, residuals, the
 number of observations, and predictions.
-
-\strong{Not yet implemented.} These methods are documented stubs; each signals
-an error of class \code{nbzinbreg_not_implemented}.
 }
-\section{Provisional}{
+\details{
+Fitted values, residuals and predictions for the fitted data follow
+\code{na.action}: with \code{\link[stats:na.fail]{stats::na.exclude()}} they are padded with \code{NA} to the
+length of the original data.
 
-The \code{model} argument of \code{coef()} and \code{vcov()}, and the \code{se.fit}, \code{at} and
-\code{type = "prob"} options of \code{predict()}, are provisional. The other methods
-and arguments are part of the required interface.
+With \code{type = "prob"}, the result has one row per observation and one
+column per value of \code{at}. To protect against an enormous allocation (for
+example when the largest count in the data is huge), a result with more
+than 10 million cells (about 80 MB) is refused with an error that suggests
+an explicit \code{at}.
+
+For new data, the count-part offset follows the rules of
+\link[=nbreg-methods]{predict.nbreg()}: \code{offset()} terms are evaluated in
+\code{newdata}; an \code{offset} argument used in the fit is re-evaluated in
+\code{newdata} when its expression refers to a \code{newdata} column, and must
+otherwise be supplied with \verb{offset =}. All offsets must be finite.
 }
-
+\examples{
+if (requireNamespace("pscl", quietly = TRUE)) {
+  data("bioChemists", package = "pscl")
+  fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
+                 data = bioChemists)
+  fit
+  summary(fit)
+  coef(fit, model = "zero")
+  AIC(fit)
+  nd <- data.frame(fem = "Women", mar = "Married", kid5 = 0, phd = 3,
+                   ment = c(0, 10))
+  predict(fit, newdata = nd, type = "response", se.fit = TRUE)
+  predict(fit, newdata = nd, type = "prob", at = 0:3)
+}
+}
 \seealso{
 \code{\link[=zinbreg]{zinbreg()}}
 }

@@ -173,9 +173,8 @@
 #'   data("bioChemists", package = "pscl")
 #'   fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
 #'                  data = bioChemists)
-#'   fit$coefficients
-#'   fit$theta
-#'   fit$loglik
+#'   fit
+#'   summary(fit)
 #' }
 #' @export
 zinbreg <- function(formula, data, offset = NULL, control = zinbreg_control(),

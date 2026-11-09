@@ -245,10 +245,267 @@ test_that("the methods reject invalid arguments", {
                class = "nbzinbreg_error_input")
 })
 
-# ---- zinbreg ------------------------------------------------------------------
+# ---- zinbreg: against pscl::zeroinfl() ------------------------------------------
 
-test_that("zinbreg methods return the documented objects", {
-  skip("planned: zinbreg() implementation phase")
-  # Planned cases: as for nbreg, plus predict() types "count", "zero",
-  # and the coefficient tables for both parts.
+# One fit and its zeroinfl() reference, computed once for the zinbreg tests.
+zi_cache <- NULL
+zi_fits <- function() {
+  skip_if_not_installed("pscl")
+  if (is.null(zi_cache)) {
+    bc <- load_biochemists()
+    f <- art ~ fem + mar + kid5 + phd + ment | ment
+    zi_cache <<- list(
+      data = bc, formula = f, fit = zinbreg(f, data = bc),
+      ref = pscl::zeroinfl(f, data = bc, dist = "negbin",
+                           control = pscl::zeroinfl.control(reltol = 1e-12)))
+  }
+  zi_cache
+}
+
+test_that("zinbreg extractors agree with zeroinfl()", {
+  m <- zi_fits()
+  for (model in c("full", "count", "zero")) {
+    expect_identical(names(coef(m$fit, model = model)),
+                     names(stats::coef(m$ref, model = model)))
+    expect_close(coef(m$fit, model = model),
+                 stats::coef(m$ref, model = model), 1e-4)
+    expect_identical(dimnames(vcov(m$fit, model = model)),
+                     dimnames(stats::vcov(m$ref, model = model)))
+    expect_close(vcov(m$fit, model = model),
+                 stats::vcov(m$ref, model = model), 1e-4)
+  }
+  expect_identical(coef(m$fit), coef(m$fit, model = "full"))
+  ll <- logLik(m$fit)
+  expect_s3_class(ll, "logLik")
+  expect_identical(attr(ll, "df"), attr(stats::logLik(m$ref), "df"))
+  expect_identical(attr(ll, "nobs"), nrow(m$data))
+  expect_close(as.numeric(ll), as.numeric(stats::logLik(m$ref)), 1e-4)
+  expect_close(stats::AIC(m$fit), stats::AIC(m$ref), 1e-3)
+  expect_close(stats::BIC(m$fit), stats::BIC(m$ref), 1e-3)
+  expect_identical(nobs(m$fit), nrow(m$data))
+  expect_close(fitted(m$fit), stats::fitted(m$ref), 1e-4)
+  expect_identical(names(fitted(m$fit)), names(stats::fitted(m$ref)))
+  expect_close(residuals(m$fit), stats::residuals(m$ref, type = "response"),
+               1e-4)
+  expect_close(residuals(m$fit, type = "pearson"),
+               stats::residuals(m$ref, type = "pearson"), 1e-4)
+})
+
+test_that("zinbreg predictions agree with zeroinfl()", {
+  m <- zi_fits()
+  nd <- m$data[c(1, 50, 300, 700), ]
+  for (type in c("response", "count", "zero")) {
+    expect_close(predict(m$fit, newdata = nd, type = type),
+                 stats::predict(m$ref, newdata = nd, type = type), 1e-4)
+  }
+  p <- predict(m$fit, newdata = nd, type = "prob")
+  r <- stats::predict(m$ref, newdata = nd, type = "prob")
+  expect_identical(dimnames(p), dimnames(r))
+  expect_close(p, r, 1e-4)
+  # without newdata: the fitted quantities
+  expect_identical(predict(m$fit), m$fit$fitted.values)
+  expect_identical(predict(m$fit, type = "count"), m$fit$mu)
+  expect_identical(predict(m$fit, type = "zero"), m$fit$pi)
+  expect_identical(dim(predict(m$fit, type = "prob")),
+                   c(nrow(m$data), max(m$data$art) + 1L))
+})
+
+test_that("type = 'prob' handles non-consecutive and out-of-order counts", {
+  m <- zi_fits()
+  nd <- m$data[c(2, 40, 600), ]
+  full <- stats::predict(m$ref, newdata = nd, type = "prob")
+  for (at in list(c(5, 0, 2), c(1, 3, 7), 4)) {
+    p <- predict(m$fit, newdata = nd, type = "prob", at = at)
+    # columns follow `at`, named by the count
+    expect_identical(colnames(p), as.character(at))
+    expect_close(p, full[, as.character(at), drop = FALSE], 1e-4)
+  }
+  # zeroinfl()'s own `at` assumes the first value is 0 (investigated); the
+  # comparison above uses the columns of its full 0:max(y) matrix instead
+  expect_equal(predict(m$fit, nd, type = "prob", at = c(0, 1, 2)),
+               predict(m$fit, nd, type = "prob", at = c(2, 0, 1))[, c("0", "1", "2")])
+})
+
+test_that("type = 'prob' checks `at` and refuses an enormous result", {
+  m <- zi_fits()
+  fit <- m$fit
+  nd <- m$data[1:3, ]
+  bad_at <- list(c(1, 1), c(-1, 2), c(0.5, 2), c(NA, 1), "1", numeric(),
+                 c(1, Inf))
+  for (at in bad_at) {
+    expect_error(predict(fit, nd, type = "prob", at = at),
+                 class = "nbzinbreg_error_input", regexp = "`at`")
+  }
+  expect_error(predict(fit, nd, type = "prob", at = c(2, 5, 2)),
+               class = "nbzinbreg_error_input", regexp = "duplicated values: 2")
+  expect_error(predict(fit, nd, type = "response", at = 0:2),
+               class = "nbzinbreg_error_input",
+               regexp = "only used with `type = \"prob\"`")
+  expect_error(predict(fit, nd, type = "prob", se.fit = TRUE),
+               class = "nbzinbreg_error_input", regexp = "not available")
+  # a fit whose largest count is huge: the default at = 0:max(y) would need
+  # 915 x 1e9 cells, so it is refused before anything is allocated
+  huge <- fit
+  huge$y[1] <- 1e9
+  expect_error(predict(huge, type = "prob"), class = "nbzinbreg_error_input",
+               regexp = "limit of 1e7 cells.*largest count.*1,000,000,000.*`at = 0:10`")
+  expect_error(predict(fit, type = "prob", at = 0:20000),
+               class = "nbzinbreg_error_input", regexp = "limit of 1e7 cells")
+  expect_identical(dim(predict(huge, type = "prob", at = 0:3)),
+                   c(nrow(m$data), 4L))
+})
+
+test_that("predict(se.fit = TRUE) is the delta method", {
+  m <- zi_fits()
+  fit <- m$fit
+  nd <- m$data[c(3, 30, 500), ]
+  X <- stats::model.matrix(~ fem + mar + kid5 + phd + ment, nd)
+  Z <- stats::model.matrix(~ ment, nd)
+  p <- ncol(X)
+  pred <- function(par, type) {
+    mu <- exp(drop(X %*% par[seq_len(p)]))
+    pi <- stats::plogis(drop(Z %*% par[-seq_len(p)]))
+    switch(type, response = (1 - pi) * mu, count = mu, zero = pi)
+  }
+  par <- c(fit$coefficients$count, fit$coefficients$zero)
+  for (type in c("response", "count", "zero")) {
+    J <- numDeriv::jacobian(pred, par, type = type)
+    se_num <- sqrt(diag(J %*% fit$vcov %*% t(J)))
+    out <- predict(fit, newdata = nd, type = type, se.fit = TRUE)
+    expect_identical(names(out), c("fit", "se.fit"))
+    expect_equal(unname(out$se.fit), se_num, tolerance = 1e-6)
+    expect_identical(names(out$se.fit), rownames(nd))
+  }
+})
+
+test_that("print() and summary() show both parts", {
+  m <- zi_fits()
+  fit <- m$fit
+  expect_output(print(fit), "Zero-inflated negative binomial regression")
+  expect_output(print(fit), "Count coefficients:")
+  expect_output(print(fit), "Zero coefficients:")
+  expect_output(print(fit), "Theta: ")
+  expect_invisible(print(fit))
+  s <- summary(fit)
+  expect_s3_class(s, "summary.zinbreg")
+  expect_identical(rownames(s$coefficients$count),
+                   c(names(fit$coefficients$count), "Log(theta)"))
+  expect_identical(rownames(s$coefficients$zero), names(fit$coefficients$zero))
+  expect_identical(colnames(s$coefficients$zero),
+                   c("Estimate", "Std. Error", "z value", "Pr(>|z|)"))
+  expect_equal(s$coefficients$count["Log(theta)", "Estimate"], log(fit$theta))
+  expect_equal(s$coefficients$count["Log(theta)", "Std. Error"],
+               fit$SE.logtheta)
+  # the tables agree with zeroinfl's summary
+  rs <- summary(m$ref)$coefficients
+  expect_close(s$coefficients$count, rs$count, 1e-3)
+  expect_close(s$coefficients$zero, rs$zero, 1e-3)
+  expect_output(print(s), "Count model coefficients")
+  expect_output(print(s), "Zero-inflation model coefficients")
+  expect_output(print(s), "Gradient check: Newton decrement")
+  expect_output(print(s), "EM iterations: [0-9]+;  converged: yes")
+  expect_output(print(s), "Starting values: count part from negative binomial fit")
+  expect_invisible(print(s))
+})
+
+# ---- zinbreg: offsets, missing values, divergence, errors --------------------------
+
+test_that("zinbreg predictions use the offsets of both parts", {
+  skip_if_not_installed("pscl")
+  bc <- load_biochemists()
+  bc$t <- 1 + (seq_len(nrow(bc)) %% 3)
+  nd <- bc[c(5, 10, 15), ]
+  nd$t <- c(1, 2, 4)
+  ctl <- pscl::zeroinfl.control(reltol = 1e-12)
+  f <- art ~ fem + ment + offset(log(t)) | ment + offset(log(t))
+  fit <- zinbreg(f, data = bc)
+  ref <- pscl::zeroinfl(f, data = bc, dist = "negbin", control = ctl)
+  for (type in c("response", "count", "zero")) {
+    expect_close(predict(fit, nd, type = type),
+                 stats::predict(ref, nd, type = type), 1e-4)
+  }
+  # the offset argument is re-evaluated in newdata
+  f2 <- art ~ fem + ment | ment
+  fit2 <- zinbreg(f2, data = bc, offset = log(t))
+  ref2 <- pscl::zeroinfl(f2, data = bc, offset = log(t), dist = "negbin",
+                         control = ctl)
+  expect_close(predict(fit2, nd), stats::predict(ref2, nd), 1e-4)
+  expect_equal(predict(fit2, nd, offset = log(nd$t)), predict(fit2, nd))
+  # problems with offsets for new rows
+  nd0 <- nd
+  nd0$t[2] <- 0
+  expect_error(predict(fit, nd0), class = "nbzinbreg_error_input",
+               regexp = "count-part `offset\\(\\)` term")
+  fit_zero_only <- zinbreg(art ~ fem + ment | ment + offset(log(t)), data = bc)
+  expect_error(predict(fit_zero_only, nd0), class = "nbzinbreg_error_input",
+               regexp = "zero-part `offset\\(\\)` term")
+  expect_error(predict(fit2, nd[, setdiff(names(nd), "t")]),
+               class = "nbzinbreg_error_input",
+               regexp = "does not refer to any column of `newdata`")
+  expect_error(predict(fit2, offset = 1), class = "nbzinbreg_error_input",
+               regexp = "only used together with `newdata`")
+  expect_error(predict(fit, nd, offset = 1:3), class = "nbzinbreg_error_input",
+               regexp = "fitted without an `offset` argument")
+})
+
+test_that("zinbreg methods follow na.exclude", {
+  skip_if_not_installed("pscl")
+  bc <- load_biochemists()
+  bc$ment[c(4, 9)] <- NA
+  fit <- zinbreg(art ~ fem + ment | ment, data = bc,
+                 na.action = stats::na.exclude)
+  expect_length(fitted(fit), nrow(bc))
+  expect_true(all(is.na(fitted(fit)[c(4, 9)])))
+  expect_length(residuals(fit, type = "pearson"), nrow(bc))
+  expect_length(predict(fit, type = "zero"), nrow(bc))
+  pr <- predict(fit, se.fit = TRUE)
+  expect_length(pr$se.fit, nrow(bc))
+  P <- predict(fit, type = "prob", at = 0:2)
+  expect_identical(dim(P), c(nrow(bc), 3L))
+  expect_true(all(is.na(P[c(4, 9), ])))
+  expect_identical(nobs(fit), nrow(bc) - 2L)
+})
+
+test_that("diverging coefficients have NA standard errors in the methods", {
+  set.seed(1)
+  n <- 400
+  d <- data.frame(x = stats::rnorm(n), g = rep(0:1, each = n / 2))
+  d$y <- ifelse(stats::runif(n) < stats::plogis(-0.5 + 0.8 * d$x), 0,
+                stats::rnbinom(n, size = 2, mu = exp(1 + 0.5 * d$x)))
+  d$y[d$g == 1 & d$y == 0] <- 1   # no zeros in group 1
+  fit <- suppressWarnings(zinbreg(y ~ x | x + g, d))
+  s <- summary(fit)
+  expect_true(is.na(s$coefficients$zero["g", "Std. Error"]))
+  expect_false(anyNA(s$coefficients$zero[c("(Intercept)", "x"), "Std. Error"]))
+  expect_output(print(s), "diverging coefficient\\(s\\) `zero_g`")
+  nd <- data.frame(x = c(0, 0), g = c(0, 1))
+  se <- predict(fit, nd, type = "zero", se.fit = TRUE)$se.fit
+  expect_false(is.na(se[1]))     # group 0 does not involve zero_g
+  expect_true(is.na(se[2]))      # group 1 does
+  se_count <- predict(fit, nd, type = "count", se.fit = TRUE)$se.fit
+  expect_false(anyNA(se_count))  # the count part does not involve it
+})
+
+test_that("zinbreg methods reject invalid arguments", {
+  m <- zi_fits()
+  fit <- m$fit
+  expect_error(coef(fit, model = "both"), class = "nbzinbreg_error_input",
+               regexp = "`model` must be one of")
+  expect_error(vcov(fit, model = 1), class = "nbzinbreg_error_input")
+  expect_error(residuals(fit, type = "deviance"),
+               class = "nbzinbreg_error_input", regexp = "`type` must be one of")
+  expect_error(predict(fit, type = "link"), class = "nbzinbreg_error_input",
+               regexp = "\"response\" or \"count\" or \"zero\" or \"prob\"")
+  expect_error(predict(fit, se.fit = "yes"), class = "nbzinbreg_error_input")
+  expect_error(predict(fit, newdata = as.matrix(m$data)),
+               class = "nbzinbreg_error_input",
+               regexp = "`newdata` must be a data frame")
+  expect_error(predict(fit, newdata = m$data[, c("fem", "mar")]),
+               class = "nbzinbreg_error_input", regexp = "missing from `newdata`")
+  nd <- m$data[1:2, ]
+  nd$fem <- factor(c("Women", "Other"))
+  expect_error(predict(fit, newdata = nd), class = "nbzinbreg_error_input",
+               regexp = "not present when the model was fitted")
+  expect_error(predict(fit, m$data[1:2, ], "response", FALSE, NULL, NULL, 5),
+               class = "nbzinbreg_error_input", regexp = "Unused argument")
 })

@@ -242,15 +242,19 @@ check_choice <- function(x, choices, name) {
 }
 
 # Model matrix for new data, using the factor levels and contrasts of the fit.
-newdata_matrix <- function(object, newdata) {
+# `terms`, `xlevels` and `contrasts` default to those of an nbreg fit; a
+# zinbreg fit passes those of one part.
+newdata_matrix <- function(object, newdata, terms = object$terms,
+                           xlevels = object$xlevels,
+                           contrasts = object$contrasts) {
   if (!is.data.frame(newdata)) {
     abort_nbz(sprintf("`newdata` must be a data frame, not %s.",
                       describe_value(newdata)), "nbzinbreg_error_input")
   }
-  tt <- stats::delete.response(object$terms)
+  tt <- stats::delete.response(terms)
   mf <- tryCatch(
     stats::model.frame(tt, newdata, na.action = stats::na.pass,
-                       xlev = object$xlevels),
+                       xlev = xlevels),
     error = function(e) {
       msg <- conditionMessage(e)
       main <- if (grepl("object '.*' not found", msg)) {
@@ -268,7 +272,7 @@ newdata_matrix <- function(object, newdata) {
     }
   )
   X <- tryCatch(
-    stats::model.matrix(tt, mf, contrasts.arg = object$contrasts),
+    stats::model.matrix(tt, mf, contrasts.arg = contrasts),
     error = function(e) {
       abort_nbz(sprintf(
         "Could not build the model matrix for `newdata`. (Original error: %s)",
@@ -283,8 +287,13 @@ newdata_matrix <- function(object, newdata) {
 # newdata. If the fit used the `offset` argument, its values for the new rows
 # come from `offset =` in predict(), or from re-evaluating the original
 # expression in newdata when it refers to a newdata column; otherwise this is
-# an error, so the fitted offset is never silently reused.
-newdata_offset <- function(object, newdata, X, offset) {
+# an error, so the fitted offset is never silently reused. `env` (where the
+# offset expression is evaluated) and `terms_label` (how the offset() terms
+# are named in messages) default to those of an nbreg fit.
+newdata_offset <- function(object, newdata, X, offset,
+                           env = environment(object$terms),
+                           terms_label =
+                             "The `offset()` term(s) in the formula") {
   n_new <- nrow(newdata)
   mf <- attr(X, "model_frame")
   off <- tryCatch(stats::model.offset(mf), error = function(e) {
@@ -295,7 +304,7 @@ newdata_offset <- function(object, newdata, X, offset) {
   if (is.null(off)) {
     off <- rep(0, n_new)
   } else {
-    check_newdata_offset(off, "The `offset()` term(s) in the formula")
+    check_newdata_offset(off, terms_label)
   }
 
   if (!isTRUE(object$offset_arg_used)) {
@@ -330,7 +339,7 @@ newdata_offset <- function(object, newdata, X, offset) {
       label), "nbzinbreg_error_input")
   }
   value <- tryCatch(
-    eval(expr, newdata, environment(object$terms)),
+    eval(expr, newdata, env),
     error = function(e) {
       abort_nbz(sprintf(paste(
         "The offset expression `%s` could not be evaluated in `newdata`.",
