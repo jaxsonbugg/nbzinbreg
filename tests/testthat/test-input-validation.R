@@ -125,6 +125,12 @@ test_that("nbreg() checks model and control", {
   expect_input_error(nbreg(y ~ x, d, control = list(tolerance = 1)),
                      "Unknown setting.*`tolerance`")
   expect_input_error(nbreg(y ~ x, d, control = list(1e-9)), "must be named")
+  expect_input_error(nbreg(y ~ x, d, control = list(tol = 1e-9, tol = 1e-10)),
+                     "gives setting\\(s\\) `tol` more than once")
+  expect_input_error(
+    nbreg(y ~ x, d, control = list(tol = 1e-9, maxit = 5, tol = 1e-10,
+                                   maxit = 6)),
+    "`tol`, `maxit` more than once")
   expect_input_error(nbreg(y ~ x, d, control = list(tol = 2)),
                      "`tol` must be a number strictly between 0 and 1")
 })

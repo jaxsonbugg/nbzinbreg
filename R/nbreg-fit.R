@@ -174,37 +174,91 @@ theta_start_value <- function(y, mu, w, control) {
 # ---------------------------------------------------------------------------
 
 # digamma(y + theta) - digamma(theta) and trigamma(y + theta) - trigamma(theta).
-# For whole-number y these equal the finite sums sum_{k<y} 1/(theta + k) and
-# -sum_{k<y} 1/(theta + k)^2. Subtracting two nearly equal digamma values
-# loses precision when theta is large, so the sums are used for theta >= 1e5
-# (or when use_sums = TRUE).
-nb_digamma_diffs <- function(y, theta, use_sums = theta >= 1e5) {
+#
+# Subtracting two nearly equal digamma values loses precision when theta is
+# large and y is small relative to it, so for theta >= 1e5 (or when
+# use_sums = TRUE) other forms are used:
+#   * counts up to `max_terms`: the exact finite sums
+#       sum_{k<y} 1/(theta + k)  and  -sum_{k<y} 1/(theta + k)^2,
+#     built once with cumsum() up to the largest such count;
+#   * larger counts: no vector of length y is ever allocated. If theta is
+#     also large (>= 1e5), the asymptotic expansion below is used (both
+#     arguments of digamma are then large, so it is accurate to machine
+#     precision); otherwise y is much larger than theta, there is no
+#     cancellation, and the plain digamma/trigamma difference is accurate.
+nb_digamma_diffs <- function(y, theta, use_sums = theta >= 1e5,
+                             max_terms = 1e5) {
   if (!use_sums) {
     return(list(d1 = digamma(y + theta) - digamma(theta),
                 d2 = trigamma(y + theta) - trigamma(theta)))
   }
-  ymax <- max(y)
-  if (ymax == 0) return(list(d1 = numeric(length(y)), d2 = numeric(length(y))))
-  k <- 0:(ymax - 1)
-  s1 <- c(0, cumsum(1 / (theta + k)))
-  s2 <- c(0, cumsum(1 / (theta + k)^2))
-  list(d1 = s1[y + 1], d2 = -s2[y + 1])
+  d1 <- numeric(length(y))
+  d2 <- numeric(length(y))
+  by_sums <- y > 0 & y <= max_terms
+  if (any(by_sums)) {
+    k <- 0:(max(y[by_sums]) - 1)
+    s1 <- c(0, cumsum(1 / (theta + k)))
+    s2 <- c(0, cumsum(1 / (theta + k)^2))
+    d1[by_sums] <- s1[y[by_sums] + 1]
+    d2[by_sums] <- -s2[y[by_sums] + 1]
+  }
+  large <- y > max_terms
+  if (any(large)) {
+    big <- if (theta >= 1e5) {
+      nb_digamma_diffs_asymptotic(y[large], theta)
+    } else {
+      list(d1 = digamma(y[large] + theta) - digamma(theta),
+           d2 = trigamma(y[large] + theta) - trigamma(theta))
+    }
+    d1[large] <- big$d1
+    d2[large] <- big$d2
+  }
+  list(d1 = d1, d2 = d2)
+}
+
+# Asymptotic (Stirling-type) expansion of the same differences, for large
+# theta. With x = theta and x + y both large,
+#   digamma(x)  ~ log(x) - 1/(2x) - 1/(12x^2) + 1/(120x^4)
+#   trigamma(x) ~ 1/x + 1/(2x^2) + 1/(6x^3) - 1/(30x^5)
+# and the leading differences are written exactly, without cancellation:
+#   log(x + y) - log(x) = log1p(y / x)
+#   1/x - 1/(x + y)     = y / (x (x + y)).
+# For theta >= 1e5 the omitted terms are below 1e-30 relative to the result.
+nb_digamma_diffs_asymptotic <- function(y, theta) {
+  s <- theta + y
+  d1 <- log1p(y / theta) + y / (2 * theta * s) +
+    (1 / theta^2 - 1 / s^2) / 12 - (1 / theta^4 - 1 / s^4) / 120
+  d2 <- -y / (theta * s) - (1 / theta^2 - 1 / s^2) / 2 -
+    (1 / theta^3 - 1 / s^3) / 6 + (1 / theta^5 - 1 / s^5) / 30
+  list(d1 = d1, d2 = d2)
 }
 
 # Slope U and curvature H of the log-likelihood in theta, and the same on the
 # log scale: U_phi = theta * U and H_phi = theta^2 * H + theta * U.
-# Per observation (algebraically equal to the textbook forms, but written to
-# avoid cancellation):
-#   U_i = d1 - log1p(mu / theta) + (mu - y) / (theta + mu)
+# Per observation (algebraically equal to the textbook forms):
+#   U_i = d1 - log(1 + mu / theta) + (mu - y) / (theta + mu)
 #   H_i = d2 + (mu^2 + theta * y) / (theta * (theta + mu)^2)
+# Written so that nothing overflows when mu is very large but finite:
+#   * log(1 + mu/theta) is log1p(mu/theta) when mu <= theta, and
+#     log(mu) - log(theta) + log1p(theta/mu) otherwise (never forms mu/theta
+#     when it could overflow);
+#   * with inv = 1/(theta + mu) and share = mu * inv (between 0 and 1):
+#       (mu - y) / (theta + mu)                  = share - y * inv
+#       (mu^2 + theta y) / (theta (theta + mu)^2) = share^2 / theta + (y * inv) * inv
+#     so mu^2 and (theta + mu)^2 are never formed.
 nb_theta_derivs <- function(y, mu, theta, w) {
   pos <- w > 0
   y <- y[pos]
   mu <- mu[pos]
   w <- w[pos]
   dg <- nb_digamma_diffs(y, theta)
-  U <- sum(w * (dg$d1 - log1p(mu / theta) + (mu - y) / (theta + mu)))
-  H <- sum(w * (dg$d2 + (mu^2 + theta * y) / (theta * (theta + mu)^2)))
+  log_ratio <- log1p(mu / theta)
+  big <- mu > theta
+  log_ratio[big] <- log(mu[big]) - log(theta) + log1p(theta / mu[big])
+  inv <- 1 / (theta + mu)
+  share <- mu * inv
+  U <- sum(w * (dg$d1 - log_ratio + share - y * inv))
+  H <- sum(w * (dg$d2 + share^2 / theta + (y * inv) * inv))
   list(U = U, H = H, U_phi = theta * U, H_phi = theta^2 * H + theta * U)
 }
 

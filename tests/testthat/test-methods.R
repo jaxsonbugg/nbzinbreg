@@ -179,6 +179,33 @@ test_that("a stand-alone offset vector needs offset = in predict()", {
                coef(fit2)[1] + coef(fit2)[2] * 3 + log(2) + 0.4, 1e-12)
 })
 
+test_that("offsets rebuilt for newdata must be finite", {
+  d <- offset_data()
+  term_fit <- nbreg(y ~ x + offset(log(t)), data = d)
+  expect_error(predict(term_fit, newdata = data.frame(x = c(2, 3), t = c(1, 0))),
+               class = "nbzinbreg_error_input",
+               regexp = "`offset\\(\\)` term.*1 missing or non-finite.*row\\(s\\) 2.*-Inf")
+  expect_error(predict(term_fit, newdata = data.frame(x = 2, t = NA)),
+               class = "nbzinbreg_error_input",
+               regexp = "`offset\\(\\)` term.*value\\(s\\) NA")
+  expect_error(predict(term_fit, newdata = data.frame(x = 2, t = NaN)),
+               class = "nbzinbreg_error_input",
+               regexp = "missing or non-finite")
+  expect_error(predict(term_fit, newdata = data.frame(x = 2, t = Inf)),
+               class = "nbzinbreg_error_input",
+               regexp = "missing or non-finite.*Inf")
+  arg_fit <- nbreg(y ~ x, data = d, offset = log(t))
+  expect_error(predict(arg_fit, newdata = data.frame(x = c(2, 3), t = c(0, 2))),
+               class = "nbzinbreg_error_input",
+               regexp = "Re-evaluating the offset `log\\(t\\)`.*row\\(s\\) 1.*-Inf")
+  expect_error(predict(arg_fit, newdata = data.frame(x = 2, t = NA)),
+               class = "nbzinbreg_error_input",
+               regexp = "Re-evaluating the offset.*NA")
+  # finite offsets still work
+  expect_true(all(is.finite(predict(arg_fit,
+                                    newdata = data.frame(x = 2, t = 3)))))
+})
+
 test_that("offset = in predict() is refused when it cannot apply", {
   d <- offset_data()
   fit <- nbreg(y ~ x, data = d)

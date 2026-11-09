@@ -139,3 +139,20 @@ Timing: bioChemists 0.10 s (`glm.nb` 0.06 s); NMES1988 0.22 s (`glm.nb` 0.15 s).
 - A test showed that a zero stored with rounding noise (-1e-10) was rejected as negative before rounding. The negative check now allows rounding error.
 - A probe showed that a character offset produced an unclassed base-R error from `model.offset()`; it is now wrapped.
 - The owner's review caught three more: integer overflow in `check_whole()`, unwrapped `model.matrix()` errors, and edited `nbreg_control` objects being trusted. All three were fixed in follow-up commits with tests.
+
+## 2026-11-08: NB robustness follow-up (from code review)
+
+**Why:** four robustness and validation gaps found in review. None of them affected the estimates on ordinary data; the comparison with `glm.nb()` is unchanged (bioChemists: coefficients 5.6e-8, theta 2.2e-8; NMES1988: coefficients 3.4e-7, theta 7.8e-9). Each problem was reproduced before it was fixed.
+
+1. **Prediction offsets** (`R/methods-nbreg.R`). Offsets rebuilt for `newdata` are now checked to be finite: both formula `offset()` terms evaluated in `newdata`, and an `offset` argument re-evaluated in `newdata`. Before, `NA`, `NaN` or `log(0)` gave a silent `NA` or `-Inf` prediction. Now they raise `nbzinbreg_error_input`, naming the source, the rows and the values. The existing check on a user-supplied `predict(..., offset = )` was already in place and was not changed.
+2. **Theta derivatives** (`R/nbreg-fit.R`). `nb_theta_derivs()` no longer forms `mu^2`, `(theta + mu)^2` or (for large means) `mu / theta`. It uses `share = mu / (theta + mu)` and `inv = 1 / (theta + mu)`, and `log(1 + mu/theta)` is computed as `log(mu) - log(theta) + log1p(theta/mu)` when mu > theta. Before, the curvature H was `NaN` for means above about 1e154; now it is finite and accurate up to the largest finite means. Tests show the new forms equal the textbook forms to within rounding.
+3. **Large counts** (`R/nbreg-fit.R`). For large theta, `nb_digamma_diffs()` used to build a cumulative sum of length `max(y)`; a count of 1e12 tried to allocate 7.4 TB. Exact sums are now used only for counts up to 1e5. Larger counts use an asymptotic (Stirling-type) expansion when theta >= 1e5, written without cancellation; otherwise they use the plain digamma difference, which is accurate there because y is much larger than theta. Tests compare the expansion with the exact sums, and check the fallback and the cut-over.
+4. **Duplicated control settings** (`R/nbreg.R`). A plain `control` list with duplicated names, such as `list(tol = 1e-9, tol = 1e-10)`, gave R's unclassed "matched by multiple actual arguments" error. It now raises `nbzinbreg_error_input`, naming the duplicated settings, just as malformed `nbreg_control` objects do.
+
+**Checks:**
+- `devtools::test()`: 498 checks pass, 0 fail; 6 skipped (the zinbreg placeholders).
+- `R CMD check` via devtools: 0 errors, 0 warnings, 1 note (the local clock check). Plain `R CMD check` (no devtools): "Status: OK".
+- All reference-comparison tests and tolerances unchanged.
+- CI on this commit is checked after pushing; the result is recorded in the next log entry.
+
+**A test-design mistake caught on the way:** the first version of the derivative-equivalence test used a relative tolerance on U, which is a near-zero sum of nearly cancelling pieces. It reported a "difference" of 3e-21 that was only rounding. The test now measures agreement against the size of the pieces being summed.

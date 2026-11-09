@@ -292,7 +292,11 @@ newdata_offset <- function(object, newdata, X, offset) {
       "The offset() term could not be evaluated in `newdata`. (Original error: %s)",
       conditionMessage(e)), "nbzinbreg_error_input")
   })
-  if (is.null(off)) off <- rep(0, n_new)
+  if (is.null(off)) {
+    off <- rep(0, n_new)
+  } else {
+    check_newdata_offset(off, "The `offset()` term(s) in the formula")
+  }
 
   if (!isTRUE(object$offset_arg_used)) {
     if (!is.null(offset)) {
@@ -341,5 +345,22 @@ newdata_offset <- function(object, newdata, X, offset) {
       "`predict(..., offset = )`."), label, describe_value(value), n_new),
       "nbzinbreg_error_input")
   }
+  check_newdata_offset(value, sprintf("Re-evaluating the offset `%s`", label))
   off + value
+}
+
+# Offsets rebuilt for new rows must be finite: an NA (for example a missing
+# exposure) or an infinite value (for example log(0)) would silently give an
+# NA or infinite prediction. `source` names where the values came from.
+check_newdata_offset <- function(values, source) {
+  bad <- which(!is.finite(values))
+  if (length(bad)) {
+    abort_nbz(sprintf(paste(
+      "%s gave %d missing or non-finite value(s) for `newdata` (row(s) %s;",
+      "value(s) %s). Offsets must be finite: check for missing values, or",
+      "zero or negative exposures inside `log()`."),
+      source, length(bad), format_values(bad), format_values(values[bad])),
+      "nbzinbreg_error_input")
+  }
+  invisible(values)
 }

@@ -61,6 +61,86 @@ test_that("finite sums and digamma differences agree", {
   expect_identical(zeros$d2, c(0, 0))
 })
 
+test_that("the overflow-safe derivative forms equal the textbook forms", {
+  y <- c(0, 1, 6, 1, 9, 2, 20, 4)
+  w <- c(1, 1, 2, 1, 0.5, 1, 1, 1)
+  for (theta in c(0.3, 1.5, 40, 2e5)) {
+    for (scale in c(1, 1e3, 1e100)) {
+      mu <- scale * exp(seq(0, 2.5, length.out = 8))
+      dg <- nb_digamma_diffs(y, theta)
+      u_parts <- cbind(dg$d1, -log1p(mu / theta), (mu - y) / (theta + mu))
+      h_parts <- cbind(dg$d2, (mu^2 + theta * y) / (theta * (theta + mu)^2))
+      dv <- nb_theta_derivs(y, mu, theta, w)
+      # U and H are sums of pieces that can nearly cancel (U is close to 0
+      # at the optimum, and for large theta each observation's pieces are
+      # about 1e-5 while their sum is about 1e-10). Rounding error is
+      # proportional to the size of the pieces, so agreement is measured
+      # against that size rather than relative to the (possibly tiny) sum.
+      expect_lte(abs(dv$U - sum(w * rowSums(u_parts))),
+                 1e-12 * sum(w * rowSums(abs(u_parts))))
+      expect_lte(abs(dv$H - sum(w * rowSums(h_parts))),
+                 1e-12 * sum(w * rowSums(abs(h_parts))))
+    }
+  }
+})
+
+test_that("theta derivatives stay finite and accurate for very large means", {
+  y <- c(0, 5)
+  w <- c(1, 1)
+  theta <- 2
+  for (mu_value in c(1e160, 1e200, 1e300)) {
+    mu <- c(mu_value, mu_value)
+    dv <- nb_theta_derivs(y, mu, theta, w)
+    expect_true(is.finite(dv$U) && is.finite(dv$H))
+    expect_true(is.finite(dv$U_phi) && is.finite(dv$H_phi))
+    # For mu much larger than theta: log(1 + mu/theta) = log(mu/theta) and
+    # mu/(theta + mu) = 1 up to rounding, and y/(theta + mu)^2 vanishes.
+    dg <- nb_digamma_diffs(y, theta)
+    expect_equal(dv$U, sum(dg$d1 - (log(mu) - log(theta)) + 1),
+                 tolerance = 1e-12)
+    expect_equal(dv$H, sum(dg$d2 + 1 / theta), tolerance = 1e-12)
+  }
+  # extreme ratio: mu = 1e300 with theta = 1e-8 (mu / theta is 1e308)
+  extreme <- nb_theta_derivs(3, 1e300, 1e-8, 1)
+  expect_true(is.finite(extreme$U) && is.finite(extreme$H))
+})
+
+test_that("the asymptotic expansion matches the exact sums for large theta", {
+  y <- c(0, 1, 10, 1000, 1e5)
+  for (theta in c(1e5, 1e6, 1e8)) {
+    exact <- nb_digamma_diffs(y, theta, use_sums = TRUE, max_terms = 1e5)
+    approx <- nb_digamma_diffs_asymptotic(y, theta)
+    expect_equal(approx$d1, exact$d1, tolerance = 1e-12)
+    expect_equal(approx$d2, exact$d2, tolerance = 1e-12)
+  }
+})
+
+test_that("very large counts never allocate a vector of that length", {
+  theta <- 1e6
+  # 1e12 would need a 7 TB vector with the cumulative-sum approach.
+  out <- nb_digamma_diffs(c(3, 1e12), theta)
+  expect_true(all(is.finite(c(out$d1, out$d2))))
+  expect_equal(out$d1[1], sum(1 / (theta + 0:2)), tolerance = 1e-14)
+  expect_equal(out$d2[1], -sum(1 / (theta + 0:2)^2), tolerance = 1e-14)
+  # y is far larger than theta here, so the plain difference has no
+  # cancellation and serves as the reference
+  expect_equal(out$d1[2], digamma(1e12 + theta) - digamma(theta),
+               tolerance = 1e-12)
+  expect_equal(out$d2[2], trigamma(1e12 + theta) - trigamma(theta),
+               tolerance = 1e-10)
+  # the cut-over between sums and the fallback agrees with the exact sums
+  y <- c(10, 200, 5000)
+  mixed <- nb_digamma_diffs(y, 2e5, use_sums = TRUE, max_terms = 50)
+  exact <- list(d1 = vapply(y, function(n) sum(1 / (2e5 + 0:(n - 1))), 1),
+                d2 = vapply(y, function(n) -sum(1 / (2e5 + 0:(n - 1))^2), 1))
+  expect_equal(mixed$d1, exact$d1, tolerance = 1e-12)
+  expect_equal(mixed$d2, exact$d2, tolerance = 1e-12)
+  # small theta with forced sums: large counts fall back to digamma
+  small <- nb_digamma_diffs(c(2, 1e9), 0.5, use_sums = TRUE)
+  expect_equal(small$d1, digamma(c(2, 1e9) + 0.5) - digamma(0.5),
+               tolerance = 1e-12)
+})
+
 # ---- working quantities and least squares -----------------------------------
 
 test_that("the overflow-safe working response matches the plain formula", {

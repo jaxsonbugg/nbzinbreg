@@ -396,10 +396,17 @@ resolve_nbreg_control <- function(control) {
   }
   if (is.list(control)) {
     nms <- names(control)
-    if (length(control) && (is.null(nms) || any(nms == ""))) {
+    if (length(control) && (is.null(nms) || anyNA(nms) || any(nms == ""))) {
       abort_nbz(paste(
         "Every element of a `control` list must be named, for example",
         "`list(tol = 1e-10)`. Prefer `control = nbreg_control(...)`."),
+        "nbzinbreg_error_input")
+    }
+    dups <- unique(nms[duplicated(nms)])
+    if (length(dups)) {
+      abort_nbz(sprintf(paste(
+        "The `control` list gives setting(s) %s more than once. Give each",
+        "setting only once."), paste0("`", dups, "`", collapse = ", ")),
         "nbzinbreg_error_input")
     }
     unknown <- setdiff(nms, names(formals(nbreg_control)))
