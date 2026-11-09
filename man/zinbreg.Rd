@@ -7,9 +7,9 @@
 zinbreg(
   formula,
   data,
-  offset,
+  offset = NULL,
   control = zinbreg_control(),
-  weights,
+  weights = NULL,
   subset,
   na.action,
   model = TRUE,
@@ -24,7 +24,7 @@ the same covariates are used in both parts.}
 \item{data}{A data frame containing the variables in \code{formula}.}
 
 \item{offset}{Optional numeric vector added to the linear predictor of the
-count part.}
+count part. \code{NULL} (the default) means no offset argument.}
 
 \item{control}{A list of settings from \code{\link[=zinbreg_control]{zinbreg_control()}}.}
 

@@ -16,7 +16,7 @@
 #'   the same covariates are used in both parts.
 #' @param data A data frame containing the variables in `formula`.
 #' @param offset Optional numeric vector added to the linear predictor of the
-#'   count part.
+#'   count part. `NULL` (the default) means no offset argument.
 #' @param control A list of settings from [zinbreg_control()].
 #' @param weights Optional non-negative prior weights, one per observation.
 #' @param subset Optional expression selecting the rows of `data` to use.
@@ -57,7 +57,7 @@
 #'   matched call.
 #' @seealso [zinbreg_control()], [nbreg()], [zinbreg-methods]
 #' @export
-zinbreg <- function(formula, data, offset, control = zinbreg_control(),
-                    weights, subset, na.action, model = TRUE, ...) {
+zinbreg <- function(formula, data, offset = NULL, control = zinbreg_control(),
+                    weights = NULL, subset, na.action, model = TRUE, ...) {
   not_implemented("zinbreg")
 }

@@ -7,9 +7,9 @@
 nbreg(
   formula,
   data,
-  offset,
+  offset = NULL,
   control = nbreg_control(),
-  weights,
+  weights = NULL,
   subset,
   na.action,
   model = TRUE,
@@ -17,74 +17,157 @@ nbreg(
 )
 }
 \arguments{
-\item{formula}{A model formula such as \code{y ~ x1 + x2}. The response must be
-a non-negative integer count. \code{offset()} terms are allowed.}
+\item{formula}{A model formula such as \code{y ~ x1 + x2}. The response must
+contain non-negative whole numbers (counts). \code{offset()} terms are
+allowed.}
 
-\item{data}{A data frame containing the variables in \code{formula}.}
+\item{data}{A data frame (or list or environment) containing the variables
+in \code{formula}. If missing, variables are taken from the environment in
+which \code{formula} was created.}
 
 \item{offset}{Optional numeric vector added to the linear predictor, for
-example the log of an exposure time. It is combined with any \code{offset()}
-terms in \code{formula}.}
+example the log of an exposure time, with one value per row of \code{data}.
+It is added to any \code{offset()} terms in \code{formula}. \code{NULL} (the default)
+means no offset argument.}
 
-\item{control}{A list of settings from \code{\link[=nbreg_control]{nbreg_control()}}.}
+\item{control}{A list of settings from \code{\link[=nbreg_control]{nbreg_control()}}. A plain list is
+also accepted and is checked by passing it to \code{\link[=nbreg_control]{nbreg_control()}}.}
 
-\item{weights}{Optional non-negative prior weights, one per observation.}
+\item{weights}{Optional non-negative prior weights, one per observation.
+Each observation's contribution to the log-likelihood is multiplied by
+its weight, so a weight of 2 counts an observation twice and a weight of
+0 leaves it out. Fractional weights are allowed.}
 
 \item{subset}{Optional expression selecting the rows of \code{data} to use.}
 
 \item{na.action}{How to handle missing values; defaults to
-\code{getOption("na.action")}.}
+\code{getOption("na.action")} (usually \code{\link[stats:na.fail]{stats::na.omit()}}).
+\code{\link[stats:na.fail]{stats::na.exclude()}} pads fitted values and residuals with \code{NA} to the
+original length.}
 
-\item{model}{Logical; if \code{TRUE}, the model frame is kept in the result.}
+\item{model}{Logical; if \code{TRUE} (the default), the model frame is kept in
+the result.}
 
-\item{...}{Currently unused.}
+\item{...}{Not used. Supplying anything here is an error, so that a
+misspelled argument is not silently ignored.}
 }
 \value{
-Once implemented, an object of class \code{nbreg}, containing at least
-the coefficients, their variance-covariance matrix, \code{theta} and its
-standard error, the log-likelihood, the number of iterations, a
-convergence flag, the fitted values and the matched call.
+An object of class \code{nbreg}, a list containing:
+\describe{
+\item{\code{coefficients}}{Named vector of estimated coefficients.}
+\item{\code{vcov}}{Variance-covariance matrix of the coefficients.}
+\item{\code{theta}, \code{SE.theta}}{The dispersion estimate and its standard
+error.}
+\item{\code{loglik}}{The maximized log-likelihood.}
+\item{\code{df}}{Number of estimated parameters (coefficients plus \code{theta}).}
+\item{\code{iter}, \code{converged}}{Number of outer passes, and whether the fit
+converged.}
+\item{\code{theta_bound}}{\code{"none"}, or \code{"upper"}/\code{"lower"} if \code{theta} ended
+on a bound.}
+\item{\code{diverging}}{Names of coefficients flagged as diverging.}
+\item{\code{fitted.values}, \code{linear.predictors}, \code{residuals}}{Fitted means,
+linear predictors (including offsets), and response residuals.}
+\item{\code{prior.weights}, \code{offset}, \code{y}, \code{x}}{The weights, the combined
+offset, the (rounded) response and the model matrix.}
+\item{\code{nobs}, \code{df.residual}}{Number of observations with positive
+weight, and that number minus the number of coefficients.}
+\item{\code{loglik_trace}}{Log-likelihood after each outer pass.}
+\item{\code{terms}, \code{model}, \code{xlevels}, \code{contrasts}, \code{na.action}}{Model
+frame information used by the methods.}
+\item{\code{offset_arg_used}}{Whether the \code{offset} argument was supplied.}
+\item{\code{formula}, \code{call}, \code{control}}{The formula, the matched call and
+the settings used.}
+}
 }
 \description{
 Fits a negative binomial (NB2) regression model for count data, with the
 estimation written from scratch: iteratively reweighted least squares
 (IRLS) for the regression coefficients, alternated with Newton-Raphson for
 the dispersion parameter \code{theta}. No general-purpose optimizer is used.
-
-\strong{Not yet implemented.} This development version defines the interface
-only; calling the function signals an error of class
-\code{nbzinbreg_not_implemented}.
+The parameterization is the one used by \code{MASS::glm.nb()}.
 }
 \details{
 The model is \eqn{Y_i \sim NB(\mu_i, \theta)} with
 \eqn{\log \mu_i = x_i^\top \beta + o_i}, so that
-\eqn{E(Y_i) = \mu_i} and \eqn{Var(Y_i) = \mu_i + \mu_i^2 / \theta}. This is
-the parameterization used by \code{MASS::glm.nb()}.
+\eqn{E(Y_i) = \mu_i} and \eqn{Var(Y_i) = \mu_i + \mu_i^2 / \theta}. A small
+\eqn{\theta} means much more spread than a Poisson model; as
+\eqn{\theta \to \infty} the model becomes Poisson.
 
-The fit alternates two stages until the log-likelihood stops changing:
+The fit alternates two stages until the log-likelihood, the coefficients
+and \eqn{\log\theta} all stop changing (see \code{\link[=nbreg_control]{nbreg_control()}}):
 \enumerate{
 \item \strong{IRLS for the coefficients, with \code{theta} held fixed.} Each round
-computes the weights \eqn{w_i = a_i \theta \mu_i / (\theta + \mu_i)} and
-the working response \eqn{z_i = (\eta_i - o_i) + (y_i - \mu_i)/\mu_i},
-then solves a weighted least-squares problem.
+computes the weights \eqn{w_i = a_i \theta \mu_i / (\theta + \mu_i)}
+and the working response \eqn{z_i = (\eta_i - o_i) + (y_i - \mu_i)/\mu_i}
+and solves a weighted least-squares problem.
 \item \strong{Newton-Raphson for \code{theta}, with the coefficients held fixed.} Steps
-are taken on \code{log(theta)}, using the slope and curvature of the
-log-likelihood (built from \code{digamma()} and \code{trigamma()}), so that
-\code{theta} stays positive.
+are taken on \eqn{\log\theta}, using the slope and curvature of the
+log-likelihood (built from \code{digamma()} and \code{trigamma()}), with a line
+search that guarantees the log-likelihood increases.
 }
 
-Starting values come from a Poisson IRLS fit and a moment estimate of
+Every step is checked: a step that would lower the log-likelihood, or lead
+to infinite or invalid values, is halved until it is acceptable. The
+log-likelihood itself is always evaluated exactly.
+
+Starting values come from a Poisson IRLS fit and a moment-type estimate of
 \code{theta}. Standard errors of the coefficients come from
-\eqn{(X^\top W X)^{-1}} at convergence, treating \code{theta} as known, and the
-standard error of \code{theta} from the curvature of the log-likelihood in
-\code{theta}.
-}
-\section{Provisional}{
+\eqn{(X^\top W X)^{-1}} at convergence, treating \code{theta} as known, as
+\code{MASS::glm.nb()} does; the standard error of \code{theta} comes from the
+curvature of the log-likelihood in \code{theta}.
 
-\code{formula}, \code{data}, \code{offset} and \code{control} are the required interface, in
-that order. \code{weights}, \code{subset}, \code{na.action} and \code{model} are provisional.
+Response values within \code{1e-8} of a whole number are accepted as rounding
+error and rounded before fitting.
+}
+\section{Errors and warnings}{
+
+Problems are signalled with classed conditions, so they can be caught
+selectively. Errors:
+\itemize{
+\item \code{nbzinbreg_error_input}: an invalid argument or invalid data. This covers a
+missing, non-formula, one-sided or two-part (\code{|}) formula; \code{data} that is
+not a data frame, list or environment, or has no rows; unused arguments
+in \code{...}; an invalid \code{model} flag or \code{control}; variables that cannot be
+found; \code{offset} or \code{weights} of the wrong length; missing values with
+\code{na.action = na.fail}; no rows left after \code{subset} and \code{na.action}; a
+response that is not numeric, has more than one column, or contains
+negative, non-integer, missing or infinite values; weights that are not
+numeric, negative, infinite or all zero; an offset that is not numeric or
+not finite; a response that is zero for every observation; a model with
+no coefficients; covariates with infinite values; and too few
+observations for the number of coefficients.
+\item \code{nbzinbreg_error_rank}: columns of the model matrix are linear
+combinations of other columns (the message names them).
+\item \code{nbzinbreg_error_fit}: an unrecoverable numerical failure during fitting.
 }
 
+Warnings (the fit is still returned):
+\itemize{
+\item \code{nbzinbreg_warning_convergence}: an iteration or step-halving limit was
+reached; \code{converged} is then \code{FALSE}.
+\item \code{nbzinbreg_warning_theta}: \code{theta} exceeds \code{theta_warn} (little or no
+overdispersion), or ended on one of its bounds.
+\item \code{nbzinbreg_warning_divergence}: some coefficients run off toward plus or
+minus infinity, typically because a group has only zero counts. Their
+estimates, standard errors and p-values are not meaningful.
+\item \code{nbzinbreg_warning_se}: standard errors could not be computed.
+}
+}
+
+\examples{
+# The 8-observation example used in the package's design notes
+d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
+fit <- nbreg(y ~ x, data = d)
+fit$coefficients
+fit$theta
+
+# Article counts of biochemistry PhD students
+if (requireNamespace("pscl", quietly = TRUE)) {
+  data("bioChemists", package = "pscl")
+  fit2 <- nbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
+  fit2$coefficients
+}
+}
 \seealso{
 \code{\link[=nbreg_control]{nbreg_control()}}, \code{\link[=zinbreg]{zinbreg()}}, \link{nbreg-methods}
 }

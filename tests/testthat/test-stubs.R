@@ -12,7 +12,7 @@
 
 stubbed <- c(
   # required fitting interface
-  "nbreg", "zinbreg", "zinbreg_control",
+  "zinbreg", "zinbreg_control",
   # required methods, nbreg
   "print.nbreg", "summary.nbreg", "print.summary.nbreg", "coef.nbreg",
   "vcov.nbreg", "logLik.nbreg", "fitted.nbreg", "residuals.nbreg",
@@ -33,7 +33,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  nbreg = function() nbreg(),
   zinbreg = function() zinbreg(),
   zinbreg_control = function() zinbreg_control(),
   print.nbreg = function() print(nb),
