@@ -1,5 +1,17 @@
 # nbzinbreg 0.0.0.9000
 
+* Benchmark against `MASS::glm.nb()` and `pscl::zeroinfl()` on
+  bioChemists and NMES1988 (`inst/benchmark/`):
+  - validity checks for every pair, and side-by-side tables against the
+    required tolerances;
+  - supplementary comparisons (SE(theta), SE(log theta), the numeric
+    Hessian);
+  - `bench::mark()` timings;
+  - a code fingerprint that ties the results to the installed code.
+
+  Every required quantity is within its tolerance. The results of record
+  are saved with the package and used by the report.
+
 * `nbreg()` fits negative binomial (NB2) regression by IRLS for the
   coefficients alternated with Newton-Raphson for `theta`, with
   backtracking line searches and no general-purpose optimizer. At default

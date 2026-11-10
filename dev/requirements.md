@@ -105,6 +105,11 @@ Compare against the reference functions on **two datasets**: `pscl::bioChemists`
 
 Tips: run the references with tight tolerances (`glm.control(epsilon = 1e-10, maxit = 100)`, `zeroinfl.control(reltol = 1e-12)`). `zeroinfl()` labels coefficients `count_*` and `zero_*`. A higher log-likelihood than the reference is not an error; report it.
 
+- [x] Benchmark on both data sets, for both models, with tight reference settings *(`inst/benchmark/benchmark.R`, with its shared functions in `inst/benchmark/benchmark_functions.R`)*.
+- [x] Side-by-side tables with the maximum absolute differences: every required quantity is within its tolerance *(largest differences: NB 3.4e-7 for coefficients, 9.2e-10 for SEs, 2.2e-8 for theta, 1.1e-10 for the log-likelihood; ZINB 4.8e-5, 2.8e-5, 4.0e-6 and 4.2e-9)*. The reference log-likelihood is very slightly higher in all four pairs, and this is reported.
+- [x] Computation time for ours and the references, with `bench::mark()` (10 runs; references at both tight and default settings), saved in `inst/benchmark/` with verified provenance (a code fingerprint and the commit).
+- [x] The report's Benchmarking section is drafted: tables computed live, timings read from the saved results. Supplementary, ungraded checks (SE(theta), SE(log theta), the numeric Hessian, the full validity tables) are in a separate article, `vignettes/articles/benchmark-supplement.qmd`.
+
 ## 6. Simulation study
 
 - [ ] At least R = 100 datasets with n = 500 from a ZINB model with one or two covariates in each part and known (beta, gamma, theta).

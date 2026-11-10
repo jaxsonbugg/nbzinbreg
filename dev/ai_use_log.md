@@ -135,3 +135,34 @@ A running record of how Claude Code is used in this project. It is the raw mater
     - an interior local maximum in the supplied ZINB fit (equal to zeroinfl's) on pure NB data, below a separated supremum;
     - a default-start refit crawling for thousands of EM iterations, which made the bootstrap 2.2 times slower;
     - several wrong expectations in Claude's own tests (a tolerance tighter than the stopping rule, an assumption that a boundary refit reaches the global maximum, `NULL` dropped from a list in a mock, and the plot region's 4% margin).
+
+### 2026-11-10: The benchmark
+
+- **Asked Claude to:** plan, then implement, the benchmark of handout Section 5 (both models, both data sets, side-by-side tables, the required tolerances, timing), and draft the report's Benchmarking section. The work was done in four commits, each pushed and reviewed.
+- **What Claude produced:**
+  - `inst/benchmark/benchmark_functions.R`: validity checks, comparisons, timing, the code-fingerprint provenance and saving;
+  - `inst/benchmark/benchmark.R`;
+  - `tests/testthat/test-benchmark.R`;
+  - the results of record;
+  - the report's Benchmarking section and the supplementary article.
+- **How it was checked:**
+  - every failure path was triggered in tests with doctored fits and tables;
+  - a dry run showed that a failed run saves its results and exits with status 1;
+  - the fingerprint was compared between source, `load_all()` and a real byte-compiled install;
+  - the results of record were produced from a clean commit, with verified provenance;
+  - the PDF was rendered and inspected page by page;
+  - the test suite, both package checks and CI ran on every commit.
+- **Problems found and how they were corrected:**
+  - **In the owner's plan review,** five changes to Claude's first plan:
+    - Claude proposed recording `git rev-parse HEAD`, which identifies the checkout, not the installed code; the owner required a verifiable check, which became the code fingerprint;
+    - the first plan discarded all results when a tolerance failed;
+    - it applied the theta tolerance to SE(theta), which the handout does not require;
+    - it lacked explicit validity checks;
+    - the report had no check that its saved timings came from the installed code.
+  - **Claude's own work caught:**
+    - a locale-dependent sort that made two identical fingerprints differ;
+    - an unclosed file connection;
+    - PDF tables wrapping negative numbers;
+    - Quarto's cache files appearing in `vignettes/`;
+    - an inaccurate sentence about when the Hessian is used.
+  - **Claude also corrected its own claim** that the old pkgdown entry `anova.nbreg` was invalid: it resolves as an alias, so that commit fixed the index's content, not a failing check.

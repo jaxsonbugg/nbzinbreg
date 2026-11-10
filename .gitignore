@@ -17,7 +17,8 @@ secrets*
 renv/library/
 
 # Quarto / knitr intermediates (report/report.pdf and docs/ ARE committed)
-/.quarto/
+.quarto/
+*.quarto_ipynb
 *_cache/
 *_files/
 # ...but keep figure folders inside the pkgdown site, or Pages loses images

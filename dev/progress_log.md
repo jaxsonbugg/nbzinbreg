@@ -286,3 +286,65 @@ The tolerances are the model tolerances of `dev/requirements.md`, section 5: 1e-
 Gates B (CI on all five platforms) and C (fresh `install_github()` with the README examples, now including the extras example) run after this commit is pushed; their results go in the next entry.
 
 **Documentation:** README (the extras row ✅, an executed inference and diagnostics example), NEWS, `dev/design.md` Part 5 as built, `dev/requirements.md` (extras ticked, the ZINB-versus-NB review item resolved), `CLAUDE.md` (package map, the `nbzinbreg_warning_bootstrap` class, the empty stub list), and the AI-use log. Every extra has an "Errors and warnings" section and runnable examples (slow bootstrap examples in `\donttest{}`). The skipped placeholder `test-extras.R` was removed, since every extra now has its own test file.
+
+## 2026-11-10: Benchmark (benchmark commits 1 to 4)
+
+**Gates B and C for the extras phase (recorded here, as promised):** CI on the extras documentation commit (`f8d08a6`) is green on all five platforms. `install_github()` of `f8d08a6` into an empty library, in a fresh session, gave output identical to `README.md` for all three examples: 18 lines for `nbreg()`, 31 for `zinbreg()` and 21 for the extras example. Three of the extras lines matched only after normalizing whitespace: `print.htest` writes a tab and a trailing space, which the knitted README turns into a space and drops.
+
+**Plan.** The plan was reviewed by the owner before any code. The owner's revisions:
+- a verifiable code provenance, instead of trusting the package version or the checkout;
+- failed results kept and marked, never discarded;
+- the required (Table 4) quantities separated from supplementary ones, the latter in a separate document;
+- explicit validity checks before any comparison;
+- a provenance check in the report for the saved timings.
+
+Further owner decisions: agreement tables computed live in the report, timings read from saved results, `bench::mark()` with 10 runs, and the references timed at both tight and default settings. Each commit was pushed and reviewed before the next.
+
+| Commit | Content |
+|---|---|
+| `da910b2` | pkgdown reference index: the extras grouped (Inference, Simulation and bootstrap, Diagnostics, Tidiers) instead of "Provisional (not yet implemented)". The old `anova.nbreg` entry did resolve, as an alias, so `check_pkgdown()` passed both before and after; the fix was to the index's content. |
+| `65f2720` | `inst/benchmark/benchmark_functions.R`, `benchmark.R` and `tests/testthat/test-benchmark.R` (14 tests) |
+| `e31ff11` | the results of record, produced from a clean tree at `65f2720` |
+| this commit | the report's Benchmarking section, the supplementary article, README, notes |
+
+**Results of record** (PASSED; provenance verified: installed and source fingerprints both `f6f29a27eff95d07ab6302d5a428954e` at `65f2720`). Maximum absolute differences:
+
+| | Coefficients | SEs | theta / log theta | Log-likelihood |
+|---|---|---|---|---|
+| bioChemists NB | 5.6e-8 | 5.9e-10 | 2.2e-8 | 6.8e-13 |
+| NMES1988 NB | 3.4e-7 | 9.2e-10 | 7.8e-9 | 1.1e-10 |
+| required (NB) | 1e-5 | 1e-5 | 1e-4 | 1e-4 |
+| bioChemists ZINB | 4.8e-5 | 2.8e-5 | 4.0e-6 | 4.2e-9 |
+| NMES1988 ZINB | 1.4e-5 | 6.4e-6 | 2.3e-6 | 2.6e-9 |
+| required (ZINB) | 1e-3 | 1e-3 | 1e-3 | 1e-3 |
+
+Every pair passed every validity check, and the reference log-likelihood is very slightly higher in all four pairs.
+
+Supplementary results (not graded):
+- SE(theta) and SE(log theta) agree with the references to 1.1e-6 or better;
+- the numeric-Hessian ZINB fits agree with `zeroinfl()` as closely as the analytic ones;
+- our analytic and numeric SEs differ by at most 2.5e-7.
+
+Timing (median of 10 runs; R 4.3.1, Windows 10, Intel Family 6 Model 186, 20 cores):
+
+| Fit | bioChemists | NMES1988 |
+|---|---|---|
+| `nbreg()` | 0.024 s | 0.090 s |
+| `glm.nb()`, tight / default settings | 0.040 / 0.031 s | 0.129 / 0.100 s |
+| `zinbreg()` (numeric Hessian) | 1.12 s (1.47 s) | 2.35 s (4.49 s) |
+| `zeroinfl()`, tight / default settings | 0.152 / 0.156 s | 0.692 / 0.698 s |
+
+**Problems caught along the way:**
+- The first fingerprint comparison disagreed, although every one of the 196 per-object hashes matched. The source side sorted names in the C locale and the installed side in the system locale. Radix sorting (the same in every locale) fixed it.
+- A byte-compiled install was confirmed to fingerprint identically to its source.
+- An unused-connection warning came from the hashing helper; it now writes bytes without a connection.
+- The first PDF render wrapped table columns, breaking negative numbers after the minus sign. Natural column widths (`tbl-colwidths: false`) and shorter headers fixed it.
+- A Quarto render left a cache folder and its own `.gitignore` in `vignettes/`. They were deleted, the root `.gitignore` now ignores `.quarto/` at any level, and `.Rbuildignore` excludes `vignettes/.quarto`.
+- One sentence in the supplement said the Hessian is used only after EM; in fact the gradient check uses the analytic Hessian during EM in both modes. It was corrected.
+
+**Gates (this commit):**
+- Test suite with `NOT_CRAN = "true"`: 302 tests, 1885 expectations, 0 failed, 0 errors, 0 warnings, 0 skipped.
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check`: Status: OK.
+- The report renders to HTML and PDF, and the supplement to HTML (outside the repository). `pkgdown::check_pkgdown()` passes, and `pkgdown::build_articles()` builds both articles into a scratch site.
+- In the rendered report, the provenance check says the installed code matches the code that produced the timings.
+- CI and the fresh-install check for this commit are recorded in the next entry.

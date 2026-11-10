@@ -31,8 +31,230 @@ and installation instructions.
 
 ## Benchmarking
 
-*Placeholder.* Agreement tables against `MASS::glm.nb()` and
-`pscl::zeroinfl()`, and timings, for both data sets.
+```{r}
+#| label: bench-setup
+#| include: false
+# The benchmark functions are installed with the package
+# (inst/benchmark/benchmark_functions.R); the same code produced the saved
+# timings. The agreement tables below are computed now, at render time,
+# from the installed package; the timings are read from the saved results
+# of inst/benchmark/benchmark.R, because repeated timing runs would make
+# rendering slow and the numbers would change with every render.
+library(nbzinbreg)
+bench_file <- system.file("benchmark", "benchmark_functions.R",
+                          package = "nbzinbreg")
+source(bench_file)
+specs <- bench_specs()
+pairs <- lapply(specs, fit_pair, hessian = "analytic")
+bench <- compare_pairs(pairs)
+names(bench$tables) <- vapply(specs, `[[`, "", "id")
+req <- bench$required
+
+saved_file <- system.file("benchmark", "benchmark_results.rds",
+                          package = "nbzinbreg")
+saved <- if (nzchar(saved_file)) readRDS(saved_file)
+prov_check <- if (!is.null(saved)) check_saved_provenance(saved$provenance)
+
+fmt_est <- function(x) ifelse(is.na(x), "", formatC(x, digits = 7, format = "g"))
+fmt_diff <- function(x) ifelse(is.na(x), "", formatC(x, digits = 1, format = "e"))
+side_table <- function(id) {
+  tab <- bench$tables[[id]]
+  out <- data.frame(
+    Parameter = tab$parameter,
+    Ours = fmt_est(tab$estimate_ours),
+    Reference = fmt_est(tab$estimate_reference),
+    `|Diff.|` = fmt_diff(tab$estimate_abs_diff),
+    `SE ours` = fmt_est(tab$se_ours),
+    `SE ref.` = fmt_est(tab$se_reference),
+    `SE |diff.|` = fmt_diff(tab$se_abs_diff),
+    check.names = FALSE)
+  knitr::kable(out, align = "lrrrrrr")
+}
+max_of <- function(model, quantity) {
+  max(req$max_abs_diff[req$model == model & req$quantity == quantity])
+}
+n_checks <- vapply(bench$validity, nrow, 1L)
+all_valid <- all(vapply(bench$validity, pair_valid, logical(1)))
+all_passed <- all(req$passed)
+ll_higher <- req$note[req$quantity == "log-likelihood"]
+```
+
+The package should reproduce the reference implementations: `MASS::glm.nb()`
+for the negative binomial (NB) model and `pscl::zeroinfl(dist = "negbin")`
+for the zero-inflated negative binomial (ZINB) model. To check this, each
+model is fitted to two data sets with both our package and the reference
+function, and the two sets of estimates are compared number by number.
+
+**Data and models.** `pscl::bioChemists` (915 biochemistry PhD students;
+the response is the number of articles `art`) is modeled with
+`fem + mar + kid5 + phd + ment` in the count part and, for ZINB, the same
+covariates in the zero part, as in Appendix A of the project description.
+`AER::NMES1988` (4,406 people aged 66 and over; the response is the number
+of physician office visits `visits`) is modeled with
+`hospital + health + chronic + gender + school + insurance` in the count
+part and `hospital + chronic + gender + school + insurance` in the zero part.
+
+**Settings.** Our functions run at their **default** settings, which is how
+a user would call them. The reference functions run with **tight**
+tolerances (`glm.control(epsilon = 1e-10, maxit = 100)` for `glm.nb()` and
+`zeroinfl.control(reltol = 1e-12)` for `zeroinfl()`), so that they stop as
+close to the exact maximum of the likelihood as they can. Differences then
+measure how close our answer is to the exact answer, not the references'
+own stopping error.
+
+**What is compared.** For every coefficient, the two estimates and the two
+standard errors are shown side by side with their absolute difference
+|ours − reference|. The theta row compares theta for NB and log(theta) for
+ZINB, the scale on which `zeroinfl()` estimates it; its standard-error
+columns hold SE(theta) or SE(log theta). The last row is the maximized
+log-likelihood. For each group of numbers the *maximum absolute difference*
+is the largest of these absolute differences; the project requires it to
+be at most 1e-5 (coefficients and standard errors) and 1e-4 (theta and the
+log-likelihood) for NB, and at most 1e-3 for every quantity for ZINB.
+
+**Validity first.** A comparison is only meaningful if both fits are valid.
+Before comparing, each pair of fits is checked: both converged (for our
+ZINB fit this includes the gradient check at the estimates), all estimates
+and standard errors are finite, both fits use the same observations and
+the same parameterization (the same coefficient names in the same order),
+and both covariance matrices are symmetric and positive definite.
+`r if (all_valid) sprintf("All %d checks passed for each of the four pairs.", n_checks[[1]]) else "**Not all checks passed; see the validity tables in the supplementary benchmark article.**"`
+
+```{r}
+#| label: tbl-bench-bc-nb
+#| tbl-cap: "bioChemists, negative binomial: nbreg() against glm.nb()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("bioChemists_NB")
+```
+
+```{r}
+#| label: tbl-bench-nmes-nb
+#| tbl-cap: "NMES1988, negative binomial: nbreg() against glm.nb()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("NMES1988_NB")
+```
+
+```{r}
+#| label: tbl-bench-bc-zinb
+#| tbl-cap: "bioChemists, zero-inflated negative binomial: zinbreg() against zeroinfl(). count_ and zero_ name the count and zero-part coefficients."
+#| echo: false
+#| tbl-colwidths: false
+side_table("bioChemists_ZINB")
+```
+
+```{r}
+#| label: tbl-bench-nmes-zinb
+#| tbl-cap: "NMES1988, zero-inflated negative binomial: zinbreg() against zeroinfl()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("NMES1988_ZINB")
+```
+
+@tbl-bench-summary collects the maximum absolute differences and compares
+them with the required tolerances.
+
+```{r}
+#| label: tbl-bench-summary
+#| tbl-cap: "Maximum absolute differences from the reference fits, against the required tolerances."
+#| echo: false
+#| tbl-colwidths: false
+summ <- data.frame(
+  Data = sub("_.*", "", req$pair), Model = req$model, Quantity = req$quantity,
+  `Max. abs. difference` = fmt_diff(req$max_abs_diff),
+  Tolerance = formatC(req$tolerance, format = "e", digits = 0),
+  Met = ifelse(req$passed, "yes", "NO"), check.names = FALSE)
+knitr::kable(summ, align = "lllrrc")
+```
+
+`r if (all_passed) "Every required quantity is within its tolerance" else "**Not every required quantity is within its tolerance**"`,
+with a large margin: the largest differences are
+`r fmt_diff(max_of("NB", "coefficients"))` for the NB coefficients and
+`r fmt_diff(max_of("ZINB", "coefficients"))` for the ZINB coefficients.
+The NB fits agree almost to rounding error, because `nbreg()` and
+`glm.nb()` maximize the same likelihood with closely related algorithms
+(iteratively reweighted least squares, IRLS, for the coefficients, and a
+one-dimensional search for theta). The ZINB differences are larger but
+still at least `r floor(1e-3 / max(req$max_abs_diff[req$model == "ZINB"]))`
+times below the tolerance: `zinbreg()` stops its EM
+algorithm when a gradient check at the estimates passes, which places
+every estimate within a tiny fraction of a standard error of the maximum,
+while `zeroinfl()` stops its quasi-Newton (BFGS) search by its own
+criterion. The log-likelihoods differ by at most
+`r fmt_diff(max_of("ZINB", "log-likelihood"))`;
+`r if (all(grepl("reference is higher", ll_higher))) "in all four comparisons the reference value is very slightly higher" else "the higher value is reported per pair in the table"`.
+
+**Computation time.** The timings come from the saved results of
+`inst/benchmark/benchmark.R`, which runs each fit 10 times with
+`bench::mark()` and reports the median and the range. The references are
+timed both with the tight settings used above and with their own defaults,
+because the tight settings make them slower than in ordinary use.
+
+```{r}
+#| label: tbl-bench-time
+#| tbl-cap: "Computation time in seconds (median of 10 runs, with the minimum and maximum)."
+#| echo: false
+#| tbl-colwidths: false
+if (is.null(saved)) {
+  cat("The saved timings were not found in the installed package; run inst/benchmark/benchmark.R.")
+} else {
+  tm <- saved$timing
+  tm <- tm[!grepl("numeric Hessian", tm$fit), ]
+  tm$fit <- sub(", analytic Hessian", "", tm$fit)
+  knitr::kable(data.frame(
+    Data = tm$data_name, Model = tm$model, Fit = tm$fit,
+    `Median (s)` = formatC(tm$median_s, digits = 3, format = "g"),
+    `Range (s)` = sprintf("%s to %s", formatC(tm$min_s, digits = 3, format = "g"),
+                          formatC(tm$max_s, digits = 3, format = "g")),
+    check.names = FALSE), align = "lllrr")
+}
+```
+
+```{r}
+#| label: bench-time-numbers
+#| include: false
+med <- function(spec, pattern) {
+  if (is.null(saved)) return(NA_real_)
+  t <- saved$timing
+  t$median_s[t$spec == spec & grepl(pattern, t$fit, fixed = TRUE)][1]
+}
+ratio_bc <- med("bioChemists_ZINB", "zinbreg() (default settings, analytic") /
+  med("bioChemists_ZINB", "zeroinfl() (default")
+ratio_nm <- med("NMES1988_ZINB", "zinbreg() (default settings, analytic") /
+  med("NMES1988_ZINB", "zeroinfl() (default")
+p <- if (!is.null(saved)) saved$provenance
+zinb_pairs <- Filter(function(x) x$model == "ZINB", pairs)
+em_iter <- vapply(zinb_pairs, function(x) x$ours$fit$iter, 1L)
+bfgs <- vapply(zinb_pairs, function(x) {
+  as.integer(x$ref$fit$optim$counts[["gradient"]])
+}, 1L)
+names(em_iter) <- names(bfgs) <- vapply(zinb_pairs, `[[`, "", "spec_id")
+```
+
+The NB fits take a fraction of a second with either implementation. Our
+ZINB fits are slower than `zeroinfl()` (about `r round(ratio_bc)` times on
+bioChemists and `r round(ratio_nm)` times on NMES1988, against its default
+settings). This is expected and was not a goal. EM improves the
+likelihood by a roughly fixed fraction per iteration (linear convergence),
+so it needs many iterations (here `r em_iter[["bioChemists_ZINB"]]` on
+bioChemists and `r em_iter[["NMES1988_ZINB"]]` on NMES1988), each of which
+runs complete IRLS fits of both parts and evaluates `dnbinom()` for every
+observation, and `zinbreg()` keeps iterating until the gradient check
+passes. `zeroinfl()` instead runs a quasi-Newton (BFGS) search on all
+parameters at once, which needed `r bfgs[["bioChemists_ZINB"]]` and
+`r bfgs[["NMES1988_ZINB"]]` gradient evaluations here (with its tight
+settings).
+Timings depend on the machine and its load, so only their order of
+magnitude matters.
+
+`r if (!is.null(p)) sprintf("The timings were measured on %s (%s, %s cores) under %s, with MASS %s, pscl %s and bench %s, on %s, for the package code of commit %s (code fingerprint %s; provenance %s).", p$os, p$cpu, p$cores, p$r_version, p$versions[['MASS']], p$versions[['pscl']], p$versions[['bench']], substr(p$date, 1, 10), substr(p$git_commit, 1, 7), p$fingerprint_installed, p$status) else ""`
+`r if (!is.null(prov_check)) (if (prov_check$status == "matches") prov_check$message else paste0("**", prov_check$message, "**")) else ""`
+
+Additional comparisons that are not part of the requirements (the standard
+errors of theta and log(theta), the ZINB fits with the numeric Hessian, and
+the full validity checks) are in the supplementary benchmark article on the
+package website.
 
 ## Simulation study
 

@@ -45,3 +45,6 @@ articles:
   - title: Report
     contents:
       - articles/report
+  - title: Supplementary material
+    contents:
+      - articles/benchmark-supplement

@@ -1,0 +1,150 @@
+---
+title: "Benchmark: supplementary checks"
+---
+
+<!--
+Supplementary material for the Benchmarking section of the report
+(vignettes/articles/report.qmd). Nothing here is a graded requirement: the
+required comparisons (handout Table 4) are in the report. Like the report,
+the agreement numbers are computed at render time from the installed
+package, and the timings are read from the saved results of
+inst/benchmark/benchmark.R.
+-->
+
+```{r}
+#| label: setup
+#| include: false
+library(nbzinbreg)
+source(system.file("benchmark", "benchmark_functions.R", package = "nbzinbreg"))
+specs <- bench_specs()
+pairs <- list()
+for (s in specs) {
+  for (h in if (s$model == "NB") "analytic" else c("analytic", "numeric")) {
+    pairs[[length(pairs) + 1L]] <- fit_pair(s, h)
+  }
+}
+bench <- compare_pairs(pairs)
+saved_file <- system.file("benchmark", "benchmark_results.rds",
+                          package = "nbzinbreg")
+saved <- if (nzchar(saved_file)) readRDS(saved_file)
+prov_check <- if (!is.null(saved)) check_saved_provenance(saved$provenance)
+fmt <- function(x) ifelse(is.na(x), "", formatC(x, digits = 2, format = "e"))
+pair_label <- function(id) {
+  id <- sub("_analytic_vs_numeric$", " (analytic against numeric Hessian)", id)
+  id <- sub("_analytic$", " (analytic Hessian)", id)
+  id <- sub("_numeric$", " (numeric Hessian)", id)
+  gsub("_", " ", id)
+}
+```
+
+The report's Benchmarking section compares the required quantities of the
+project description: the coefficients, their standard errors, theta (NB) or
+log(theta) (ZINB), and the log-likelihood, each with a pass/fail tolerance.
+This article adds comparisons that are **not graded requirements**, so they
+have no tolerances. They are shown with two measures of difference:
+
+* the **absolute difference** |ours − reference|, the measure the
+  requirements use;
+* the **relative difference** |ours − reference| / |reference|, which
+  puts quantities of different sizes on a common footing (a relative
+  difference of 1e-5 means agreement to about five significant digits).
+
+The data, formulas and settings are those of the report: our functions at
+their default settings, `MASS::glm.nb()` and `pscl::zeroinfl()` with tight
+tolerances.
+
+## Standard errors of theta and log(theta)
+
+`nbreg()` reports SE(theta) and `zinbreg()` reports SE(log theta), as the
+references do. Their agreement with the references:
+
+```{r}
+#| label: tbl-se-theta
+#| tbl-cap: "Standard error of theta (NB) and of log(theta) (ZINB, analytic Hessian), against the references."
+#| echo: false
+sup <- bench$supplementary
+s1 <- sup[sup$quantity %in% c("SE(theta)", "SE(log theta)") &
+            !grepl("_numeric$", sup$pair), ]
+knitr::kable(data.frame(Comparison = pair_label(s1$pair),
+                        Quantity = s1$quantity,
+                        `Abs. difference` = fmt(s1$max_abs_diff),
+                        `Rel. difference` = fmt(s1$max_rel_diff),
+                        check.names = FALSE), align = "llrr")
+```
+
+## ZINB with the numeric Hessian
+
+`zinbreg()` computes standard errors from the analytic Hessian (matrix of
+second derivatives) of the log-likelihood by default; with
+`zinbreg_control(hessian = "numeric")` it differentiates the log-likelihood
+numerically instead (`numDeriv::hessian()`). The option only changes how the
+matrix used for the standard errors is computed: the EM iterations and the
+gradient check that stops them are the same, so the estimates are identical
+and this checks the standard errors by a second, independent route.
+
+```{r}
+#| label: tbl-numeric
+#| tbl-cap: "ZINB fits with the numeric Hessian against zeroinfl(), and our analytic against our numeric standard errors."
+#| echo: false
+s2 <- sup[grepl("_numeric$|_analytic_vs_numeric$", sup$pair), ]
+knitr::kable(data.frame(Comparison = pair_label(s2$pair),
+                        Quantity = s2$quantity,
+                        `Max. abs. difference` = fmt(s2$max_abs_diff),
+                        `Max. rel. difference` = fmt(s2$max_rel_diff),
+                        check.names = FALSE), align = "llrr")
+```
+
+```{r}
+#| label: avn
+#| include: false
+avn <- max(s2$max_abs_diff[grepl("_analytic_vs_numeric$", s2$pair)])
+vs_ref <- min(s2$max_abs_diff[grepl("_numeric$", s2$pair) &
+                                s2$quantity == "standard errors"])
+```
+
+`r if (avn < vs_ref / 10) sprintf("Our two Hessian methods give standard errors that agree with each other to %s, far more closely than either agrees with zeroinfl() (at least %s). The remaining differences from zeroinfl() therefore come from the small differences between the two packages' estimates, not from how the standard errors are computed.", fmt(avn), fmt(vs_ref)) else sprintf("Our two Hessian methods differ by up to %s in the standard errors, which is not much smaller than their differences from zeroinfl() (%s); this deserves a closer look.", fmt(avn), fmt(vs_ref))`
+
+## Validity checks
+
+Every comparison in the report and here is made only after these checks
+pass for both fits of a pair. A failed check would be reported here with its
+reason, and the comparison would be marked as not assessed.
+
+```{r}
+#| label: validity
+#| echo: false
+#| results: asis
+for (id in names(bench$validity)) {
+  cat("\n**", pair_label(id), "**\n\n", sep = "")
+  v <- bench$validity[[id]]
+  print(knitr::kable(data.frame(Check = v$check,
+                                Passed = ifelse(v$passed, "yes", "NO"),
+                                Detail = v$detail), align = "lcl"))
+  cat("\n")
+}
+```
+
+## Timing with the numeric Hessian
+
+The numeric Hessian needs many more evaluations of the log-likelihood, so it
+is slower. Timings are from the saved benchmark results (median of 10 runs,
+with the range).
+
+```{r}
+#| label: tbl-time-numeric
+#| tbl-cap: "zinbreg() with the analytic and the numeric Hessian: computation time in seconds."
+#| echo: false
+if (is.null(saved)) {
+  cat("The saved timings were not found in the installed package; run inst/benchmark/benchmark.R.")
+} else {
+  tm <- saved$timing[grepl("^zinbreg", saved$timing$fit), ]
+  knitr::kable(data.frame(
+    Data = tm$data_name, Fit = tm$fit,
+    `Median (s)` = formatC(tm$median_s, digits = 3, format = "g"),
+    `Range (s)` = sprintf("%s to %s", formatC(tm$min_s, digits = 3, format = "g"),
+                          formatC(tm$max_s, digits = 3, format = "g")),
+    check.names = FALSE), align = "llrr")
+}
+```
+
+`r if (!is.null(prov_check)) (if (prov_check$status == "matches") prov_check$message else paste0("**", prov_check$message, "**")) else ""`

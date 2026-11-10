@@ -383,3 +383,36 @@ The expected frequency of count k is sum_i w_i P(Y_i = k), with P(Y_i = 0) = pi_
   - Profile intervals assume a unimodal profile and use the chi-squared(1) calibration, which may not hold near the Poisson boundary.
   - The ZINB profile (about 60 EM refits) and the bootstraps (one or two EM fits per replicate) are slow: about 9 s per LR replicate on bioChemists.
 * **Thresholds.** The 5% and 10% thresholds are fixed constants.
+
+## Part 6. The benchmark
+
+The benchmark (project description, Section 5) checks that our fits reproduce the reference implementations. It is not part of the package code: it lives in `inst/benchmark/`, so it is installed with the package and the report can use the same code. It is the only place outside the tests where `MASS::glm.nb()` and `pscl::zeroinfl()` are called.
+
+**What runs where.**
+* `inst/benchmark/benchmark_functions.R` holds every function.
+* `inst/benchmark/benchmark.R` runs the full benchmark against the installed package and saves the results next to itself.
+* The report (`vignettes/articles/report.qmd`, Benchmarking) recomputes the agreement tables when it is rendered and reads the timings from the saved results.
+* A separate article (`vignettes/articles/benchmark-supplement.qmd`) shows the supplementary comparisons.
+
+**Required versus supplementary.**
+* Only the four quantities of the project's Table 4 have pass/fail tolerances: the coefficients, their standard errors, theta (NB) or log theta (ZINB), and the log-likelihood.
+* SE(theta), SE(log theta) and the ZINB fits with the numeric Hessian are reported with absolute and relative differences, as information. They are not grading thresholds, so they never fail a run.
+
+**Validity before comparison.** Each pair (our fit and the reference fit) must pass, with an explicit reason on failure:
+* both fits converged (for our ZINB fit, also the gradient check and no diverging coefficient);
+* every required estimate and standard error is finite;
+* the same observations;
+* the same parameter names in the same order;
+* valid covariance matrices (finite, symmetric, positive definite, and for our ZINB fit including log theta).
+
+An invalid pair is reported as "not assessed" and fails the run; it is never compared silently.
+
+**Provenance: which code produced the results.**
+* A package version or a git commit does not prove which code is installed. So the benchmark computes a **code fingerprint**: the MD5 hash of the text of every object the package defines (`deparse()` of each function and constant, with source references removed, in a fixed order). It does this twice, once from the source tree (`R/*.R`) and once from the installed package.
+* If the two agree, and `R/`, the benchmark functions, `DESCRIPTION` and `NAMESPACE` have no uncommitted changes, the results belong to that commit, and anyone can recompute the fingerprint from it. A byte-compiled installed package gives the same fingerprint as its source.
+* The report recomputes the installed fingerprint and compares it with the saved one. It prints that they match, a warning that the timings came from different code, or "cannot verify" when the R version differs (the text of `deparse()` can change between R versions).
+
+**Failures are kept.**
+* A run that fails (an invalid pair, a quantity beyond its tolerance, or unverified provenance) still saves every number, marked FAILED in `benchmark_status.txt`, and exits with status 1.
+* Estimates are never adjusted to pass.
+* Only a passed run is committed as the benchmark of record. The record was produced at commit `65f2720`; its numbers are in `dev/progress_log.md`.
