@@ -668,14 +668,16 @@ report_zinb_divergence <- function(em, Z) {
       quoted("zero_", colnames(Z))), "nbzinbreg_warning_divergence")
   } else if (isTRUE(em$zero_separated)) {
     warn_nbz(sprintf(paste(
-      "The zero part is completely separated: every fitted probability of a",
-      "structural zero is within 1e-8 of 0 or 1, so the zero-part",
-      "covariates split the observations exactly into structural zeros and",
-      "non-structural observations (for example, every count above some value",
-      "of a covariate is 0 and every count below it is positive). The",
+      "The zero part is completely separated: the zero-part covariates split",
+      "the observations exactly into structural zeros and non-structural",
+      "observations (for example, every count above some value of a",
+      "covariate is 0 and every count below it is positive). Every fitted",
+      "probability of a structural zero is within 1e-8 of 0 or 1, and",
+      "scaling the zero-part coefficients to infinity stays inside the 95%%",
+      "likelihood region, so the data put no bound on their size. The",
       "zero-part coefficients (%s) have no finite estimates; they are not",
       "meaningful and their standard errors are NA. Consider a simpler zero",
-      "part."), quoted("zero_", colnames(Z))),
+      "part."), quoted("zero_", em$gradient$separated)),
       "nbzinbreg_warning_divergence")
   } else {
     other_zero <- setdiff(fr$zero, st$zero)

@@ -323,13 +323,63 @@ test_that("standard-error problems give se warnings", {
 
 # ---- complete separation of the zero part -----------------------------------
 
-test_that("zero_part_separated() recognizes complete separation exactly", {
-  sep <- get("zero_part_separated", envir = asNamespace("nbzinbreg"))
-  expect_true(sep(c(-40, 40, -25, 30), rep(1, 4)))       # 0s and 1s only
-  expect_false(sep(c(-40, 0, 40), rep(1, 3)))            # one in between
-  expect_false(sep(c(-40, -30), rep(1, 2)))              # all near 0: collapsed
-  expect_false(sep(c(40, 30), rep(1, 2)))                # all near 1 only
-  expect_true(sep(c(-40, 40, 0), c(1, 1, 0)))            # weight 0 ignored
+test_that("zero_part_separated() needs extreme probabilities and the likelihood certificate", {
+  sep <- function(gamma, y, w = rep(1, length(y)), offset_zero = 0 * y,
+                  x = c(-2, -1, 1, 2)[seq_along(y)]) {
+    f <- get("zero_part_separated", envir = asNamespace("nbzinbreg"))
+    Z <- cbind(`(Intercept)` = 1, x = x)
+    zeta <- drop(Z %*% gamma) + offset_zero
+    f(Z, y, rep(log(2), length(y)), zeta, offset_zero, 1, w, gamma)
+  }
+  # x splits the zeros (x > 0) from the positive counts (x < 0): separated;
+  # only the coefficients that move along the ray are reported
+  expect_identical(sep(c(0, 30), c(1, 3, 0, 0)), "x")
+  expect_identical(sep(c(-5, 30), c(1, 3, 0, 0)), c("(Intercept)", "x"))
+  # a positive count where pi is near 1: the limit is excluded
+  expect_identical(sep(c(0, 30), c(1, 3, 0, 2)), character())
+  # probabilities not all extreme
+  expect_identical(sep(c(0, 3), c(1, 3, 0, 0)), character())
+  # all near 0 (collapsed, handled separately) or all near 1
+  expect_identical(sep(c(-40, 0), c(1, 3, 0, 0)), character())
+  expect_identical(sep(c(40, 0), c(0, 0, 0, 0)), character())
+  # a row with weight 0 is ignored
+  expect_identical(sep(c(0, 30), c(1, 3, 0, 2), w = c(1, 1, 1, 0)), "x")
+  # extremes produced by an offset, with the zero coefficients moving
+  # nothing apart: no ray separates the data
+  expect_identical(sep(c(0.1, 0), c(1, 3, 0, 0),
+                       offset_zero = c(-30, -30, 30, 30)), character())
+})
+
+test_that("extreme fitted probabilities with an identified zero part are kept", {
+  # Every fitted pi is within 1e-8 of 0 or 1 (through the zero-part offset),
+  # but the zero intercept has a finite maximum: the zeros at o = +20 pull it
+  # up, the positive counts at o = -20 pull it down. The frequency weights
+  # make pi (1 - pi) ~ 2e-9 informative, so it is also well determined.
+  yl <- c(1, 1, 2, 2, 3, 3, 4, 5, 6, 8)
+  d <- data.frame(y = c(rep(0, 10), yl), o = rep(c(20, -20), each = 10),
+                  w = 1e9)
+  fit <- expect_silent(zinbreg(y ~ 1 | 1 + offset(o), d, weights = w))
+  expect_true(fit$converged)
+  expect_true(all(fit$pi < 1e-8 | fit$pi > 1 - 1e-8))
+  expect_identical(fit$diverging, character())
+  # the score balance gives gamma = log(1 - f0) / 2, f0 the NB P(Y = 0)
+  # (to the precision of the stopping rule: Newton decrement <= 1e-8 with
+  # about 40 units of information allows ~1e-5 in gamma)
+  f0 <- stats::dnbinom(0, size = fit$theta,
+                       mu = exp(fit$coefficients$count[[1]]))
+  expect_equal(fit$coefficients$zero[[1]], 0.5 * log(1 - f0),
+               tolerance = 1e-4)
+  se <- sqrt(fit$vcov["zero_(Intercept)", "zero_(Intercept)"])
+  expect_true(is.finite(se))
+  expect_lt(se, 0.5)
+  # the same data unweighted: still a finite maximum, not separation, but
+  # with almost no information (the standard error is huge, not NA)
+  d$w <- 1
+  fit1 <- expect_silent(zinbreg(y ~ 1 | 1 + offset(o), d, weights = w))
+  expect_identical(fit1$diverging, character())
+  expect_equal(fit1$coefficients$zero[[1]], fit$coefficients$zero[[1]],
+               tolerance = 1e-6)
+  expect_gt(sqrt(fit1$vcov["zero_(Intercept)", "zero_(Intercept)"]), 100)
 })
 
 test_that("a zero part separated by a continuous covariate is reported", {

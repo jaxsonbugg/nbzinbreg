@@ -124,20 +124,22 @@ zinb_numeric_hessian <- function(X, Z, y, offset, offset_zero, w, beta, gamma,
 # Parameters left out of the gradient check and of the inversion for standard
 # errors: coefficients found to diverge (held fixed by EM, or structurally
 # without a finite estimate), every zero coefficient when the zero part has
-# collapsed (all pi < 1e-8: no zero inflation is left to estimate) or is
-# completely separated (see below), and log(theta) when theta ended on a
-# bound. The log-likelihood is flat in these directions, so including them
-# would make -H singular.
-zinb_excluded <- function(X, Z, frozen, structural, zeta, w, theta_bound) {
+# collapsed (all pi < 1e-8: no zero inflation is left to estimate), the zero
+# coefficients `separated` (see zero_part_separated()), and log(theta) when
+# theta ended on a bound. The log-likelihood is flat in these directions, so
+# including them would make -H singular.
+zinb_excluded <- function(X, Z, frozen, structural, zeta, w, theta_bound,
+                          separated = character()) {
   # paste0("count_", character(0)) would give "count_", not character(0)
   prefixed <- function(prefix, x) {
     if (length(x)) paste0(prefix, x) else character()
   }
   out <- c(prefixed("count_", union(frozen$count, structural$count)),
            prefixed("zero_", union(frozen$zero, structural$zero)))
-  if (zero_part_collapsed(zeta, w) || zero_part_separated(zeta, w)) {
+  if (zero_part_collapsed(zeta, w)) {
     out <- union(out, paste0("zero_", colnames(Z)))
   }
+  out <- union(out, prefixed("zero_", separated))
   if (!identical(theta_bound, "none")) out <- c(out, "Log(theta)")
   out
 }
@@ -146,19 +148,49 @@ zero_part_collapsed <- function(zeta, w) {
   all(stats::plogis(zeta[w > 0]) < 1e-8)
 }
 
-# Is the zero part completely separated? Every fitted structural-zero
-# probability (rows with positive weight) is within 1e-8 of 0 or of 1, and
-# both occur. The logistic part then has no finite estimate: some
-# combination of the zero-part covariates splits the observations into
-# certain structural zeros and certain non-structural ones, so the
-# coefficients run off to infinity. This is the general, exact version of the
-# indicator-column checks, and covers separation by a continuous covariate.
-# (All probabilities near 0 is the collapsed case above.)
-zero_part_separated <- function(zeta, w) {
-  z <- zeta[w > 0]
+# Is the zero part completely separated, so that its coefficients have no
+# finite estimate? Returns the names of the zero coefficients that run off to
+# infinity (character(0) if the zero part is not separated).
+#
+# Extreme fitted probabilities alone are not evidence: a zero part can have
+# every pi within 1e-8 of 0 or 1 and still a finite, well-identified maximum
+# (for example through a zero-part offset, or with large frequency weights
+# that make even pi (1 - pi) = 1e-9 informative). So two conditions are
+# required, over the rows with positive weight:
+#   1. (screen) every pi is within 1e-8 of 0 or of 1, and both occur, so the
+#      fitted zero part classifies the rows exactly;
+#   2. (likelihood certificate) the data cannot bound the size of the zero
+#      coefficients. Scaling them by t -> Inf, with the count part held
+#      fixed, moves each pi to its limit: 1 where s = Z gamma > 0, 0 where
+#      s < 0, plogis(offset) where s = 0. The zero part is separated only if
+#      this limit stays inside the 95% likelihood region of the fit:
+#      2 (l_hat - l_limit) < qchisq(0.95, 1). The limit is then as well
+#      supported as the fit, so no finite upper confidence bound on the size
+#      of the coefficients exists. If the limit is excluded, the fit is a
+#      genuine finite maximum (or at least the data bound its size), and the
+#      coefficients are kept, with standard errors from the Hessian.
+# The limit is evaluated with zeta = +-1e4, which gives the limiting
+# probabilities to within exp(-1e4) (exactly, in double precision). A row
+# with a positive count and s > 0 makes the limit -Inf, so it is never
+# separated. The coefficients reported are those that move along the ray
+# (non-zero estimates).
+zero_part_separated <- function(Z, y, eta, zeta, offset_zero, theta, w,
+                                gamma) {
+  pos <- w > 0
+  z <- zeta[pos]
   near0 <- stats::plogis(z) < 1e-8
   near1 <- stats::plogis(-z) < 1e-8
-  all(near0 | near1) && any(near0) && any(near1)
+  if (!(all(near0 | near1) && any(near0) && any(near1))) return(character())
+  s <- zeta - offset_zero
+  if (!any(s[pos] != 0)) return(character())
+  zeta_limit <- ifelse(s > 0, 1e4, ifelse(s < 0, -1e4, offset_zero))
+  ll_hat <- zinb_loglik(y, eta, zeta, theta, w)
+  ll_limit <- zinb_loglik(y, eta, zeta_limit, theta, w)
+  if (!is.finite(ll_limit) || !is.finite(ll_hat) ||
+      2 * (ll_hat - ll_limit) >= stats::qchisq(0.95, 1)) {
+    return(character())
+  }
+  colnames(Z)[gamma != 0]
 }
 
 # Gradient check. With g the gradient and H the Hessian over the parameters

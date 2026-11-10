@@ -859,7 +859,7 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
        theta_bound = theta_bound, mstep_status = status,
        violations = violations, frozen = frozen, structural = structural,
        zero_collapsed = zero_part_collapsed(zeta, w),
-       zero_separated = zero_part_separated(zeta, w), gradient = grad,
+       zero_separated = length(grad$separated) > 0L, gradient = grad,
        gradient_evaluations = grad_evals, start_method = st$method,
        start_diverging = st$start_diverging, loglik_trace = loglik_trace)
 }
@@ -871,10 +871,13 @@ zinb_gradient_status <- function(X, Z, y, offset, offset_zero, w, beta, gamma,
                                  theta, frozen, structural, theta_bound,
                                  grad_tol) {
   dv <- zinb_derivs(X, Z, y, offset, offset_zero, w, beta, gamma, theta)
-  excluded <- zinb_excluded(X, Z, frozen, structural,
-                            lin_pred(Z, gamma, offset_zero), w, theta_bound)
+  zeta <- lin_pred(Z, gamma, offset_zero)
+  separated <- zero_part_separated(Z, y, lin_pred(X, beta, offset), zeta,
+                                   offset_zero, theta, w, gamma)
+  excluded <- zinb_excluded(X, Z, frozen, structural, zeta, w, theta_bound,
+                            separated)
   keep <- !(names(dv$gradient) %in% excluded)
   chk <- gradient_check(dv$gradient, dv$hessian, keep, grad_tol)
   c(chk, list(gradient = dv$gradient, hessian = dv$hessian,
-              excluded = excluded))
+              excluded = excluded, separated = separated))
 }

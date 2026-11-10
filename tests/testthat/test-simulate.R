@@ -185,10 +185,201 @@ test_that("special replicates are classified as boundary samples", {
   r0 <- bz(zfit, list(row = seq_len(n), y = rep(0, n), w = rep(1, n)))
   expect_identical(r0$outcome, "boundary")
   expect_setequal(r0$boundary, c(names(coef(zfit)), "log(theta)"))
-  # a completely separated zero part
-  sep <- get("zero_part_separated", envir = asNamespace("nbzinbreg"))
-  expect_true(sep(c(-40, 40, -25), rep(1, 3)))
-  expect_false(sep(c(-40, 0, 40), rep(1, 3)))
+})
+
+# ---- replicates at the zero-inflation boundary -------------------------------
+
+# A replicate of the ZINB fit without zero inflation: NB counts with a few of
+# the zeros removed, so the score at pi = 0 is negative.
+boundary_case <- function() {
+  zfit <- zinbreg(y ~ x | x, sim_data())
+  d <- sim_data(zi = FALSE)
+  set.seed(4)
+  y <- d$y
+  y[y == 0 & stats::runif(length(y)) < 0.3] <- 1
+  n <- length(y)
+  nb <- nbreg(y ~ x, data.frame(y = y, x = d$x))
+  log_f0 <- stats::dnbinom(0, size = nb$theta, mu = nb$fitted.values,
+                           log = TRUE)
+  list(zfit = zfit, nb = nb, x = d$x,
+       s = list(row = seq_len(n), y = y, w = rep(1, n)),
+       D = sum(ifelse(y == 0, exp(-log_f0), 0) - 1))
+}
+
+# A refit_model() replacement: every ZINB refit stops unconverged at
+# log-likelihood `ll`, like EM drifting toward pi -> 0 with the gradient
+# check unavailable. `violations` rows can be added to the engine.
+unconverged_refits <- function(ll, violations = 0L) {
+  function(object, y, w, rows = seq_along(y), start = NULL) {
+    list(status = "not_converged", message = NA_character_, loglik = ll,
+         coefficients = NULL, theta = NA_real_, diverging = character(),
+         warnings = 0L,
+         engine = list(stop_reason = "gradient_unavailable",
+                       violations = data.frame(iteration = seq_len(violations))))
+  }
+}
+
+test_that("an unconverged replicate at the pi -> 0 boundary is kept", {
+  bc <- boundary_case()
+  expect_lt(bc$D, 0)
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  # EM approaches the boundary value from below without converging
+  local_mocked_bindings(refit_model = unconverged_refits(bc$nb$loglik - 1e-7),
+                        .package = "nbzinbreg")
+  r <- bz(bc$zfit, bc$s)
+  expect_identical(r$outcome, "boundary")
+  expect_true(r$accepted_boundary)
+  expect_setequal(r$boundary, c("zero_(Intercept)", "zero_x"))
+  # the boundary point: the count part and theta of the NB refit
+  expect_equal(unname(r$values[c("count_(Intercept)", "count_x")]),
+               unname(bc$nb$coefficients), tolerance = 1e-8)
+  expect_equal(r$values[["log(theta)"]], log(bc$nb$theta), tolerance = 1e-8)
+  expect_true(all(is.na(r$values[c("zero_(Intercept)", "zero_x")])))
+})
+
+test_that("a boundary refit that ends regularly is used as the replicate", {
+  bc <- boundary_case()
+  real <- get("refit_model", envir = asNamespace("nbzinbreg"))
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  calls <- 0L
+  local_mocked_bindings(
+    refit_model = function(object, y, w, rows = seq_along(y), start = NULL) {
+      calls <<- calls + 1L
+      at_boundary <- !is.null(start) &&
+        isTRUE(all.equal(unname(start$zero[1]), stats::qlogis(1e-8)))
+      if (at_boundary) return(real(object, y, w, rows, start))
+      unconverged_refits(-Inf)(object, y, w, rows, start)
+    }, .package = "nbzinbreg")
+  r <- bz(bc$zfit, bc$s)
+  expect_identical(calls, 3L)
+  expect_true(r$outcome %in% c("ok", "boundary"))
+  expect_null(r$accepted_boundary)
+  expect_true(all(is.finite(r$values[c("count_(Intercept)", "count_x")])))
+})
+
+test_that("a boundary refit loses to a higher interior maximum from another start", {
+  zfit <- zinbreg(y ~ x | x, sim_data())
+  n <- length(zfit$y)
+  s <- list(row = seq_len(n), y = unname(zfit$y), w = rep(1, n))
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  fake <- function(status, ll, shift) {
+    cf <- list(count = zfit$coefficients$count + shift,
+               zero = zfit$coefficients$zero + shift)
+    list(status = status, message = NA_character_, loglik = ll,
+         coefficients = cf, theta = zfit$theta,
+         diverging = if (status == "diverging") "zero_x" else character(),
+         warnings = 0L,
+         engine = list(zero_collapsed = FALSE, zero_separated = FALSE,
+                       theta_bound = "none"))
+  }
+  # from the original estimates: a boundary result (a coefficient running
+  # off); from the default start: an interior maximum, higher by 1.5
+  local_mocked_bindings(
+    refit_model = function(object, y, w, rows = seq_along(y), start = NULL) {
+      if (is.null(start)) fake("ok", -500, 0.1) else fake("diverging", -501.5, 0)
+    }, .package = "nbzinbreg")
+  r <- bz(zfit, s)
+  expect_identical(r$outcome, "ok")
+  expect_equal(r$values[["zero_x"]], zfit$coefficients$zero[["x"]] + 0.1)
+  # the boundary result is kept when it is the higher one
+  local_mocked_bindings(
+    refit_model = function(object, y, w, rows = seq_along(y), start = NULL) {
+      if (is.null(start)) fake("ok", -502, 0.1) else fake("diverging", -501.5, 0)
+    }, .package = "nbzinbreg")
+  r <- bz(zfit, s)
+  expect_identical(r$outcome, "boundary")
+  expect_identical(r$boundary, "zero_x")
+})
+
+test_that("unconverged replicates without boundary evidence are failures", {
+  bc <- boundary_case()
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  # a refit found a materially higher log-likelihood: an interior maximum
+  # that could not be confirmed, not a boundary
+  local_mocked_bindings(refit_model = unconverged_refits(bc$nb$loglik + 0.5),
+                        .package = "nbzinbreg")
+  r <- bz(bc$zfit, bc$s)
+  expect_identical(r$outcome, "failure")
+  expect_match(r$message, "above the boundary value but did not converge")
+  # EM from the boundary start was not monotone
+  local_mocked_bindings(
+    refit_model = unconverged_refits(bc$nb$loglik - 1e-7, violations = 1L),
+    .package = "nbzinbreg")
+  r <- bz(bc$zfit, bc$s)
+  expect_identical(r$outcome, "failure")
+  expect_match(r$message, "lost likelihood, or was not monotone")
+  # EM from the boundary start lost likelihood
+  local_mocked_bindings(refit_model = unconverged_refits(bc$nb$loglik - 1),
+                        .package = "nbzinbreg")
+  expect_identical(bz(bc$zfit, bc$s)$outcome, "failure")
+})
+
+test_that("excess zeros (positive score at pi = 0) make an unconverged refit a failure", {
+  zfit <- zinbreg(y ~ x | x, sim_data())
+  n <- length(zfit$y)
+  s <- list(row = seq_len(n), y = unname(zfit$y), w = rep(1, n))
+  nb <- nbreg(y ~ x, data.frame(y = s$y, x = zfit$x[, "x"]))
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  local_mocked_bindings(refit_model = unconverged_refits(nb$loglik - 1e-7),
+                        .package = "nbzinbreg")
+  r <- bz(zfit, s)
+  expect_identical(r$outcome, "failure")
+  expect_match(r$message, "score at pi = 0 is positive")
+})
+
+test_that("without a zero-part intercept the boundary cannot be accepted", {
+  zfit <- suppressWarnings(zinbreg(y ~ x | x - 1, sim_data()))
+  n <- length(zfit$y)
+  bz <- get("boot_refit", envir = asNamespace("nbzinbreg"))
+  local_mocked_bindings(refit_model = unconverged_refits(-1e6),
+                        .package = "nbzinbreg")
+  r <- bz(zfit, list(row = seq_len(n), y = unname(zfit$y), w = rep(1, n)))
+  expect_identical(r$outcome, "failure")
+  expect_match(r$message, "no intercept")
+})
+
+test_that("boot_se() reports replicates accepted at the boundary", {
+  fit <- zinbreg(y ~ x | x, sim_data())
+  set.seed(12)
+  rep_values <- function() {
+    c(stats::setNames(stats::rnorm(4), names(coef(fit))),
+      `log(theta)` = stats::rnorm(1))
+  }
+  ok <- function() list(outcome = "ok", boundary = character(),
+                        values = rep_values())
+  acc <- function() list(outcome = "boundary", accepted_boundary = TRUE,
+                         boundary = c("zero_(Intercept)", "zero_x"),
+                         values = rep_values())
+  b <- scripted_boot(fit, c(lapply(1:97, function(i) ok()),
+                            lapply(1:3, function(i) acc())), 100)
+  expect_identical(b$boundary_accepted, 3L)
+  expect_identical(b$failures, 0L)
+  expect_match(b$notes, "3 replicate\\(s\\) did not converge in the interior",
+               all = FALSE)
+})
+
+# ---- the original fit must have converged ------------------------------------
+
+test_that("boot_se() refuses an nbreg fit that did not converge", {
+  fit <- suppressWarnings(nbreg(y ~ x, sim_data(zi = FALSE),
+                                control = nbreg_control(maxit = 1)))
+  expect_false(fit$converged)
+  local_mocked_bindings(
+    bootstrap_sample = function(...) stop("must not be reached"),
+    .package = "nbzinbreg")
+  expect_error(boot_se(fit, R = 10), class = "nbzinbreg_error_fit",
+               regexp = "needs a converged fit, but this nbreg fit did not")
+})
+
+test_that("boot_se() refuses a zinbreg fit that did not converge", {
+  fit <- suppressWarnings(zinbreg(y ~ x | x, sim_data(),
+                                  control = zinbreg_control(maxit = 2)))
+  expect_false(fit$converged)
+  local_mocked_bindings(
+    bootstrap_sample = function(...) stop("must not be reached"),
+    .package = "nbzinbreg")
+  expect_error(boot_se(fit, R = 10), class = "nbzinbreg_error_fit",
+               regexp = "needs a converged fit, but this zinbreg fit did not")
 })
 
 test_that("diverging coefficients of the original fit get NA", {

@@ -29,7 +29,8 @@ An object of class \code{nbzinbreg_boot}, a list with \code{estimate},
 \code{se_model} (from the information matrix), \code{se_boot} (bootstrap), \code{used}
 (replicates used for each parameter), \code{boundary} (replicates with that
 parameter on a boundary), \code{status} (counts of the replicate outcomes),
-\code{failures}, \code{R}, \code{replicates} (the matrix of refitted estimates, \code{NA}
+\code{failures}, \code{boundary_accepted} (replicates accepted at the
+zero-inflation boundary after unconverged refits), \code{R}, \code{replicates} (the matrix of refitted estimates, \code{NA}
 where left out), \code{notes}, and the attribute \code{"seed"}.
 }
 \description{
@@ -47,11 +48,34 @@ expanded data. Weights that are not whole numbers have no such meaning and
 are refused. The total number of draws per data set is limited to 1e7.
 
 \strong{Safeguarded refits.} Each data set is refitted starting from the
-original estimates. If that refit fails or does not converge, it is retried
-from the default starting values, and for \code{zinbreg} (with a zero-part
-intercept) once more from the NB-boundary start (count part at the
-estimates, \code{pi} near 0). Only a data set whose refits all fail is a
-\strong{numerical failure}.
+original estimates. If that refit fails, does not converge, or ends with an
+estimate on a boundary, the data set is also refitted from the default
+starting values, and of the refits that converged the one with the higher
+log-likelihood is used: a boundary estimate reached from one start can be a
+lower local supremum than an interior maximum reached from another.
+
+\strong{The zero-inflation boundary.} For \code{zinbreg}, a data set may show no
+zero inflation, so its estimate lies at \code{pi -> 0}, where EM can stop
+unconverged (the zero part drifts toward minus infinity and the interior
+gradient check becomes unavailable) without anything being wrong. If both
+refits fail, the data set's negative binomial (NB) model is refitted, and
+the zero-inflated model is refitted once more from that NB fit with \code{pi}
+near 0. If that refit also fails, the data set is accepted at the boundary
+only when all of these hold:
+\itemize{
+\item the zero part has an intercept, so \code{pi -> 0} gives the NB model exactly;
+\item the NB refit converged;
+\item the score at \code{pi = 0} is not positive, so the likelihood does not rise
+into the interior;
+\item no refit reached a log-likelihood above the NB value by more than
+\verb{1e-6 (|l| + 1)}, so no interior improvement was found;
+\item the refit from the boundary was monotone and did not fall below the NB
+value.
+}
+
+The accepted estimate is the boundary point: the count part and \code{theta}
+from the NB refit, with every zero coefficient on the boundary. Otherwise
+the data set is a \strong{numerical failure}.
 
 \strong{Boundary data sets are kept.} A simulated data set can have a maximum
 likelihood estimate on a boundary: a coefficient running off to infinity,
@@ -83,7 +107,9 @@ Each \code{zinbreg} refit is a full EM fit, so \code{R} refits take some time;
 number from 2 to 100,000, an invalid \code{seed} or \code{progress}, non-integer or
 vanishing frequency weights, a data set of more than 1e7 draws, or
 unused arguments.
-\item \code{nbzinbreg_error_fit}: more than 10\% of the replicates failed.
+\item \code{nbzinbreg_error_fit}: \code{object} did not converge (its estimates are not
+maximum likelihood estimates, so no bootstrap is run), or more than 10\%
+of the replicates failed.
 \item \code{nbzinbreg_warning_bootstrap}: some replicates failed and were dropped.
 }
 }

@@ -95,11 +95,33 @@ simulate_fit <- function(object, nsim, seed) {
 #' are refused. The total number of draws per data set is limited to 1e7.
 #'
 #' **Safeguarded refits.** Each data set is refitted starting from the
-#' original estimates. If that refit fails or does not converge, it is retried
-#' from the default starting values, and for `zinbreg` (with a zero-part
-#' intercept) once more from the NB-boundary start (count part at the
-#' estimates, `pi` near 0). Only a data set whose refits all fail is a
-#' **numerical failure**.
+#' original estimates. If that refit fails, does not converge, or ends with an
+#' estimate on a boundary, the data set is also refitted from the default
+#' starting values, and of the refits that converged the one with the higher
+#' log-likelihood is used: a boundary estimate reached from one start can be a
+#' lower local supremum than an interior maximum reached from another.
+#'
+#' **The zero-inflation boundary.** For `zinbreg`, a data set may show no
+#' zero inflation, so its estimate lies at `pi -> 0`, where EM can stop
+#' unconverged (the zero part drifts toward minus infinity and the interior
+#' gradient check becomes unavailable) without anything being wrong. If both
+#' refits fail, the data set's negative binomial (NB) model is refitted, and
+#' the zero-inflated model is refitted once more from that NB fit with `pi`
+#' near 0. If that refit also fails, the data set is accepted at the boundary
+#' only when all of these hold:
+#'
+#' * the zero part has an intercept, so `pi -> 0` gives the NB model exactly;
+#' * the NB refit converged;
+#' * the score at `pi = 0` is not positive, so the likelihood does not rise
+#'   into the interior;
+#' * no refit reached a log-likelihood above the NB value by more than
+#'   `1e-6 (|l| + 1)`, so no interior improvement was found;
+#' * the refit from the boundary was monotone and did not fall below the NB
+#'   value.
+#'
+#' The accepted estimate is the boundary point: the count part and `theta`
+#' from the NB refit, with every zero coefficient on the boundary. Otherwise
+#' the data set is a **numerical failure**.
 #'
 #' **Boundary data sets are kept.** A simulated data set can have a maximum
 #' likelihood estimate on a boundary: a coefficient running off to infinity,
@@ -129,7 +151,9 @@ simulate_fit <- function(object, nsim, seed) {
 #'   number from 2 to 100,000, an invalid `seed` or `progress`, non-integer or
 #'   vanishing frequency weights, a data set of more than 1e7 draws, or
 #'   unused arguments.
-#' * `nbzinbreg_error_fit`: more than 10% of the replicates failed.
+#' * `nbzinbreg_error_fit`: `object` did not converge (its estimates are not
+#'   maximum likelihood estimates, so no bootstrap is run), or more than 10%
+#'   of the replicates failed.
 #' * `nbzinbreg_warning_bootstrap`: some replicates failed and were dropped.
 #'
 #' @param object An `nbreg` or `zinbreg` fit.
@@ -143,7 +167,8 @@ simulate_fit <- function(object, nsim, seed) {
 #'   `se_model` (from the information matrix), `se_boot` (bootstrap), `used`
 #'   (replicates used for each parameter), `boundary` (replicates with that
 #'   parameter on a boundary), `status` (counts of the replicate outcomes),
-#'   `failures`, `R`, `replicates` (the matrix of refitted estimates, `NA`
+#'   `failures`, `boundary_accepted` (replicates accepted at the
+#'   zero-inflation boundary after unconverged refits), `R`, `replicates` (the matrix of refitted estimates, `NA`
 #'   where left out), `notes`, and the attribute `"seed"`.
 #' @seealso [simulate.nbreg()], [confint.nbreg()]
 #' @examples
@@ -158,6 +183,15 @@ boot_se <- function(object, R = 199, seed = NULL, progress = FALSE, ...) {
   check_count_arg(R, "R", min = 2, max = 1e5)
   check_seed(seed)
   check_flag(progress, "progress")
+  if (!isTRUE(object$converged)) {
+    abort_nbz(sprintf(paste(
+      "boot_se() needs a converged fit, but this %s fit did not converge, so",
+      "its estimates are not the maximum likelihood estimates: data simulated",
+      "from them, and bootstrap standard errors around them, would look",
+      "reliable without being so. Refit with a larger `maxit` (see the",
+      "control function) or a simpler model first."), class(object)[1L]),
+      "nbzinbreg_error_fit")
+  }
   w_int <- check_frequency_weights(object$prior.weights, "boot_se()")
   check_bootstrap_size(w_int, "boot_se()")
   R <- as.integer(R)
@@ -173,6 +207,7 @@ boot_se <- function(object, R = 199, seed = NULL, progress = FALSE, ...) {
   reps <- matrix(NA_real_, R, k, dimnames = list(NULL, names(est)))
   boundary <- matrix(FALSE, R, k, dimnames = list(NULL, names(est)))
   outcome <- character(R)
+  accepted <- logical(R)
   first_error <- NA_character_
   step <- max(1L, ceiling(R / 10))
 
@@ -181,6 +216,7 @@ boot_se <- function(object, R = 199, seed = NULL, progress = FALSE, ...) {
       s <- bootstrap_sample(object, w_int)
       r <- boot_refit(object, s)
       outcome[b] <- r$outcome
+      accepted[b] <- isTRUE(r$accepted_boundary)
       if (r$outcome == "failure") {
         if (is.na(first_error)) first_error <- r$message
       } else {
@@ -238,11 +274,19 @@ boot_se <- function(object, R = 199, seed = NULL, progress = FALSE, ...) {
       "%s: diverges in the original fit, so no standard error is given",
       diverging))
   }
+  n_accepted <- sum(accepted)
+  if (n_accepted > 0L) {
+    notes <- c(notes, sprintf(paste(
+      "%d replicate(s) did not converge in the interior and were accepted at",
+      "the zero-inflation boundary (pi -> 0) after the boundary checks"),
+      n_accepted))
+  }
   structure(list(
     estimate = est, se_model = se_model, se_boot = se_boot, used = used,
     boundary = n_boundary,
     status = table(factor(outcome, levels = c("ok", "boundary", "failure"))),
-    failures = failures, R = R, replicates = reps, notes = notes),
+    failures = failures, boundary_accepted = n_accepted, R = R,
+    replicates = reps, notes = notes),
     seed = attr(result, "seed"), class = "nbzinbreg_boot")
 }
 
@@ -280,23 +324,149 @@ boot_refit <- function(object, s) {
   if (inherits(object, "zinbreg") && !any(s$y[pos] == 0)) {
     return(boot_no_zero_replicate(object, s))
   }
-  # Starts, in order: the original estimates (fast, and the usual bootstrap
-  # practice), the default starting values, and for zinbreg the NB-boundary
-  # start. The first refit that neither fails nor stops unconverged is used.
-  starts <- boot_starts(object)
-  r <- refit_model(object, s$y, s$w, rows = s$row, start = starts[[1L]])
-  for (st in c(list(NULL), starts[-1L])) {
-    if (!(r$status %in% c("error", "not_converged"))) break
-    r <- refit_model(object, s$y, s$w, rows = s$row, start = st)
+  # Starts: the original estimates (fast, and the usual bootstrap practice).
+  # If that refit does not end as a regular interior fit (status "ok"), the
+  # default starting values are tried too, and of the refits that neither
+  # fail nor stop unconverged the one with the higher log-likelihood is used
+  # (the first on a tie). A boundary result from one start can be a lower
+  # local supremum than an interior maximum found from another, so the first
+  # regular refit is not simply taken.
+  failed <- function(r) r$status %in% c("error", "not_converged")
+  attempts <- list(refit_model(object, s$y, s$w, rows = s$row,
+                               start = boot_start(object)))
+  if (!identical(attempts[[1L]]$status, "ok")) {
+    attempts <- c(attempts, list(
+      refit_model(object, s$y, s$w, rows = s$row, start = NULL)))
   }
-  if (r$status %in% c("error", "not_converged")) {
-    return(list(outcome = "failure",
-                message = if (!is.na(r$message)) r$message
-                else "the refit did not converge"))
+  regular <- Filter(Negate(failed), attempts)
+  if (!length(regular)) {
+    if (!inherits(object, "zinbreg")) {
+      r <- attempts[[length(attempts)]]
+      return(list(outcome = "failure",
+                  message = if (!is.na(r$message)) r$message
+                  else "the refit did not converge"))
+    }
+    return(boot_zero_boundary(object, s, attempts))
   }
+  ll <- vapply(regular, function(a) a$loglik, numeric(1))
+  ll[is.na(ll)] <- -Inf
+  r <- regular[[which.max(ll)]]
   b <- boot_boundary(object, r)
   list(outcome = if (length(b)) "boundary" else "ok",
        values = boot_values(object, r), boundary = b)
+}
+
+# A zinbreg replicate whose refits all failed or stopped unconverged. Near
+# the legitimate boundary pi -> 0 (no zero inflation in this sample), EM can
+# stop unconverged without anything being wrong: the zero part drifts toward
+# minus infinity, its curvature vanishes, and the interior gradient check
+# becomes unavailable (-H not positive definite) or EM runs out of
+# iterations. Such a sample has a boundary estimate, and the replicate is
+# kept; any other is a numerical failure. The decision, in order:
+#   1. The zero part must have an intercept, so that pi -> 0 for every row
+#      reproduces the negative binomial (NB) model exactly; otherwise the
+#      boundary cannot be identified, and the replicate fails.
+#   2. The NB refit of the replicate (same count model) must converge. Its
+#      log-likelihood l_NB is the supremum of the ZINB likelihood along
+#      pi -> 0, i.e. the value at the boundary.
+#   3. A ZINB refit is started at that boundary (count part and theta from
+#      the NB refit, pi = 1e-8). If it ends regularly, it is the replicate's
+#      fit, as for any other refit.
+#   4. Otherwise the boundary is accepted only with all of this evidence:
+#      a. first order: the score for moving every pi away from 0 together
+#         (the zero intercept, from the boundary) is not positive,
+#         D = sum_i w_i e^{o_i} (I(y_i = 0) / f0_i - 1) <= 0, with f0_i the
+#         NB probability of a zero and o_i the zero-part offset. D > 0 means
+#         the likelihood rises into the interior, so an interior maximum
+#         exists that the refits failed to find.
+#      b. likelihood: no ZINB refit (any start) found a log-likelihood above
+#         l_NB + 1e-6 (|l_NB| + 1). A higher value is an interior improvement
+#         that could not be confirmed as a maximum: a failure, not a boundary.
+#      c. optimization: the refit from the boundary start was monotone (no
+#         recorded violation) and did not fall below l_NB - 1e-6 (|l_NB| + 1);
+#         EM from the boundary cannot lose likelihood unless something is
+#         numerically wrong.
+#   The accepted estimate is the boundary point itself: the count part and
+#   theta from the NB refit, every zero coefficient on the boundary (as for a
+#   replicate without zeros).
+boot_zero_boundary <- function(object, s, attempts) {
+  fail <- function(why) list(outcome = "failure", message = paste(
+    "the zero-inflated refits did not converge, and the sample is not at",
+    "the pi -> 0 boundary:", why))
+  pos <- s$w > 0
+  Z <- object$z[s$row, , drop = FALSE]
+  j <- intercept_index(Z, pos)
+  if (j == 0L) return(fail("the zero part has no intercept"))
+  X <- object$x[s$row, , drop = FALSE]
+  off <- object$offset$count[s$row]
+  off_zero <- object$offset$zero[s$row]
+  ctl <- object$control$nb_control
+  ctl$trace <- FALSE
+  nb <- tryCatch(nbreg_fit(X, s$y, off, s$w, ctl, compute_se = FALSE),
+                 nbzinbreg_error = function(e) e)
+  if (inherits(nb, "condition") || !isTRUE(nb$converged)) {
+    return(fail("its negative binomial refit did not converge"))
+  }
+  g <- stats::setNames(numeric(ncol(Z)), colnames(Z))
+  g[j] <- stats::qlogis(1e-8)
+  rb <- refit_model(object, s$y, s$w, rows = s$row, start = list(
+    count = nb$coefficients, zero = g, theta = nb$theta))
+  if (!(rb$status %in% c("error", "not_converged"))) {
+    b <- boot_boundary(object, rb)
+    return(list(outcome = if (length(b)) "boundary" else "ok",
+                values = boot_values(object, rb), boundary = b))
+  }
+  ev <- boot_boundary_evidence(s, nb, X, off, off_zero, c(attempts, list(rb)),
+                               rb)
+  if (!ev$accept) return(fail(ev$why))
+  out <- boot_nb_boundary_values(object, s, nb, X)
+  out$accepted_boundary <- TRUE
+  out
+}
+
+# The evidence of steps 4a-4c above, for the replicate `s` with NB refit
+# `nb`; `attempts` are all ZINB refits, `rb` the one from the boundary start.
+boot_boundary_evidence <- function(s, nb, X, off, off_zero, attempts, rb) {
+  pos <- s$w > 0
+  tol <- 1e-6 * (abs(nb$loglik) + 1)
+  log_f0 <- nb_log_f0(lin_pred(X, nb$coefficients, off), nb$theta)
+  o <- off_zero - max(off_zero[pos])
+  term <- ifelse(s$y == 0, exp(-log_f0), 0) - 1
+  D <- sum((s$w * exp(o) * term)[pos])
+  if (!is.finite(D) || D > 0) {
+    return(list(accept = FALSE, why = sprintf(paste(
+      "the score at pi = 0 is positive (D = %.3g), so the likelihood rises",
+      "into the interior"), D)))
+  }
+  ll <- vapply(attempts, function(a) a$loglik, numeric(1))
+  ll <- ll[is.finite(ll)]
+  if (length(ll) && max(ll) > nb$loglik + tol) {
+    return(list(accept = FALSE, why = sprintf(paste(
+      "a refit reached a log-likelihood %.3g above the boundary value but",
+      "did not converge"), max(ll) - nb$loglik)))
+  }
+  if (!is.finite(rb$loglik) || rb$loglik < nb$loglik - tol ||
+      is.null(rb$engine) || NROW(rb$engine$violations) > 0L) {
+    return(list(accept = FALSE, why = paste(
+      "the refit from the boundary start failed, lost likelihood, or was",
+      "not monotone")))
+  }
+  list(accept = TRUE, why = NA_character_, D = D)
+}
+
+# Replicate values at the pi -> 0 boundary, from an NB fit `fit` of the
+# replicate's count model: the count part and theta from the NB fit, every
+# zero coefficient on the boundary (NA).
+boot_nb_boundary_values <- function(object, s, fit, X) {
+  zero_names <- paste0("zero_", colnames(object$z))
+  values <- c(stats::setNames(fit$coefficients,
+                              paste0("count_", names(fit$coefficients))),
+              stats::setNames(rep(NA_real_, length(zero_names)), zero_names),
+              `log(theta)` = log(fit$theta))
+  div <- union(fit$diverging, structural_divergence(X, s$y, s$w))
+  b <- c(zero_names, if (length(div)) paste0("count_", div),
+         if (!identical(fit$theta_bound, "none")) "log(theta)")
+  list(outcome = "boundary", values = values, boundary = b)
 }
 
 boot_param_names <- function(object) {
@@ -307,23 +477,13 @@ boot_param_names <- function(object) {
   }
 }
 
-# Alternative starts for a failed refit: the original estimates, and for
-# zinbreg with a zero-part intercept also the NB-boundary start (count part
-# at the estimates, zero part at logit(1e-8) on the intercept).
-boot_starts <- function(object) {
+# The first start for a refit: the original estimates.
+boot_start <- function(object) {
   if (!inherits(object, "zinbreg")) {
-    return(list(list(beta = object$coefficients, theta = object$theta)))
+    return(list(beta = object$coefficients, theta = object$theta))
   }
-  out <- list(list(count = object$coefficients$count,
-                   zero = object$coefficients$zero, theta = object$theta))
-  j <- intercept_index(object$z, object$prior.weights > 0)
-  if (j > 0L) {
-    g <- stats::setNames(numeric(ncol(object$z)), colnames(object$z))
-    g[j] <- stats::qlogis(1e-8)
-    out <- c(out, list(list(count = object$coefficients$count, zero = g,
-                            theta = object$theta)))
-  }
-  out
+  list(count = object$coefficients$count, zero = object$coefficients$zero,
+       theta = object$theta)
 }
 
 boot_values <- function(object, r) {
@@ -369,14 +529,5 @@ boot_no_zero_replicate <- function(object, s) {
     return(list(outcome = "failure", message = paste(
       "a replicate without zeros, whose negative binomial refit failed")))
   }
-  zero_names <- paste0("zero_", colnames(object$z))
-  values <- c(stats::setNames(fit$coefficients,
-                              paste0("count_", names(fit$coefficients))),
-              stats::setNames(rep(NA_real_, length(zero_names)), zero_names),
-              `log(theta)` = log(fit$theta))
-  b <- c(zero_names,
-         paste0("count_", union(fit$diverging,
-                                structural_divergence(X, s$y, s$w))),
-         if (!identical(fit$theta_bound, "none")) "log(theta)")
-  list(outcome = "boundary", values = values, boundary = b)
+  boot_nb_boundary_values(object, s, fit, X)
 }
