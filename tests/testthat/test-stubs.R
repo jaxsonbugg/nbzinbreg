@@ -1,28 +1,22 @@
-# Transitional tests for documented stubs.
+# Guard for documented stubs.
 #
 # Every function in `stubbed` is still a stub: its body calls the internal
 # not_implemented(), which signals an error of class
-# "nbzinbreg_not_implemented".
+# "nbzinbreg_not_implemented". Every planned function is now implemented, so
+# the list is empty; the second test fails if a stub is (re)introduced
+# without being listed here.
 #
 # When a function is implemented:
 #   1. remove its name from `stubbed` (and its entry from `stub_calls`);
 #   2. add its real tests in its own test file.
-# Nothing else in this file needs to change. The second test fails if the
-# list and the code disagree, so a forgotten update cannot slip through.
 
-stubbed <- c(
-  # provisional extras
-  "expected_counts", "rootogram"
-)
+stubbed <- character()
 
 # A minimal call for each stub. Methods are called through their generic on a
 # placeholder object, which also checks that the S3 method is registered.
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
-stub_calls <- list(
-  expected_counts = function() expected_counts(nb),
-  rootogram = function() rootogram(nb)
-)
+stub_calls <- stats::setNames(list(), character())
 
 test_that("every listed stub signals the not-implemented condition", {
   expect_setequal(names(stub_calls), stubbed)

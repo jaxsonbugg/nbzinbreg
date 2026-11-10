@@ -11,27 +11,42 @@ rootogram(object, max_count = NULL, ...)
 
 \item{max_count}{Largest count to show; see \code{\link[=expected_counts]{expected_counts()}}.}
 
-\item{...}{Further graphical arguments.}
+\item{...}{Graphical arguments for \code{\link[graphics:plot.default]{graphics::plot()}}, such as \code{main},
+\code{xlab}, \code{ylab}, \code{xlim} or \code{ylim}. They replace the defaults.}
 }
 \value{
-Once implemented, the table from \code{\link[=expected_counts]{expected_counts()}}, invisibly.
+The table from \code{\link[=expected_counts]{expected_counts()}}, invisibly.
 }
 \description{
-Plots the square roots of the expected frequencies from
-\code{\link[=expected_counts]{expected_counts()}} as a curve, with bars for the observed frequencies
-hanging from it. Bars that stop above zero show counts the model
-over-predicts, and bars that cross below zero show counts it
-under-predicts.
-
-\strong{Not yet implemented.} This function is a documented stub; it signals an
-error of class \code{nbzinbreg_not_implemented}.
+Draws a hanging rootogram (Kleiber and Zeileis, 2016). The square roots of
+the expected frequencies from \code{\link[=expected_counts]{expected_counts()}} form a curve, and a bar
+for each observed frequency hangs from it. A bar that stops above the
+zero line marks a count the model over-predicts. A bar that crosses below
+it marks a count the model under-predicts.
 }
-\section{Provisional}{
+\details{
+The counts 0 to \code{max_count} are drawn. The grouped last row of
+\code{\link[=expected_counts]{expected_counts()}} is left out of the plot but kept in the returned
+table. The plot uses base graphics.
+}
+\section{Errors and warnings}{
 
-Planned but not yet implemented; the name, arguments and output may
-change.
+As for \code{\link[=expected_counts]{expected_counts()}}. Arguments in \code{...} go to \code{\link[graphics:plot.default]{graphics::plot()}},
+which reports its own errors.
 }
 
+\examples{
+set.seed(1)
+d <- data.frame(x = rnorm(200))
+d$y <- ifelse(runif(200) < 0.3, 0, rnbinom(200, size = 2, mu = exp(1 + d$x)))
+rootogram(nbreg(y ~ x, data = d), max_count = 10)
+rootogram(zinbreg(y ~ x | 1, data = d), max_count = 10)
+}
+\references{
+Kleiber, C. and Zeileis, A. (2016). Visualizing count data
+regressions using rootograms. \emph{The American Statistician}, 70(3),
+296-303.
+}
 \seealso{
 \code{\link[=expected_counts]{expected_counts()}}
 }

@@ -10,13 +10,16 @@ expected_counts(object, max_count = NULL, ...)
 \item{object}{An \code{nbreg} or \code{zinbreg} fit.}
 
 \item{max_count}{Largest count to tabulate separately; larger counts are
-grouped. By default the largest observed count.}
+grouped in the last row. By default the largest observed count (with
+positive weight).}
 
-\item{...}{Further arguments, currently unused.}
+\item{...}{Not used (an error if supplied).}
 }
 \value{
-Once implemented, a data frame with columns \code{count}, \code{observed}
-and \code{expected}.
+A data frame with columns \code{count} (character: \code{"0"}, \code{"1"}, ...,
+and the grouped last row), \code{observed} and \code{expected}. It has
+\code{max_count + 2} rows, and attributes \code{max_count} and \code{total} (the total
+weight).
 }
 \description{
 Compares how often each count value (0, 1, 2, ...) occurs in the data with
@@ -24,16 +27,41 @@ how often the fitted model expects it to occur. The expected frequency of
 a value \eqn{k} is the sum over observations of the fitted probability
 \eqn{P(Y_i = k)}. The row for \eqn{k = 0} shows whether the model predicts
 the right number of zeros.
-
-\strong{Not yet implemented.} This function is a documented stub; it signals an
-error of class \code{nbzinbreg_not_implemented}.
 }
-\section{Provisional}{
+\details{
+Frequencies are weighted by the prior weights, and observations with
+weight 0 are left out. So with frequency weights, the table is that of
+the expanded data. For the negative binomial (NB) model,
+\eqn{P(Y_i = k)} is the NB probability with mean \eqn{\mu_i} and the
+fitted \code{theta}. For the zero-inflated model it is
+\eqn{\pi_i I(k = 0) + (1 - \pi_i) P_{NB}(k)}.
 
-Planned but not yet implemented; the name, arguments and output may
-change.
+Counts above \code{max_count} are grouped in a last row labelled
+\code{"<max_count + 1>+"} (for example \code{"11+"} when \code{max_count = 10}). Its
+expected frequency is \eqn{\sum_i w_i (1 - \pi_i) P_{NB}(Y_i > m)}, with
+\eqn{m} = \code{max_count} and \eqn{\pi_i = 0} for NB. Both columns therefore
+add up to the total weight.
+
+The table needs one probability per observation and count value, so a
+computation of more than 1e8 probabilities (observations times
+\code{max_count + 2}) is refused before it starts.
+}
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}: \code{object} of the wrong class, \code{max_count} not
+\code{NULL} or a whole number of at least 0, a table of more than 1e8
+probabilities, or unused arguments.
+}
 }
 
+\examples{
+set.seed(1)
+d <- data.frame(x = rnorm(200))
+d$y <- ifelse(runif(200) < 0.3, 0, rnbinom(200, size = 2, mu = exp(1 + d$x)))
+expected_counts(nbreg(y ~ x, data = d), max_count = 8)
+expected_counts(zinbreg(y ~ x | 1, data = d), max_count = 8)
+}
 \seealso{
-\code{\link[=rootogram]{rootogram()}}
+\code{\link[=rootogram]{rootogram()}}, \code{\link[=predict.zinbreg]{predict.zinbreg()}}
 }
