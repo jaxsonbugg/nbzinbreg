@@ -31,6 +31,7 @@ format:
     documentclass: article
     fontsize: 11pt
     geometry: margin=1in
+    toccolor: black
     tbl-colwidths: false
     fig-pos: "htb"
     include-in-header:
@@ -60,6 +61,13 @@ kbl <- function(x, ...) {
                booktabs = TRUE, linesep = "", ...)
 }
 ```
+
+::: {.content-visible when-format="html"}
+::: {.nbz-report-links}
+[Download the PDF](report.pdf){.btn .btn-primary} &nbsp;
+For how to use the package itself, see the [Usage guide](usage.html).
+:::
+:::
 
 ## Introduction
 
