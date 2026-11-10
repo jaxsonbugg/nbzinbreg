@@ -26,7 +26,8 @@ Negative binomial and zero-inflated negative binomial regression are
 implemented and validated, with all required methods and the extras
 (confidence intervals, model tests, bootstrap and diagnostics), and
 benchmarked against `glm.nb()` and `zeroinfl()`, with a simulation study
-of `zinbreg()`. The data analysis and report come next.
+of `zinbreg()` and an analysis of the NMES1988 data. The report is
+drafted; the author’s AI-use statement and final review come next.
 
 | Part                                                    | Status         |
 |---------------------------------------------------------|----------------|
@@ -37,7 +38,7 @@ of `zinbreg()`. The data analysis and report come next.
 | Extras (confidence intervals, model tests, diagnostics) | ✅ Done        |
 | Benchmarks against `glm.nb()` and `zeroinfl()`          | ✅ Done        |
 | Simulation study                                        | ✅ Done        |
-| NMES1988 data analysis                                  | ⬜ Not started |
+| NMES1988 data analysis                                  | ✅ Done        |
 | Report and website                                      | 🚧 In progress |
 
 Details: [progress

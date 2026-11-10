@@ -408,3 +408,76 @@ The ZINB likelihood can have one maximum for each explanation of the excess zero
 - `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check`: Status: OK.
 - The report renders to HTML and PDF (outside the repository); the PDF pages were inspected.
 - CI on `445d9d3` is green; the later commits are recorded in the next entry.
+
+## 2026-11-10: NMES1988 data analysis and the report (automated phases)
+
+**Why.** The next deliverable after the simulation study was the NMES1988 data analysis (handout Section 5.2), followed by the rest of the report, the PDF, the website and the final checks. The owner approved a revised plan and asked for every commit to be implemented, verified, committed and pushed automatically, stopping only if a gate failed for reasons outside this phase. The plan started only after the simulation commits (`889b34b`) were pushed with green CI.
+
+**Owner decisions:**
+- the handout's minimum zero part, plus a sensitivity fit with `health` in the zero part;
+- the bootstrap LR test of NB against ZINB with B = 999, checkpointed with exact resumption, the run status kept apart from the inference, and a maxit rule fixed in advance that uses only pilot failure shares;
+- the preferred model argued in prose, with every number computed and every claim guarded, not chosen by a rule;
+- the two "Poisson zeros" kept apart (one Poisson with the sample mean: descriptive; the fitted Poisson regression: the comparison);
+- the report format: 11pt, 1-inch margins, title block, abstract, table of contents, numbered sections, hidden code, base graphics, booktabs tables, numbered cross-references, author-year citations;
+- main body at most 10 pages (excluding references and appendix);
+- the AI-use statement written by the author, and a final owner-approval gate before anything is called submission-ready.
+
+| Commit | Content |
+|---|---|
+| `c3ec075` | `inst/benchmark/nmes_functions.R`, `nmes_bootstrap.R`, `tests/testthat/test-nmes.R` (9 tests) |
+| `b7110aa` | the report's formats, `references.bib`, section ids, cross-references, the `kbl()` table helper |
+| `c7056d6` | the "Data analysis: NMES1988" section |
+| `777a43e` | Introduction, Methods (equations 1-5), The R package |
+| `18b0a1e` | Discussion, References, the AI-use outline |
+| `0ffed8e` | the prohibited-call detector review (open item from the code reviews) |
+| `0f5d023` | the bootstrap results of record |
+| this commit | the length work, the draft PDF of record (`report/report.pdf`), notes |
+
+**The checkpointed bootstrap.** Before any code, a probe confirmed on real data that `vuong_test(seed = NULL)` continues R's global random number stream. Several chunks after one `set.seed()` therefore give exactly the replicates of a single call, and restoring a saved `.Random.seed` reproduces the next chunk. The tests check this, exact resumption after an interruption, unchanged finished chunks, an ignored half-written checkpoint, and refusal of any changed setting, code or fitted model.
+
+**Pilots and the maxit rule.**
+- B = 50 at the default maxit: 3 of 50 failed (6%, above the 5% threshold).
+- B = 50 at maxit = 20000: 2 of 50 failed (4%).
+- The rule chose maxit = 20000. Each pilot stopped after its first chunk and resumed, which exercised a real resume on NMES1988.
+
+**Results of record** (COMPLETE, provenance verified at `c3ec075`; CONCLUSIVE):
+- observed LR = 159.66;
+- 967 usable replicates, 32 failed (3.2%), 649 on the boundary;
+- none reached the observed LR (the largest was 25.5);
+- p = 0.0010, with bounds 0.001 to 0.033.
+
+Every recorded failure was an unconverged refit above the best converged one, which the package refuses to use because it would understate LR. Compute time was 8.1 hours (6.4 estimated from the pilot; the machine was also rendering and checking).
+
+**NMES1988 findings** (computed live in the report):
+- mean 5.77, variance 45.7; 683 zeros;
+- expected zeros: one Poisson with the sample mean 13.7, the Poisson regression 46.7, NB 608.0, ZINB 708.9;
+- ZINB has the lower AIC (by 147.7) and BIC (by 109.3); `health` in the zero part makes both worse;
+- the overdispersion test gives LR = 11602.
+
+ZINB is preferred, with its caveats stated.
+
+**Report length.** The first complete draft was 17 pages. The main body is now about 9.7 pages before the AI-use section.
+- Moved to an appendix of the same PDF (the handout excludes the appendix from the page count): the four side-by-side benchmark tables, the timing table, the simulation's relative bias/RMSE table and standardized-error figure, the visits histogram, the profile-interval paragraph and the provenance records.
+- The benchmark and simulation methodology prose was condensed without dropping facts.
+- The plan named supplementary articles for this. An appendix was used instead, so that the required side-by-side tables stay in the submitted PDF.
+- The AI-use statement has about a third of a page before the main body reaches 10 pages.
+
+**Problems caught along the way:**
+- A first chunked-equality probe printed "identical: TRUE" for two empty vectors. The bootstrap results are in `$bootstrap`, and the probe was corrected before any conclusion was drawn from it.
+- `nmes_effects()` first kept the `Log(theta)` row of the ZINB summary; a test caught it.
+- The Poisson count table used "30+" where `expected_counts(max_count = 30)` uses "31+"; it now follows the package.
+- The rootograms first shared one scale with the Poisson panel, which hid the NB/ZINB differences. NB and ZINB now share a scale, and Poisson has its own.
+- In LaTeX, the long tables split across pages, so `kbl()` now writes booktabs tables that float. `tbl-pos` had no effect on them; `\floatplacement{table}{htb}` in the header did.
+- A `sed` replacement also rewrote the `kbl()` helper's own `knitr::kable()` call (infinite recursion); it was fixed and checked.
+- Backslashes in a YAML header written through the shell became control characters; the lines were rewritten with explicit bytes.
+- An inline R expression contained backticks around `confint()`, which would end the inline code; it was rewritten.
+- A Discussion line starting with `@sec-nmes.` rendered as a numbered list item; it was rewrapped.
+- A table of functions in "The R package" would not wrap in LaTeX; it was replaced by a short paragraph.
+
+**Gates (each commit):**
+- The test suite with `NOT_CRAN = "true"`: now 323 tests, 2110 expectations, 0 failed, 0 skipped.
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check`: Status: OK, for the code commits.
+- For the report commits: renders to PDF and HTML, `pkgdown::check_pkgdown()`, and `pkgdown::build_articles()` into a scratch site.
+- CI was green on all five configurations for `c3ec075`, `b7110aa`, `c7056d6`, `777a43e`, `18b0a1e` and `0ffed8e`, each checked before the next push.
+
+**Still open (owner gate):** the AI-use statement (a marked outline is in the report), the final PDF, the removal of the README status section, and the final checklist items that depend on them.

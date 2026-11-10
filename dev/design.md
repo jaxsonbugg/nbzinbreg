@@ -455,3 +455,37 @@ Its coverage is over the evaluable intervals, with sensitivity bounds over all 2
 * The run is complete when the provenance is verified and every replication was attempted. Fits that fail are results of the study, not failures of the run.
 * A failed run still saves everything, marked FAILED.
 * Results are never re-run with another seed to look better.
+
+## Part 8. The NMES1988 data analysis
+
+The analysis (project description, Section 5.2) is the report's "Data analysis: NMES1988" section. Its functions are in `inst/benchmark/nmes_functions.R`; the slow bootstrap test is run by `inst/benchmark/nmes_bootstrap.R` and read from its saved results.
+
+**Models.** The response is `visits`. The count part is always `hospital + health + chronic + gender + school + insurance`.
+* Poisson regression, fitted with `glm()` as the reference.
+* NB, `nbreg()`.
+* ZINB, `zinbreg()`, with the handout's minimum zero part, `hospital + chronic + gender + school + insurance` (the owner's choice; the same model as the benchmark).
+* A sensitivity fit with `health` added to the zero part. It raises the log-likelihood by about 0.08 for two parameters, and both AIC and BIC get worse.
+
+**Two different "Poisson zeros".** They answer different questions, and the report keeps them apart:
+* *unconditional*: one Poisson with the sample mean for everybody, n·exp(−ȳ) ≈ 13.7 zeros. Descriptive only.
+* *fitted Poisson regression*: the sum over people of exp(−μ̂_i) ≈ 46.7 zeros. This is the one in the model comparison. A spread of means always gives more zeros than one mean, which is why the second is larger.
+
+**What the section reports.** Every number is computed live from the installed package (about 10 s), except the bootstrap test:
+* descriptives (mean, variance, zeros);
+* the comparison table (df, log-likelihood, AIC, BIC, expected zeros under each fitted model);
+* three hanging rootograms (Poisson, NB, ZINB; `nmes_count_table()` gives the Poisson regression's expected frequencies in the layout of `expected_counts()`, which does not take a `glm`);
+* the overdispersion test, the Vuong statistics (descriptive, because NB is the boundary pi = 0 of ZINB), and the bootstrap LR test;
+* IRRs (count part) and odds ratios of being a structural zero (zero part) with Wald intervals, and theta with Wald and profile intervals.
+
+**Reasoned conclusions, guarded.** The preferred model is argued in prose, not chosen by a rule. Every qualitative claim in the text (for example "both AIC and BIC favour ZINB", "NB under-predicts zeros", "the NB effects are all further from 1") has a `stopifnot()` in a hidden chunk, so a render with different results stops instead of keeping a false sentence. The zero-part odds ratios are explained as odds of belonging to the non-user group, not odds of an observed zero, with P(Y = 0) = pi + (1 − pi) f_NB(0).
+
+**The checkpointed bootstrap.** `vuong_test(B = ...)` draws its bootstrap data sets from R's global random number stream and, with `seed = NULL`, leaves the stream advanced. So `set.seed(651)` followed by 40 calls with B = 25 draws exactly the data sets of one call with B = 999 and seed 651 (the last chunk has 24). After each chunk the run saves a checkpoint:
+* the replicates, status counts, failure messages and warnings of every finished chunk;
+* `.Random.seed` after the chunk;
+* a header: B, chunk, seed, alpha, maxit, the RNG kind, the R version, the installed code fingerprint, the helper-file checksums and a hash of the two fitted models.
+
+The write is atomic (a temporary file renamed over the old one). A rerun checks the header (any difference stops it), restores the random number stream and continues with the next chunk, so finished replicates are never recomputed and the result equals an uninterrupted run. Tests check chunked = single call, resume = uninterrupted, finished chunks unchanged, a half-written checkpoint ignored, and every header mismatch refused. The pooled p-values use the formulas of `lr_p_values()`, and the tests check they agree with the package.
+
+**Two verdicts.** The status file's first line is the run status: COMPLETE when the provenance was verified and every chunk ran, otherwise FAILED. Failed replicates are results, not a failure of the run. The second line is the inference: CONCLUSIVE or INCONCLUSIVE (with the reasons: more than 10% failed; failures could change the decision at alpha; fewer than 99 usable), or NOT EVALUATED for an incomplete run. An inconclusive test is reported as such and is never used as evidence either way.
+
+**The maxit rule, fixed before the pilot.** A 50-replicate pilot runs at the default EM limit (maxit = 5000). If more than 5% of its replicates fail, a second pilot runs with maxit = 20000, and the setting with the lower failure share is used (the default on a tie). Only failure shares enter the rule (`nmes_maxit_decision()`), never a p-value or an LR statistic. In the pilots, 3 of 50 failed at maxit 5000 (6%) and 2 of 50 at maxit 20000 (4%), so the run of record uses maxit = 20000. The decision and both shares are stored with the results. The pilots also exercised a real stop and resume on NMES1988.

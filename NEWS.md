@@ -1,5 +1,25 @@
 # nbzinbreg 0.0.0.9000
 
+* NMES1988 data analysis (`inst/benchmark/nmes_functions.R`):
+  - Poisson regression (`glm()`), `nbreg()` and `zinbreg()` fits, with a
+    sensitivity fit that adds `health` to the zero part;
+  - the descriptive evidence, kept apart from the model comparison: one
+    Poisson with the sample mean gives 13.7 zeros, the fitted Poisson
+    regression 46.7, NB 608.0 and ZINB 708.9, against 683 observed;
+  - incidence rate ratios and structural-zero odds ratios with Wald
+    intervals, theta with Wald and profile intervals, and rootograms;
+  - a parametric bootstrap LR test of NB against ZINB
+    (`inst/benchmark/nmes_bootstrap.R`), run in checkpointed chunks that
+    resume exactly after an interruption, with the run status (COMPLETE /
+    FAILED) kept apart from the inference (CONCLUSIVE / INCONCLUSIVE).
+
+  The results of record (B = 999: COMPLETE and CONCLUSIVE, p = 0.001 with
+  failure bounds 0.001 to 0.033) are saved with the package and used by the
+  report.
+
+* The prohibited-call detector in the tests also catches function names
+  built at run time and functions taken out of a namespace by name.
+
 * Simulation study of `zinbreg()` (`inst/benchmark/simulation.R`):
   - the setup: 1000 data sets of n = 500 from a known ZINB model (two
     covariates per part, fixed design), fitted with `zinbreg()`;

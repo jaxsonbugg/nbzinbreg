@@ -121,11 +121,11 @@ Tips: run the references with tight tolerances (`glm.control(epsilon = 1e-10, ma
 ## 7. Data analysis: NMES1988 (`AER::NMES1988`)
 
 - Response: `visits`. Count-model covariates: `hospital`, `health`, `chronic`, `gender`, `school`, `insurance`. Zero-model covariates: at minimum `hospital`, `chronic`, `gender`, `school`, `insurance` (a different choice may be justified).
-- [ ] Fit NB and ZINB with our package, and Poisson with `glm()` for reference.
-- [ ] Descriptive summary showing overdispersion and more zeros than a Poisson model predicts.
-- [ ] Model comparison: log-likelihood, AIC, BIC, observed vs expected number of zeros.
-- [ ] Interpretation of main effects as incidence rate ratios (count part) and odds ratios (zero part) with 95% confidence intervals, in plain language.
-- [ ] Short discussion of which model is preferred and why.
+- [x] Fit NB and ZINB with our package, and Poisson with `glm()` for reference. *(The handout's minimum zero part, plus a sensitivity fit with `health` in the zero part; `inst/benchmark/nmes_functions.R`. All fits converged, the ZINB fits with a passed gradient check.)*
+- [x] Descriptive summary showing overdispersion and more zeros than a Poisson model predicts. *(Variance 45.7 against mean 5.77; 683 zeros against 13.7 for one Poisson with the sample mean, which is reported as descriptive only.)*
+- [x] Model comparison: log-likelihood, AIC, BIC, observed vs expected number of zeros. *(Expected zeros under each fitted model: Poisson regression 46.7, NB 608.0, ZINB 708.9, against 683 observed; AIC and BIC both favour ZINB. Also three rootograms, the overdispersion test, the Vuong statistics as descriptive, and the parametric bootstrap LR test of NB against ZINB: B = 999, COMPLETE and CONCLUSIVE, p = 0.001 with failure bounds 0.001 to 0.033, results of record in `inst/benchmark/`.)*
+- [x] Interpretation of main effects as incidence rate ratios (count part) and odds ratios (zero part) with 95% confidence intervals, in plain language. *(The zero-part odds ratios are explained as odds of being a structural zero, not of an observed zero.)*
+- [x] Short discussion of which model is preferred and why. *(ZINB, argued in prose from all the evidence, with every qualitative claim guarded by a `stopifnot()` in the report.)*
 - The analysis must be about NMES1988 and use our own package (the bioChemists example in the handout is only a template; do not copy its text).
 
 ## 8. Report
@@ -143,7 +143,7 @@ Single Quarto source `vignettes/articles/report.qmd`, fully reproducible (all nu
 9. References
 
 Outputs from the one source:
-- [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`.
+- [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(Rendered and committed as the draft of record; this stays open until the author has written the AI-use statement and the final PDF is rendered.)*
 - [ ] Website via `pkgdown::build_site()` (report appears as an article next to the function reference), output in `docs/`, served by GitHub Pages from `main` `/docs`.
 
 ## 9. Expected repository layout

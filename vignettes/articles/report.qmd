@@ -19,6 +19,7 @@ abstract: |
 bibliography: references.bib
 number-sections: true
 toc: true
+toc-depth: 1
 execute:
   echo: false
   warning: false
@@ -31,11 +32,11 @@ format:
     fontsize: 11pt
     geometry: margin=1in
     tbl-colwidths: false
-    fig-pos: "H"
+    fig-pos: "htb"
     include-in-header:
       text: |
         \usepackage{float}
-        \floatplacement{table}{H}
+        \floatplacement{table}{htb}
 ---
 
 <!--
@@ -216,21 +217,16 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 `nbreg()` and `zinbreg()` take `formula, data, offset, control` in that
 order, as the project requires. A `zinbreg()` formula has the form
 `y ~ x1 + x2 | z1 + z2`, with the count covariates before the bar and the
-zero covariates after it. The package provides:
-
-* **Fitting:** `nbreg()` (IRLS and Newton–Raphson) and `zinbreg()` (EM with
-  IRLS M-steps), with `nbreg_control()` and `zinbreg_control()` for the
-  tolerances, iteration limits, tracing and the Hessian method.
-* **Methods for both classes:** `print`, `summary`, `coef`, `vcov`,
-  `logLik` (so `AIC()` and `BIC()` work), `fitted`, `residuals` (response
-  and Pearson), `nobs` and `predict` with `newdata`; for ZINB, `predict`
-  gives the types `response`, `count`, `zero` and `prob`, with standard
-  errors.
-* **Inference:** `confint()` (with a profile-likelihood interval for
-  $\theta$), `anova()` for nested models, `overdispersion_test()` and
-  `vuong_test()` (with a parametric bootstrap test of NB against ZINB).
-* **Diagnostics and tools:** `expected_counts()`, `rootogram()`,
-  `simulate()`, `boot_se()`, `tidy()` and `glance()`.
+zero covariates after it. `nbreg_control()` and `zinbreg_control()` set
+the tolerances, iteration limits, tracing and the Hessian method. Both
+classes have `print`, `summary`, `coef`, `vcov`, `logLik` (so `AIC()` and
+`BIC()` work), `fitted`, `residuals` (response and Pearson), `nobs` and
+`predict` with `newdata` (for ZINB the types `response`, `count`, `zero`
+and `prob`, with standard errors). Beyond the requirements, the package
+offers `confint()` with a profile interval for $\theta$, `anova()`,
+`overdispersion_test()`, `vuong_test()` with a parametric bootstrap test of
+NB against ZINB, `expected_counts()`, `rootogram()`, `simulate()`,
+`boot_se()`, `tidy()` and `glance()`.
 
 A short example, with the bioChemists data used in the project handout:
 
@@ -241,24 +237,17 @@ library(nbzinbreg)
 data("bioChemists", package = "pscl")
 fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
                data = bioChemists)
-round(coef(fit), 3)
-round(c(theta = fit$theta, logLik = as.numeric(logLik(fit))), 3)
+round(c(coef(fit), theta = fit$theta), 3)
 ```
 
-**Design.** The user-facing functions check every input and give classed
-errors and warnings that say what is wrong and how to fix it. The numerical
-work happens in internal engines that never warn but return flags (for
-example, a coefficient running off to infinity, or $\theta$ reaching its
-upper bound in the Poisson limit). The ZINB count M-step calls the same NB
-engine as `nbreg()`.
-
-**Testing.** The test suite compares both models with `glm.nb()` and
-`zeroinfl()` within the required tolerances, checks basic behaviour (offsets,
-single-covariate models, informative errors for bad input), checks the
-analytic Hessian against a numerical one, and runs on five platforms in
-GitHub Actions. One test reads the package's own source code and fails if
-any fitting function calls a prohibited optimizer or model-fitting function
-(`optim()`, `glm()`, `zeroinfl()` and others), directly or indirectly.
+**Design and testing.** The user-facing functions check every input and
+give classed errors that say how to fix the problem; the numerical engines
+never warn but return flags (for example $\theta$ at its Poisson-limit
+bound), and the ZINB count M-step reuses the NB engine. The tests, run on
+five platforms in GitHub Actions, compare both models with `glm.nb()` and
+`zeroinfl()`, check offsets, single-covariate models, bad input and the
+analytic Hessian, and read the package's own code to fail if any function
+calls a prohibited optimizer or fitter, directly or indirectly.
 
 ## Benchmarking {#sec-benchmark}
 
@@ -310,80 +299,31 @@ all_passed <- all(req$passed)
 ll_higher <- req$note[req$quantity == "log-likelihood"]
 ```
 
-The package should reproduce the reference implementations: `MASS::glm.nb()`
-for the negative binomial (NB) model and `pscl::zeroinfl(dist = "negbin")`
-for the zero-inflated negative binomial (ZINB) model. To check this, each
-model is fitted to two data sets with both our package and the reference
-function, and the two sets of estimates are compared number by number.
+The package should reproduce `MASS::glm.nb()` and
+`pscl::zeroinfl(dist = "negbin")`. Each model is fitted to two data sets
+with both implementations: `pscl::bioChemists` (915 PhD students; response
+`art`; `fem + mar + kid5 + phd + ment` in the count part and, for ZINB, in
+the zero part, as in Appendix A of the project description) and
+`AER::NMES1988` (the models of @sec-nmes). Our functions run at their
+**default** settings; the references run with **tight** tolerances
+(`glm.control(epsilon = 1e-10, maxit = 100)`,
+`zeroinfl.control(reltol = 1e-12)`), so that the differences measure how
+close our answer is to the exact maximum rather than the references' own
+stopping error. For every coefficient, standard error, theta (log theta for
+ZINB, as `zeroinfl()` estimates it) and the log-likelihood, the *maximum
+absolute difference* |ours − reference| is compared with the required
+tolerance: 1e-5 for NB coefficients and standard errors, 1e-4 for NB theta
+and log-likelihood, and 1e-3 for every ZINB quantity.
 
-**Data and models.** `pscl::bioChemists` (915 biochemistry PhD students;
-the response is the number of articles `art`) is modeled with
-`fem + mar + kid5 + phd + ment` in the count part and, for ZINB, the same
-covariates in the zero part, as in Appendix A of the project description.
-`AER::NMES1988` (4,406 people aged 66 and over; the response is the number
-of physician office visits `visits`) is modeled with
-`hospital + health + chronic + gender + school + insurance` in the count
-part and `hospital + chronic + gender + school + insurance` in the zero part.
-
-**Settings.** Our functions run at their **default** settings, which is how
-a user would call them. The reference functions run with **tight**
-tolerances (`glm.control(epsilon = 1e-10, maxit = 100)` for `glm.nb()` and
-`zeroinfl.control(reltol = 1e-12)` for `zeroinfl()`), so that they stop as
-close to the exact maximum of the likelihood as they can. Differences then
-measure how close our answer is to the exact answer, not the references'
-own stopping error.
-
-**What is compared.** For every coefficient, the two estimates and the two
-standard errors are shown side by side with their absolute difference
-|ours − reference|. The theta row compares theta for NB and log(theta) for
-ZINB, the scale on which `zeroinfl()` estimates it; its standard-error
-columns hold SE(theta) or SE(log theta). The last row is the maximized
-log-likelihood. For each group of numbers the *maximum absolute difference*
-is the largest of these absolute differences; the project requires it to
-be at most 1e-5 (coefficients and standard errors) and 1e-4 (theta and the
-log-likelihood) for NB, and at most 1e-3 for every quantity for ZINB.
-
-**Validity first.** A comparison is only meaningful if both fits are valid.
-Before comparing, each pair of fits is checked: both converged (for our
-ZINB fit this includes the gradient check at the estimates), all estimates
-and standard errors are finite, both fits use the same observations and
-the same parameterization (the same coefficient names in the same order),
-and both covariance matrices are symmetric and positive definite.
+A comparison is only meaningful if both fits are valid, so each pair is
+checked first: both converged (for `zinbreg()` including the gradient
+check), every estimate and standard error is finite, both use the same
+observations and parameter names, and both covariance matrices are
+symmetric and positive definite.
 `r if (all_valid) sprintf("All %d checks passed for each of the four pairs.", n_checks[[1]]) else "**Not all checks passed; see the validity tables in the supplementary benchmark article.**"`
-The four comparisons are in @tbl-bench-bc-nb, @tbl-bench-nmes-nb,
-@tbl-bench-bc-zinb and @tbl-bench-nmes-zinb.
-
-```{r}
-#| label: tbl-bench-bc-nb
-#| tbl-cap: "bioChemists, negative binomial: nbreg() against glm.nb()."
-#| echo: false
-#| tbl-colwidths: false
-side_table("bioChemists_NB")
-```
-
-```{r}
-#| label: tbl-bench-nmes-nb
-#| tbl-cap: "NMES1988, negative binomial: nbreg() against glm.nb()."
-#| echo: false
-#| tbl-colwidths: false
-side_table("NMES1988_NB")
-```
-
-```{r}
-#| label: tbl-bench-bc-zinb
-#| tbl-cap: "bioChemists, zero-inflated negative binomial: zinbreg() against zeroinfl(). count_ and zero_ name the count and zero-part coefficients."
-#| echo: false
-#| tbl-colwidths: false
-side_table("bioChemists_ZINB")
-```
-
-```{r}
-#| label: tbl-bench-nmes-zinb
-#| tbl-cap: "NMES1988, zero-inflated negative binomial: zinbreg() against zeroinfl()."
-#| echo: false
-#| tbl-colwidths: false
-side_table("NMES1988_ZINB")
-```
+The side-by-side tables of every estimate and standard error are in the
+appendix (@tbl-bench-bc-nb, @tbl-bench-nmes-nb, @tbl-bench-bc-zinb and
+@tbl-bench-nmes-zinb).
 
 @tbl-bench-summary collects the maximum absolute differences and compares
 them with the required tolerances.
@@ -405,45 +345,15 @@ kbl(summ, align = "lllrrc")
 with a large margin: the largest differences are
 `r fmt_diff(max_of("NB", "coefficients"))` for the NB coefficients and
 `r fmt_diff(max_of("ZINB", "coefficients"))` for the ZINB coefficients.
-The NB fits agree almost to rounding error, because `nbreg()` and
-`glm.nb()` maximize the same likelihood with closely related algorithms
-(iteratively reweighted least squares, IRLS, for the coefficients, and a
-one-dimensional search for theta). The ZINB differences are larger but
-still at least `r floor(1e-3 / max(req$max_abs_diff[req$model == "ZINB"]))`
-times below the tolerance: `zinbreg()` stops its EM
-algorithm when a gradient check at the estimates passes, which places
-every estimate within a tiny fraction of a standard error of the maximum,
-while `zeroinfl()` stops its quasi-Newton (BFGS) search by its own
-criterion. The log-likelihoods differ by at most
+The NB fits agree almost to rounding error (closely related algorithms
+for the same likelihood). The ZINB differences are larger but still at
+least `r floor(1e-3 / max(req$max_abs_diff[req$model == "ZINB"]))`
+times below the tolerance: `zinbreg()` stops when a gradient check
+places every estimate within a tiny fraction of a standard error of the
+maximum, `zeroinfl()` by its own BFGS criterion. The log-likelihoods differ by at most
 `r fmt_diff(max_of("ZINB", "log-likelihood"))`;
 `r if (all(grepl("reference is higher", ll_higher))) "in all four comparisons the reference value is very slightly higher" else "the higher value is reported per pair in the table"`.
 
-**Computation time.** The timings come from the saved results of
-`inst/benchmark/benchmark.R`, which runs each fit 10 times with
-`bench::mark()` and reports the median and the range. The references are
-timed both with the tight settings used above and with their own defaults,
-because the tight settings make them slower than in ordinary use
-(@tbl-bench-time).
-
-```{r}
-#| label: tbl-bench-time
-#| tbl-cap: "Computation time in seconds (median of 10 runs, with the minimum and maximum)."
-#| echo: false
-#| tbl-colwidths: false
-if (is.null(saved)) {
-  cat("The saved timings were not found in the installed package; run inst/benchmark/benchmark.R.")
-} else {
-  tm <- saved$timing
-  tm <- tm[!grepl("numeric Hessian", tm$fit), ]
-  tm$fit <- sub(", analytic Hessian", "", tm$fit)
-  kbl(data.frame(
-    Data = tm$data_name, Model = tm$model, Fit = tm$fit,
-    `Median (s)` = formatC(tm$median_s, digits = 3, format = "g"),
-    `Range (s)` = sprintf("%s to %s", formatC(tm$min_s, digits = 3, format = "g"),
-                          formatC(tm$max_s, digits = 3, format = "g")),
-    check.names = FALSE), align = "lllrr")
-}
-```
 
 ```{r}
 #| label: bench-time-numbers
@@ -466,29 +376,16 @@ bfgs <- vapply(zinb_pairs, function(x) {
 names(em_iter) <- names(bfgs) <- vapply(zinb_pairs, `[[`, "", "spec_id")
 ```
 
-The NB fits take a fraction of a second with either implementation. Our
-ZINB fits are slower than `zeroinfl()` (about `r round(ratio_bc)` times on
-bioChemists and `r round(ratio_nm)` times on NMES1988, against its default
-settings). This is expected and was not a goal. EM improves the
-likelihood by a roughly fixed fraction per iteration (linear convergence),
-so it needs many iterations (here `r em_iter[["bioChemists_ZINB"]]` on
-bioChemists and `r em_iter[["NMES1988_ZINB"]]` on NMES1988), each of which
-runs complete IRLS fits of both parts and evaluates `dnbinom()` for every
-observation, and `zinbreg()` keeps iterating until the gradient check
-passes. `zeroinfl()` instead runs a quasi-Newton (BFGS) search on all
-parameters at once, which needed `r bfgs[["bioChemists_ZINB"]]` and
-`r bfgs[["NMES1988_ZINB"]]` gradient evaluations here (with its tight
-settings).
-Timings depend on the machine and its load, so only their order of
-magnitude matters.
-
-`r if (!is.null(p)) sprintf("The timings were measured on %s (%s, %s cores) under %s, with MASS %s, pscl %s and bench %s, on %s, for the package code of commit %s (code fingerprint %s; provenance %s).", p$os, p$cpu, p$cores, p$r_version, p$versions[['MASS']], p$versions[['pscl']], p$versions[['bench']], substr(p$date, 1, 10), substr(p$git_commit, 1, 7), p$fingerprint_installed, p$status) else ""`
-`r if (!is.null(prov_check)) (if (prov_check$status == "matches") prov_check$message else paste0("**", prov_check$message, "**")) else ""`
-
-Additional comparisons that are not part of the requirements (the standard
-errors of theta and log(theta), the ZINB fits with the numeric Hessian, and
-the full validity checks) are in the supplementary benchmark article on the
-package website.
+**Computation time** (median of 10 runs with `bench::mark()`;
+@tbl-bench-time in the appendix). The NB fits take a fraction of a second
+with either implementation. Our ZINB fits are about `r round(ratio_bc)`
+(bioChemists) and `r round(ratio_nm)` (NMES1988) times slower than
+`zeroinfl()` at its defaults: EM gains a roughly fixed fraction per
+iteration, so it needed `r em_iter[["bioChemists_ZINB"]]` and
+`r em_iter[["NMES1988_ZINB"]]` iterations of full IRLS fits, against
+`r bfgs[["bioChemists_ZINB"]]` and `r bfgs[["NMES1988_ZINB"]]` gradient
+evaluations for the BFGS search of `zeroinfl()`. Further, ungraded checks
+are in the supplementary benchmark article on the package website.
 
 ## Simulation study {#sec-simulation}
 
@@ -527,10 +424,8 @@ if (sim_ok) {
 }
 ```
 
-A simulation checks the whole estimation procedure where the truth is
-known: data are generated from a ZINB model with chosen parameter values,
-`zinbreg()` is fitted to each data set, and the estimates are compared with
-the values that generated them.
+The simulation fits `zinbreg()` to data generated from a ZINB model with
+known parameters and compares the estimates with the truth.
 
 **Design.** Each data set has n = `r if (sim_ok) st$n` observations with
 three covariates: x1 ~ N(0, 1), used in both parts; x2 ~ Bernoulli(0.5),
@@ -554,29 +449,19 @@ R = `r if (sim_ok) format(st$R, big.mark = ",")` data sets (seed
 any one of them can be reproduced alone) and fitted each with
 `zinbreg(y ~ x1 + x2 | x1 + z)`, the correct model, at its default settings.
 
-**What is reported.** For each parameter:
-
-* the **bias**, the average estimate minus the true value;
-* the **Monte Carlo SD**, the actual spread of the estimates over the data
-  sets;
-* the **mean estimated SE**, the average of the standard errors
-  `zinbreg()` reports, and its ratio to the Monte Carlo SD (close to 1 if
-  the standard errors are right);
-* the **RMSE**, $\sqrt{\text{mean}((\hat\theta - \theta)^2)}$;
-* the **coverage** of the 95% Wald intervals (estimate ± 1.96 SE), which
-  should be close to 95%.
-
-Every number has a **Monte Carlo standard error** (MC SE, in parentheses):
-the uncertainty left because only R data sets were simulated. For averages
-(the bias, the mean SE) and for coverage it has an exact formula; for the
-SD, the SE ratio, the relative bias and the RMSE it is estimated by
-resampling the R replications (a bootstrap with
-`r if (sim_ok) format(st$B, big.mark = ",")` resamples), which does not
-assume that the estimates are normally distributed. Theta is reported on
-both scales: log(theta), which `zinbreg()` estimates, and theta itself, with
-the interval theta ± 1.96 SE(theta). @tbl-sim gives the bias, spread,
-standard errors and coverage, @tbl-sim-rmse the relative bias and RMSE, and
-@fig-sim-z the standardized errors.
+**What is reported.** For each parameter: the **bias** (average estimate
+minus the true value); the **Monte Carlo SD**, the actual spread of the
+estimates; the **mean estimated SE** and its ratio to the Monte Carlo SD
+(close to 1 if the standard errors are right); and the **coverage** of the
+95% Wald intervals (estimate ± 1.96 SE). Every number has a **Monte Carlo
+standard error** (MC SE, in parentheses), the uncertainty left because only
+R data sets were simulated: exact for averages and coverage, and from
+`r if (sim_ok) format(st$B, big.mark = ",")` bootstrap resamples of the
+replications for the SD and the SE ratio. Theta is reported both as
+log(theta), which `zinbreg()` estimates, and as theta, with the interval
+theta ± 1.96 SE(theta). @tbl-sim gives the bias, spread,
+standard errors and coverage; the relative bias and RMSE (@tbl-sim-rmse) and
+the standardized errors (@fig-sim-z) are in the appendix.
 
 ```{r}
 #| label: tbl-sim
@@ -596,45 +481,6 @@ if (sim_ok) {
     check.names = FALSE), align = "lrrrrrr")
 } else {
   cat("The saved simulation results were not found in the installed package; run inst/benchmark/simulation.R.")
-}
-```
-
-```{r}
-#| label: tbl-sim-rmse
-#| tbl-cap: "Relative bias and root mean squared error (RMSE) of each estimate, with Monte Carlo standard errors (bootstrap over the replications)."
-#| echo: false
-#| tbl-colwidths: false
-if (sim_ok) {
-  kbl(data.frame(
-    Parameter = ss$parameter,
-    `Relative bias` = ifelse(is.na(ss$rel_bias), "",
-                             sprintf("%.3f (%s)", ss$rel_bias,
-                                     formatC(ss$rel_bias_mcse, digits = 1,
-                                             format = "fg"))),
-    RMSE = pm(ss$rmse, ss$rmse_mcse),
-    check.names = FALSE), align = "lrr")
-}
-```
-
-```{r}
-#| label: fig-sim-z
-#| fig-cap: "Standardized errors (estimate − truth) / SE for each parameter over the usable replications. If the estimates are approximately normal and the standard errors are right, about 95% of them lie between the dashed lines at ±1.96."
-#| echo: false
-#| fig-width: 7
-#| fig-height: 3.6
-if (sim_ok) {
-  rep <- sim$replicates[sim$replicates$class == "usable", ]
-  pn <- ss$parameter
-  zs <- lapply(pn, function(p) {
-    (rep[[paste0("estimate_", p)]] - sim$truth$params[[p]]) /
-      rep[[paste0("se_", p)]]
-  })
-  op <- graphics::par(mar = c(6.5, 4, 1, 1))
-  graphics::boxplot(zs, names = pn, las = 2, cex.axis = 0.8, outcex = 0.4,
-                    ylab = "(estimate - truth) / SE", col = "grey85")
-  graphics::abline(h = c(-1.96, 0, 1.96), lty = c(2, 1, 2),
-                   col = c("firebrick", "grey40", "firebrick"))
-  graphics::par(op)
 }
 ```
 
@@ -734,13 +580,10 @@ local_text <- if (length(local_max)) sprintf(paste(
   paste(sim$replicates$replication[local_max], collapse = ", ")) else ""
 ```
 
-`r prof_text` `r local_text`
-
 The fits took a median of
 `r if (sim_ok) sprintf("%.2f", stats::median(sim$replicates$seconds))` s and
-`r if (sim_ok) stats::median(sim$replicates$iterations)` EM iterations each.
-`r if (sim_ok) sprintf("The results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(sim_prov$git_commit, 1, 7), sim_prov$fingerprint_installed, sim_prov$status, sim_prov$r_version)`
-`r if (sim_ok) (if (sim_check$status == "matches") sim_check$message else paste0("**", sim_check$message, "**")) else ""`
+`r if (sim_ok) stats::median(sim$replicates$iterations)` EM iterations each. Profile-likelihood intervals for theta are summarized in the
+appendix.
 
 ## Data analysis: NMES1988 {#sec-nmes}
 
@@ -820,7 +663,8 @@ stopifnot(
   nm_or$ratio[nm_or$term == "chronic"] < 1,
   nm_or$ratio[nm_or$term == "insuranceyes"] < 1,
   nm_irr_zi$ratio[nm_irr_zi$term == "chronic"] > 1,
-  nm_irr_zi$ratio[nm_irr_zi$term == "insuranceyes"] > 1)
+  nm_irr_zi$ratio[nm_irr_zi$term == "insuranceyes"] > 1,
+  nm_irr_zi$ratio[nm_irr_zi$term == "school"] > 1)
 # the bootstrap may not contradict the preference stated below: a
 # conclusive non-rejection would need the discussion to be rewritten
 if (boot_ok && boot$run_status == "COMPLETE" && boot$inference == "CONCLUSIVE") {
@@ -850,35 +694,14 @@ made no visits at all. As a first, rough look that ignores the covariates, a
 single Poisson distribution with the sample mean would give
 $e^{-`r f2(nm_desc$mean)`}$ = `r pct(nm_desc$poisson_unconditional_zero_share, 2)`
 zeros, about `r f0(nm_desc$poisson_unconditional_zeros)` people
-(@fig-visits). That comparison exaggerates the problem: people differ in
+(@fig-visits, in the appendix). That comparison exaggerates the problem: people differ in
 health, and a mixture of people with different means always has more zeros
 and more spread than a single mean gives. The model comparison below
 accounts for the covariates.
 
-```{r}
-#| label: fig-visits
-#| fig-cap: "Observed frequencies of physician office visits (bars) and the frequencies a single Poisson distribution with the sample mean would give (points). The single Poisson ignores the covariates; it is a descriptive reference only."
-#| fig-width: 7
-#| fig-height: 3.4
-fr <- nm_desc$freq
-op <- par(mar = c(4.2, 4.2, 0.5, 0.5))
-bp <- barplot(fr$observed, names.arg = fr$visits, col = "grey80",
-              border = "grey40", las = 2, cex.names = 0.7,
-              ylim = c(0, 1.05 * max(fr$observed, fr$poisson_unconditional)),
-              xlab = "Physician office visits (30+ = 30 or more)",
-              ylab = "Number of people")
-points(bp, fr$poisson_unconditional, pch = 19, col = "firebrick", cex = 0.7)
-legend("topright", c("Observed", "Single Poisson with the sample mean"),
-       pch = c(22, 19), pt.bg = c("grey80", NA), pt.cex = c(1.6, 0.8),
-       col = c("grey40", "firebrick"), bty = "n")
-par(op)
-```
-
 **Model comparison.** @tbl-nmes-compare compares the Poisson regression
-(fitted with `glm()`), the NB model and the ZINB model, both fitted with our
-package. The expected number of zeros of a model is the sum, over all
-people, of the probability the fitted model gives to that person making no
-visits.
+(`glm()`) with our NB and ZINB fits; a model's expected zeros are the sum
+over people of its fitted probability of zero visits.
 
 ```{r}
 #| label: tbl-nmes-compare
@@ -918,11 +741,10 @@ to the zero part raises the log-likelihood by only
 parameters, and makes both AIC and BIC worse, so the smaller zero model is
 kept.
 
-@fig-rootogram shows the fit at every count, not only at zero. Each bar is
-an observed frequency hung from the model's expected frequency, on a square
-root scale so that small frequencies stay visible. A bar that ends below the
-dashed line marks a count the model under-predicts; one that ends above it
-marks a count the model over-predicts. The Poisson model misses everywhere.
+@fig-rootogram shows the fit at every count: each observed frequency hangs
+from the model's expected frequency (square-root scale), so a bar ending
+below the dashed line marks a count the model under-predicts, and one ending
+above it a count it over-predicts. The Poisson model misses everywhere.
 The NB model has a specific pattern at the low end: too few zeros and too
 many people with one or two visits (`r f0(-gap("nb", 1))` and
 `r f0(-gap("nb", 2))` too many). The ZINB model removes most of that
@@ -933,7 +755,7 @@ pattern, and its total absolute error over the counts 1 to 30 is
 #| label: fig-rootogram
 #| fig-cap: "Hanging rootograms: observed frequencies (bars) hanging from each model's expected frequencies (red points), on a square-root scale, for 0 to 30 visits. The NB and ZINB panels share one vertical scale; the Poisson panel needs a wider one."
 #| fig-width: 7.5
-#| fig-height: 2.8
+#| fig-height: 2.4
 y_range <- function(t) {
   s <- seq_len(nrow(t) - 1L)
   range(0, sqrt(t$expected[s]) - sqrt(t$observed[s]), sqrt(t$expected[s]))
@@ -964,11 +786,11 @@ boot_text <- if (!boot_ok) {
     "In the parametric bootstrap likelihood-ratio test, %s data sets were",
     "simulated from the fitted NB model, and both models were refitted to",
     "each. %s of them could not be refitted reliably (failed replicates).",
-    "Of the %s usable replicates, %d had a likelihood-ratio statistic at",
+    "Of the %s usable replicates, %s had a likelihood-ratio statistic at",
     "least as large as the observed LR = %s, which gives p = %s. Counting",
     "every failed replicate as below the observed value, or as at or above",
     "it, puts p between %s and %s."),
-    f0(boot$settings$B), f0(pl$failures), f0(pl$used), pl$exceed,
+    f0(boot$settings$B), f0(pl$failures), f0(pl$used), if (pl$exceed == 0) "none" else pl$exceed,
     f1(boot$observed$statistic), format(signif(pl$p.value, 2)),
     format(signif(pl$p.bounds[["lower"]], 2)),
     format(signif(pl$p.bounds[["upper"]], 2)))
@@ -990,8 +812,11 @@ boot_note <- if (boot_ok && !is.null(boot$maxit_decision)) {
   sprintf(paste(
     "The refits used the EM iteration limit maxit = %d, chosen before the",
     "full run by a fixed rule that looks only at the share of failed",
-    "replicates in a 50-replicate pilot (%s)."),
-    boot$settings$maxit, boot$maxit_decision$summary)
+    "replicates in 50-replicate pilots: %s at the default maxit = 5000 and",
+    "%s at maxit = 20000; the lower share wins, the default on a tie."),
+    boot$settings$maxit, pct(boot$maxit_decision$share_default),
+    if (is.na(boot$maxit_decision$share_high)) "not run" else
+      pct(boot$maxit_decision$share_high))
 } else ""
 ```
 
@@ -1007,10 +832,9 @@ but for the same reason they are descriptive here, not a test.
 
 **Interpretation.** @tbl-nmes-irr gives the count-part effects as
 *incidence rate ratios* (IRRs): the factor by which the expected number of
-visits is multiplied when a covariate increases by one unit (or, for a
-factor, compared with its reference level), holding the others fixed. In the
-ZINB model, the count part describes the people who are "at risk" of
-visiting a physician.
+visits is multiplied per unit of a covariate (or against the reference level
+of a factor), holding the others fixed; in ZINB it describes the people "at
+risk" of visiting a physician.
 
 ```{r}
 #| label: tbl-nmes-irr
@@ -1040,18 +864,15 @@ In the ZINB model every count-part effect is clearly different from 1. Each
 additional hospital stay multiplies the expected number of visits by
 `r eff(irr("hospital"))`, about `r change(irr("hospital")$ratio)` visits,
 and each additional chronic condition by `r eff(irr("chronic"))`. Compared
-with people in average health, those in poor health are expected to make
-`r change(irr("healthpoor")$ratio)` visits, IRR `r eff(irr("healthpoor"))`,
-and those in excellent health `r change(irr("healthexcellent")$ratio)`,
-IRR `r eff(irr("healthexcellent"))`. Men are expected to make
-`r change(irr("gendermale")$ratio)` visits than women, IRR
-`r eff(irr("gendermale"))`; each additional year of education goes with
-`r change(irr("school")$ratio)` visits, IRR `r eff(irr("school"))`; and
-private insurance with `r change(irr("insuranceyes")$ratio)`, IRR
-`r eff(irr("insuranceyes"))`. The NB estimates in @tbl-nmes-irr point the
-same way and are all further from 1. That is expected: the NB model has no
-separate group of non-users, so it has to fit those people's zeros through
-the same covariate effects.
+with average health, poor health goes with
+`r change(irr("healthpoor")$ratio)` visits and excellent health with
+`r change(irr("healthexcellent")$ratio)`. Men make
+`r change(irr("gendermale")$ratio)` visits than women, each year of
+education adds `r f0(100 * (irr("school")$ratio - 1))`%, and private
+insurance `r f0(100 * (irr("insuranceyes")$ratio - 1))`% (intervals in
+@tbl-nmes-irr). The NB estimates point the same way and are all further
+from 1: without a separate group of non-users, the NB model has to fit those
+people's zeros through the same covariate effects.
 
 ```{r}
 #| label: tbl-nmes-or
@@ -1074,20 +895,16 @@ observed zero combines both parts,
 $P(Y_i = 0) = \pi_i + (1 - \pi_i)\, f_{\mathrm{NB}}(0; \mu_i, \theta)$,
 and a covariate's effect on it depends on both its odds ratio and its IRR.
 With that in mind: each additional chronic condition multiplies the odds of
-being a non-user by `r eff(or("chronic"))`, about
-`r odds_change(or("chronic")$ratio)` odds, and private insurance by
-`r eff(or("insuranceyes"))`. Men have `r f2(or("gendermale")$ratio)` times
-the odds of women (95% CI `r ci2(or("gendermale")$lower, or("gendermale")$upper)`),
-and each year of education multiplies the odds by `r eff(or("school"))`.
-The hospital-stay odds ratio, `r eff(or("hospital"))`, is not significant at
-the 5% level (p = `r f2(or("hospital")$p_value)`). Chronic illness and
-insurance therefore work in the same direction in both parts: they make a
-person less likely to be a non-user and, among users, more likely to visit
-often. The dispersion of the counts among users stays clear:
-$\hat\theta$ = `r f2(nm_th_zi[["theta"]])` (95% Wald interval
-`r ci2(nm_th_zi[["wald_lower"]], nm_th_zi[["wald_upper"]])`, profile
-interval `r ci2(nm_th_zi[["profile_lower"]], nm_th_zi[["profile_upper"]])`),
-so even within the at-risk group the variance is well above a Poisson's.
+being a non-user by `r eff(or("chronic"))`, and private insurance by
+`r eff(or("insuranceyes"))`; men have `r f2(or("gendermale")$ratio)` times
+the odds of women, and each year of education multiplies them by
+`r f2(or("school")$ratio)`. The hospital-stay odds ratio is not significant
+at the 5% level (p = `r f2(or("hospital")$p_value)`). Chronic illness and
+insurance thus work in the same direction in both parts: less likely to be
+a non-user and, among users, more visits. Among users the counts stay
+overdispersed: $\hat\theta$ = `r f2(nm_th_zi[["theta"]])` (95% Wald
+interval `r ci2(nm_th_zi[["wald_lower"]], nm_th_zi[["wald_upper"]])`,
+profile interval `r ci2(nm_th_zi[["profile_lower"]], nm_th_zi[["profile_upper"]])`).
 
 **Which model?** The Poisson model is clearly inadequate: it cannot produce
 counts this spread out, and the overdispersion test rejects it decisively.
@@ -1109,8 +926,6 @@ low counts and its interpretable two-part structure. All the effects are
 associations in a 1987–88 survey of people aged 66 and over, not causal
 effects, and they need not carry over to other populations.
 
-`r if (boot_ok) sprintf("The bootstrap results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(boot$provenance$git_commit, 1, 7), boot$provenance$fingerprint_installed, boot$provenance$status, boot$provenance$r_version)`
-`r if (boot_ok) (if (boot_check$status == "matches") boot_check$message else paste0("**", boot_check$message, "**")) else ""`
 
 ## Discussion {#sec-discussion}
 
@@ -1124,53 +939,36 @@ stopifnot(is.na(ratio_bc) || ratio_bc > 1, is.na(ratio_nm) || ratio_nm > 1,
           all(req$passed))
 ```
 
-**What the package achieves.** Both models are fitted with the algorithms
-the project prescribes, IRLS, Newton–Raphson and EM, and no general-purpose
-optimizer. They reproduce `glm.nb()` and `zeroinfl()` well within the
-required tolerances on both data sets (@sec-benchmark), and the simulation
-(@sec-simulation) shows that `zinbreg()` recovers known parameters with
-standard errors that match the actual spread of the estimates.
+Both models are fitted by IRLS, Newton–Raphson and EM without a
+general-purpose optimizer, reproduce `glm.nb()` and `zeroinfl()` well within
+the required tolerances (@sec-benchmark), and `zinbreg()` recovers known
+parameters with accurate standard errors (@sec-simulation).
 
 **Limitations.**
 
-* *Speed.* EM converges linearly, so near the maximum each iteration gains
-  less than the one before. `zinbreg()` was
-  `r if (!is.na(ratio_bc)) sprintf("%.0f", ratio_bc) else "several"` times
-  slower than `zeroinfl()` on bioChemists and
-  `r if (!is.na(ratio_nm)) sprintf("%.0f", ratio_nm) else "several"` times
-  slower on NMES1988, partly because its stopping rule (the gradient check)
-  is stricter. This matters little for one fit, but a lot when the model is
-  refitted many times, as in the bootstrap test of @sec-nmes.
-* *Wald intervals.* The intervals are estimate ± 1.96 SE. They rely on the
-  estimates being approximately normal, which holds less well for the
-  zero-part coefficients and for $\theta$ at moderate sample sizes; the
-  profile interval for $\theta$ that `confint()` provides avoids this for
-  $\theta$.
-* *The simulation* used one fixed design, one set of true values and one
-  sample size, all with the correct model. It shows that the estimator works
-  where its assumptions hold; it does not show how it behaves under
-  misspecification or with weak zero inflation.
-* *Testing NB against ZINB.* The NB model lies on the boundary of the ZINB
-  model, so the standard likelihood-ratio and Vuong tests do not apply. The
-  parametric bootstrap test is valid but slow, and some of its refits fail;
-  the package reports bounds that account for the failures rather than
-  dropping them.
-* *Local maxima.* The ZINB likelihood can have more than one maximum,
-  because excess zeros can be explained either by zero inflation or by
-  overdispersion. EM finds the maximum its starting values lead to, and the
-  gradient check confirms a maximum, not that it is the highest one.
-  `r if (length(local_max)) sprintf("In the simulation, %s stopped at a local maximum, which the profile search in confint() detected.", if (length(local_max) == 1L) "one fit" else paste(length(local_max), "fits")) else ""`
-  Refitting from several starting values would guard against this.
-* *Interpretation.* The split of zeros into structural and chance zeros
-  comes from the model's assumptions, not directly from the data.
+* *Speed.* EM converges linearly, so `zinbreg()` is several times slower
+  than `zeroinfl()` (@sec-benchmark); this matters when the model is
+  refitted many times, as in the bootstrap test (@sec-nmes).
+* *Wald intervals* rely on approximately normal estimates, which holds less
+  well for the zero-part coefficients and $\theta$ at moderate sample
+  sizes; `confint()` offers a profile interval for $\theta$.
+* *The simulation* used one design and one sample size with the correct
+  model; it does not show behaviour under misspecification or weak zero
+  inflation.
+* *Testing NB against ZINB* is a boundary problem, so the standard
+  likelihood-ratio and Vuong tests do not apply; the parametric bootstrap
+  test is valid but slow, and some refits fail, which the package reports
+  as bounds rather than dropping them.
+* *Local maxima.* Excess zeros can be explained by zero inflation or by
+  overdispersion, so the ZINB likelihood can have several maxima; the
+  gradient check confirms a maximum, not the highest one.
+  `r if (length(local_max)) sprintf("In the simulation, %s stopped at a local maximum, which confint() detected.", if (length(local_max) == 1L) "one fit" else paste(length(local_max), "fits")) else ""`
+  Several starting values would guard against this.
 
-**Possible extensions.** Hurdle models, which separate zero and positive
-counts completely, are a natural companion to ZINB. EM could be accelerated
-(for example by switching to Newton steps on the full parameter vector
-near the maximum, using the analytic Hessian the package already computes).
-Sandwich (robust) standard errors would protect against a misspecified
-variance, and further simulations could vary the sample size, the strength
-of zero inflation and the model specification.
+**Possible extensions.** Hurdle models; EM acceleration (for example
+Newton steps near the maximum with the analytic Hessian the package already
+computes); sandwich standard errors; and simulations that vary the sample
+size, the strength of zero inflation and the model specification.
 
 ## AI-use statement
 
@@ -1199,11 +997,6 @@ written.
   floored $\mu$, which would have silently changed the likelihood; it also
   used the number of positive-weight observations instead of the sum of the
   weights in the starting value for $\theta$.
-* *2026-11-08, code review:* `check_whole()` accepted values above the
-  integer maximum, and edited `nbreg_control` objects were trusted without
-  revalidation.
-* *2026-11-09, `zinbreg()` plan:* the first plan could treat non-converged
-  M-steps as converged, and had no gradient check at termination.
 * *2026-11-09, `zinbreg()` validation:* with weights, `zeroinfl()` disagreed
   with `zinbreg()` by 0.03; instead of relaxing the tolerance, the
   investigation showed that `zeroinfl()`'s weighted fit stops at a point that
@@ -1216,3 +1009,146 @@ written.
 
 ::: {#refs}
 :::
+
+## Appendix {#sec-appendix .unnumbered}
+
+Detailed tables and records that support the main text: the side-by-side
+benchmark comparisons (@sec-benchmark), the relative bias and RMSE from the
+simulation (@sec-simulation) and its standardized errors, the computation
+times, the distribution of visits in NMES1988, the profile-likelihood
+intervals in the simulation, and the provenance of the saved results.
+
+```{r}
+#| label: tbl-bench-bc-nb
+#| tbl-cap: "bioChemists, negative binomial: nbreg() against glm.nb()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("bioChemists_NB")
+```
+
+```{r}
+#| label: tbl-bench-nmes-nb
+#| tbl-cap: "NMES1988, negative binomial: nbreg() against glm.nb()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("NMES1988_NB")
+```
+
+```{r}
+#| label: tbl-bench-bc-zinb
+#| tbl-cap: "bioChemists, zero-inflated negative binomial: zinbreg() against zeroinfl(). count_ and zero_ name the count and zero-part coefficients."
+#| echo: false
+#| tbl-colwidths: false
+side_table("bioChemists_ZINB")
+```
+
+```{r}
+#| label: tbl-bench-nmes-zinb
+#| tbl-cap: "NMES1988, zero-inflated negative binomial: zinbreg() against zeroinfl()."
+#| echo: false
+#| tbl-colwidths: false
+side_table("NMES1988_ZINB")
+```
+
+```{r}
+#| label: tbl-sim-rmse
+#| tbl-cap: "Relative bias and root mean squared error (RMSE) of each estimate, with Monte Carlo standard errors (bootstrap over the replications)."
+#| echo: false
+#| tbl-colwidths: false
+if (sim_ok) {
+  kbl(data.frame(
+    Parameter = ss$parameter,
+    `Relative bias` = ifelse(is.na(ss$rel_bias), "",
+                             sprintf("%.3f (%s)", ss$rel_bias,
+                                     formatC(ss$rel_bias_mcse, digits = 1,
+                                             format = "fg"))),
+    RMSE = pm(ss$rmse, ss$rmse_mcse),
+    check.names = FALSE), align = "lrr")
+}
+```
+
+
+```{r}
+#| label: tbl-bench-time
+#| tbl-cap: "Computation time in seconds (median of 10 runs, with the minimum and maximum)."
+#| echo: false
+#| tbl-colwidths: false
+if (is.null(saved)) {
+  cat("The saved timings were not found in the installed package; run inst/benchmark/benchmark.R.")
+} else {
+  tm <- saved$timing
+  tm <- tm[!grepl("numeric Hessian", tm$fit), ]
+  tm$fit <- sub(", analytic Hessian", "", tm$fit)
+  kbl(data.frame(
+    Data = tm$data_name, Model = tm$model, Fit = tm$fit,
+    `Median (s)` = formatC(tm$median_s, digits = 3, format = "g"),
+    `Range (s)` = sprintf("%s to %s", formatC(tm$min_s, digits = 3, format = "g"),
+                          formatC(tm$max_s, digits = 3, format = "g")),
+    check.names = FALSE), align = "lllrr")
+}
+```
+
+### Profile-likelihood intervals in the simulation {.unnumbered}
+
+`r prof_text` `r local_text`
+
+### Provenance of the saved results {.unnumbered}
+
+```{=latex}
+\sloppy
+```
+
+The timings, the simulation and the NMES1988 bootstrap are read from
+saved results, because they take minutes to hours to produce. Each was
+produced from a clean, committed state of the package, and each is
+checked here against the installed code.
+
+**Timings.** `r if (!is.null(p)) sprintf("The timings were measured on %s (%s, %s cores) under %s, with MASS %s, pscl %s and bench %s, on %s, for the package code of commit %s (code fingerprint %s; provenance %s).", p$os, p$cpu, p$cores, p$r_version, p$versions[['MASS']], p$versions[['pscl']], p$versions[['bench']], substr(p$date, 1, 10), substr(p$git_commit, 1, 7), p$fingerprint_installed, p$status) else ""`
+`r if (!is.null(prov_check)) (if (prov_check$status == "matches") prov_check$message else paste0("**", prov_check$message, "**")) else ""`
+
+**Simulation.** `r if (sim_ok) sprintf("The results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(sim_prov$git_commit, 1, 7), sim_prov$fingerprint_installed, sim_prov$status, sim_prov$r_version)`
+`r if (sim_ok) (if (sim_check$status == "matches") sim_check$message else paste0("**", sim_check$message, "**")) else ""`
+
+**NMES1988 bootstrap.** `r if (boot_ok) sprintf("The bootstrap results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(boot$provenance$git_commit, 1, 7), boot$provenance$fingerprint_installed, boot$provenance$status, boot$provenance$r_version)`
+`r if (boot_ok) (if (boot_check$status == "matches") boot_check$message else paste0("**", boot_check$message, "**")) else ""`
+
+```{r}
+#| label: fig-visits
+#| fig-cap: "Observed frequencies of physician office visits (bars) and the frequencies a single Poisson distribution with the sample mean would give (points). The single Poisson ignores the covariates; it is a descriptive reference only."
+#| fig-width: 7
+#| fig-height: 2.6
+fr <- nm_desc$freq
+op <- par(mar = c(4.2, 4.2, 0.5, 0.5))
+bp <- barplot(fr$observed, names.arg = fr$visits, col = "grey80",
+              border = "grey40", las = 2, cex.names = 0.7,
+              ylim = c(0, 1.05 * max(fr$observed, fr$poisson_unconditional)),
+              xlab = "Physician office visits (30+ = 30 or more)",
+              ylab = "Number of people")
+points(bp, fr$poisson_unconditional, pch = 19, col = "firebrick", cex = 0.7)
+legend("topright", c("Observed", "Single Poisson with the sample mean"),
+       pch = c(22, 19), pt.bg = c("grey80", NA), pt.cex = c(1.6, 0.8),
+       col = c("grey40", "firebrick"), bty = "n")
+par(op)
+```
+
+```{r}
+#| label: fig-sim-z
+#| fig-cap: "Standardized errors (estimate − truth) / SE for each parameter over the usable replications. If the estimates are approximately normal and the standard errors are right, about 95% of them lie between the dashed lines at ±1.96."
+#| echo: false
+#| fig-width: 7
+#| fig-height: 3
+if (sim_ok) {
+  rep <- sim$replicates[sim$replicates$class == "usable", ]
+  pn <- ss$parameter
+  zs <- lapply(pn, function(p) {
+    (rep[[paste0("estimate_", p)]] - sim$truth$params[[p]]) /
+      rep[[paste0("se_", p)]]
+  })
+  op <- graphics::par(mar = c(6.5, 4, 1, 1))
+  graphics::boxplot(zs, names = pn, las = 2, cex.axis = 0.8, outcex = 0.4,
+                    ylab = "(estimate - truth) / SE", col = "grey85")
+  graphics::abline(h = c(-1.96, 0, 1.96), lty = c(2, 1, 2),
+                   col = c("firebrick", "grey40", "firebrick"))
+  graphics::par(op)
+}
+```

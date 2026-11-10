@@ -198,3 +198,40 @@ A running record of how Claude Code is used in this project. It is the raw mater
     - a table too wide for the PDF;
     - provenance wording reused from the benchmark.
   - **A finding reported, not acted on:** the investigation showed that `zinbreg()` can converge to a local maximum (2 of 300 data sets). Claude did not change the engine, as agreed with the owner, and recorded it for the owner's decision.
+
+### 2026-11-10: NMES1988 analysis, the report, the website
+
+- **Asked Claude to:** plan, then carry out automatically:
+  - the NMES1988 analysis and the checkpointed bootstrap test;
+  - the remaining report sections, except the AI-use statement, which is left to the author;
+  - the PDF, the website and the final checks.
+
+  Claude was also asked to ask about the report's format first.
+- **What Claude produced:**
+  - `inst/benchmark/nmes_functions.R`, `nmes_bootstrap.R` and `tests/testthat/test-nmes.R`;
+  - the report's format, references, Introduction, Methods, package section, data analysis and Discussion;
+  - the length restructuring with an appendix;
+  - the detector extension;
+  - the notes.
+- **How it was checked:**
+  - the key assumption of the checkpoint design (chunks equal one call) was tested on real data before any code was written, then by the test suite, with resume, mismatch and status tests;
+  - the pooled p-values against the package's own;
+  - the effect tables against `confint()` and `summary()`, and the expected zeros against `expected_counts()` and hand formulas;
+  - every qualitative claim in the report text, by a `stopifnot()` guard;
+  - every PDF page, inspected after each change;
+  - the suite, both checks and CI on every commit.
+- **Problems found and how they were corrected:**
+  - **In the owner's plan review,** five changes to Claude's first plan:
+    - it did not separate the Poisson zero share from the sample mean from the fitted Poisson regression's expected zeros;
+    - it chose the preferred model by a fixed combination of criteria;
+    - the 7-hour bootstrap had no checkpointing or exact resumption;
+    - it did not separate a complete run from a conclusive test;
+    - it would have called the project submission-ready while the AI-use statement was still an outline.
+  - **Claude's own checks caught:**
+    - a probe that compared two empty vectors and reported them identical;
+    - the `Log(theta)` row in the effect table;
+    - a count-table convention different from the package's;
+    - a `sed` edit that made the table helper call itself;
+    - shell escapes that corrupted LaTeX in the YAML;
+    - backticks inside inline R code;
+    - a line that rendered as a list item.
