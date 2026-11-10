@@ -25,8 +25,8 @@ results against `pscl::zeroinfl()`.
 Negative binomial and zero-inflated negative binomial regression are
 implemented and validated, with all required methods and the extras
 (confidence intervals, model tests, bootstrap and diagnostics), and
-benchmarked against `glm.nb()` and `zeroinfl()`. The simulation study,
-data analysis and report come next.
+benchmarked against `glm.nb()` and `zeroinfl()`, with a simulation study
+of `zinbreg()`. The data analysis and report come next.
 
 | Part                                                    | Status         |
 |---------------------------------------------------------|----------------|
@@ -36,7 +36,7 @@ data analysis and report come next.
 | Methods (`print`, `summary`, `predict`, …)              | ✅ Done        |
 | Extras (confidence intervals, model tests, diagnostics) | ✅ Done        |
 | Benchmarks against `glm.nb()` and `zeroinfl()`          | ✅ Done        |
-| Simulation study                                        | ⬜ Not started |
+| Simulation study                                        | ✅ Done        |
 | NMES1988 data analysis                                  | ⬜ Not started |
 | Report and website                                      | 🚧 In progress |
 

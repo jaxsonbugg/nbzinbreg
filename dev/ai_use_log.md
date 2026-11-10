@@ -166,3 +166,35 @@ A running record of how Claude Code is used in this project. It is the raw mater
     - Quarto's cache files appearing in `vignettes/`;
     - an inaccurate sentence about when the Hessian is used.
   - **Claude also corrected its own claim** that the old pkgdown entry `anova.nbreg` was invalid: it resolves as an alias, so that commit fixed the index's content, not a failing check.
+
+### 2026-11-10: The simulation study
+
+- **Asked Claude to:** plan, then implement, the simulation study of handout Section 5.1. It was done in three commits, pushed as they came, with the report's Simulation study section.
+- **What Claude produced:**
+  - `inst/benchmark/simulation_functions.R`: the generator, the per-replication records and classes, the profile classes, the summaries with analytic and bootstrap Monte Carlo SEs, the status and saving;
+  - `inst/benchmark/simulation.R`;
+  - `tests/testthat/test-simulation.R`;
+  - the results of record;
+  - `dev/simulation_bias_investigation.R`;
+  - the report section.
+- **How it was checked:**
+  - every summary and Monte Carlo SE by hand on synthetic records;
+  - every replication and profile class from doctored inputs;
+  - the generator against exact moments on a 200,000-row sample;
+  - a pilot run before the full run;
+  - the results of record from a clean commit with verified provenance;
+  - the flagged biases investigated against `zeroinfl()` and at n = 2000 before committing;
+  - the PDF inspected page by page;
+  - the suite, both package checks and CI.
+- **Problems found and how they were corrected:**
+  - **In the owner's plan review,** four changes to Claude's first plan:
+    - "usable" was defined too weakly;
+    - RMSE was computed as sqrt(bias² + SD²) instead of directly;
+    - Monte Carlo SEs were promised for every summary without a method for the nonlinear ones;
+    - unbounded profile intervals were not evaluated.
+  - **Claude's work caught:**
+    - its own rough description of the design (45% zeros, against an exact 53.3%);
+    - a crash in its investigation script;
+    - a table too wide for the PDF;
+    - provenance wording reused from the benchmark.
+  - **A finding reported, not acted on:** the investigation showed that `zinbreg()` can converge to a local maximum (2 of 300 data sets). Claude did not change the engine, as agreed with the owner, and recorded it for the owner's decision.

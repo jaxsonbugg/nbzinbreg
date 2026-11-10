@@ -116,6 +116,6 @@ The README is a short working-status page; keep it short and readable, and keep 
 
 ## Reproducibility
 
-- Set a seed in every simulation so results can be reproduced. The planned simulation uses R = 100 datasets with n = 500.
+- Set a seed in every simulation so results can be reproduced. The simulation study uses R = 1000 data sets with n = 500 (the handout's minimum is R = 100), seed 651, and replication r uses seed 651 + r.
 - The report is a single Quarto source, `vignettes/articles/report.qmd`. Every number, table, and figure comes from code chunks that call the installed package. Render the PDF to `report/report.pdf` with `quarto render vignettes/articles/report.qmd --to pdf`.
 - Benchmark and simulation scripts live in `inst/benchmark/`, with their saved results next to them.

@@ -258,8 +258,253 @@ package website.
 
 ## Simulation study
 
-*Placeholder.* Bias, standard errors versus Monte Carlo standard deviation,
-and coverage of 95% Wald intervals.
+```{r}
+#| label: sim-setup
+#| include: false
+# The simulation (inst/benchmark/simulation.R) takes about 20 minutes, so
+# its saved results are read here; the functions that produced them are
+# installed with the package (inst/benchmark/simulation_functions.R).
+source(system.file("benchmark", "simulation_functions.R", package = "nbzinbreg"))
+sim_file <- system.file("benchmark", "simulation_results.rds",
+                        package = "nbzinbreg")
+sim <- if (nzchar(sim_file)) readRDS(sim_file)
+sim_ok <- !is.null(sim)
+if (sim_ok) {
+  ss <- sim$summary
+  st <- sim$settings
+  cls <- sim$classes$counts
+  prof <- sim$profile
+  mom <- sim$design_moments
+  sim_prov <- sim$provenance
+  sim_check <- check_saved_provenance(sim_prov)
+  sim_check$message <- gsub("the timings", "the simulation results",
+                            sim_check$message, fixed = TRUE)
+  row <- function(p) ss[ss$parameter == p, ]
+  pct <- function(x, d = 1) sprintf(paste0("%.", d, "f%%"), 100 * x)
+  # estimate with its Monte Carlo SE, the SE to one significant digit
+  pm <- function(x, se, d = 3) {
+    sprintf(paste0("%.", d, "f (%s)"), x, formatC(se, digits = 1, format = "fg"))
+  }
+  n_nonusable <- st$R - cls[["usable"]]
+  # parameters whose coverage is more than 2 MC SEs from 95%
+  off <- ss$parameter[abs(ss$coverage - 0.95) > 2 * ss$coverage_mcse]
+  ratio_range <- range(ss$se_ratio)
+  zmax <- max(abs(ss$bias / ss$bias_mcse))
+}
+```
+
+A simulation checks the whole estimation procedure where the truth is
+known: data are generated from a ZINB model with chosen parameter values,
+`zinbreg()` is fitted to each data set, and the estimates are compared with
+the values that generated them.
+
+**Design.** Each data set has n = `r if (sim_ok) st$n` observations with
+three covariates: x1 ~ N(0, 1), used in both parts; x2 ~ Bernoulli(0.5),
+used in the count part only; and z ~ N(0, 1), used in the zero part only.
+The covariates are drawn once and kept fixed (a *fixed design*); only the
+responses are redrawn, so the results describe the estimator for this
+design. The true model is
+
+$$\log \mu_i = 1 + 0.5\,x_{1i} - 0.5\,x_{2i}, \qquad
+\operatorname{logit} \pi_i = -0.8 + 0.6\,x_{1i} - 0.5\,z_i, \qquad
+\theta = 1.5.$$
+
+Each observation is a structural zero with probability $\pi_i$ and otherwise
+a negative binomial count with mean $\mu_i$ and dispersion $\theta$. Over
+this design `r if (sim_ok) pct(mom[["zero_share"]])` of the observations
+are expected to be zero, and `r if (sim_ok) pct(mom[["structural_share_of_zeros"]])`
+of those zeros are structural (in the simulated data:
+`r if (sim_ok) pct(sim$observed[["zero_share"]])` zeros). We simulated
+R = `r if (sim_ok) format(st$R, big.mark = ",")` data sets (seed
+`r if (sim_ok) st$seed`; data set r uses seed `r if (sim_ok) st$seed` + r, so
+any one of them can be reproduced alone) and fitted each with
+`zinbreg(y ~ x1 + x2 | x1 + z)`, the correct model, at its default settings.
+
+**What is reported.** For each parameter:
+
+* the **bias**, the average estimate minus the true value;
+* the **Monte Carlo SD**, the actual spread of the estimates over the data
+  sets;
+* the **mean estimated SE**, the average of the standard errors
+  `zinbreg()` reports, and its ratio to the Monte Carlo SD (close to 1 if
+  the standard errors are right);
+* the **RMSE**, $\sqrt{\text{mean}((\hat\theta - \theta)^2)}$;
+* the **coverage** of the 95% Wald intervals (estimate ± 1.96 SE), which
+  should be close to 95%.
+
+Every number has a **Monte Carlo standard error** (MC SE, in parentheses):
+the uncertainty left because only R data sets were simulated. For averages
+(the bias, the mean SE) and for coverage it has an exact formula; for the
+SD, the SE ratio, the relative bias and the RMSE it is estimated by
+resampling the R replications (a bootstrap with
+`r if (sim_ok) format(st$B, big.mark = ",")` resamples), which does not
+assume that the estimates are normally distributed. Theta is reported on
+both scales: log(theta), which `zinbreg()` estimates, and theta itself, with
+the interval theta ± 1.96 SE(theta).
+
+```{r}
+#| label: tbl-sim
+#| tbl-cap: "Simulation results over the usable replications: bias, the spread of the estimates against the reported standard errors, and the coverage of 95% Wald intervals (in %). Monte Carlo standard errors in parentheses."
+#| echo: false
+#| tbl-colwidths: false
+if (sim_ok) {
+  knitr::kable(data.frame(
+    Parameter = ss$parameter,
+    Truth = formatC(ss$truth, digits = 3, format = "f"),
+    Bias = pm(ss$bias, ss$bias_mcse),
+    `MC SD` = pm(ss$mc_sd, ss$mc_sd_mcse),
+    `Mean SE` = pm(ss$mean_se, ss$mean_se_mcse),
+    `SE / SD` = pm(ss$se_ratio, ss$se_ratio_mcse, 2),
+    `Coverage (%)` = sprintf("%.1f (%.1f)", 100 * ss$coverage,
+                             100 * ss$coverage_mcse),
+    check.names = FALSE), align = "lrrrrrr")
+} else {
+  cat("The saved simulation results were not found in the installed package; run inst/benchmark/simulation.R.")
+}
+```
+
+```{r}
+#| label: tbl-sim-rmse
+#| tbl-cap: "Relative bias and root mean squared error (RMSE) of each estimate, with Monte Carlo standard errors (bootstrap over the replications)."
+#| echo: false
+#| tbl-colwidths: false
+if (sim_ok) {
+  knitr::kable(data.frame(
+    Parameter = ss$parameter,
+    `Relative bias` = ifelse(is.na(ss$rel_bias), "",
+                             sprintf("%.3f (%s)", ss$rel_bias,
+                                     formatC(ss$rel_bias_mcse, digits = 1,
+                                             format = "fg"))),
+    RMSE = pm(ss$rmse, ss$rmse_mcse),
+    check.names = FALSE), align = "lrr")
+}
+```
+
+```{r}
+#| label: fig-sim-z
+#| fig-cap: "Standardized errors (estimate − truth) / SE for each parameter over the usable replications. If the estimates are approximately normal and the standard errors are right, about 95% of them lie between the dashed lines at ±1.96."
+#| echo: false
+#| fig-width: 7
+#| fig-height: 3.6
+if (sim_ok) {
+  rep <- sim$replicates[sim$replicates$class == "usable", ]
+  pn <- ss$parameter
+  zs <- lapply(pn, function(p) {
+    (rep[[paste0("estimate_", p)]] - sim$truth$params[[p]]) /
+      rep[[paste0("se_", p)]]
+  })
+  op <- graphics::par(mar = c(6.5, 4, 1, 1))
+  graphics::boxplot(zs, names = pn, las = 2, cex.axis = 0.8, outcex = 0.4,
+                    ylab = "(estimate - truth) / SE", col = "grey85")
+  graphics::abline(h = c(-1.96, 0, 1.96), lty = c(2, 1, 2),
+                   col = c("firebrick", "grey40", "firebrick"))
+  graphics::par(op)
+}
+```
+
+```{r}
+#| label: sim-results-text
+#| include: false
+# Every statement below is chosen from the numbers, so the text cannot
+# claim more than the results show.
+results_text <- if (sim_ok) {
+  usable_txt <- sprintf(paste(
+    "Of the %s fits, %s %s usable: converged with a passed gradient check,",
+    "no estimate on a boundary, a valid covariance matrix, and finite,",
+    "ordered intervals%s."),
+    format(st$R, big.mark = ","), format(cls[["usable"]], big.mark = ","),
+    if (cls[["usable"]] == 1) "was" else "were",
+    if (n_nonusable > 0) sprintf(paste(
+      "; the other %d are listed with their reasons in the saved results.",
+      "Counting them as not covering, or as covering, puts the coverages",
+      "between %s and %s"), n_nonusable,
+      pct(min(ss$coverage_lower_bound)), pct(max(ss$coverage_upper_bound)))
+    else " (none failed or ended on a boundary)")
+  bias_se <- max(abs(ss$bias) / ss$mean_se)
+  bias_txt <- if (zmax <= 3) sprintf(paste(
+    "No bias is distinguishable from simulation noise (the largest is %.1f",
+    "Monte Carlo SEs from zero), and every bias is below %s of a standard",
+    "error."), zmax, pct(bias_se, 0)) else sprintf(paste(
+    "Some biases are larger than simulation noise (up to %.1f Monte Carlo",
+    "SEs from zero, for %s), although every bias is below %s of a standard",
+    "error. This is the small-sample bias that maximum likelihood estimates",
+    "have, of order 1/n: it is largest for the zero part and theta, which",
+    "the data determine least precisely, and it shrinks as n grows (a",
+    "check at n = 2000 is in the project notes)."), zmax,
+    ss$parameter[which.max(abs(ss$bias / ss$bias_mcse))], pct(bias_se, 0))
+  ratio_txt <- if (ratio_range[1] >= 0.9 && ratio_range[2] <= 1.1) sprintf(
+    paste("The reported standard errors match the actual spread of the",
+          "estimates: the SE/SD ratios lie between %.2f and %.2f."),
+    ratio_range[1], ratio_range[2]) else sprintf(paste(
+    "The SE/SD ratios lie between %.2f and %.2f, so for some parameters",
+    "the reported standard errors and the actual spread differ by more than",
+    "10%%."), ratio_range[1], ratio_range[2])
+  cov_txt <- if (length(off)) sprintf(paste(
+    "The coverage is within two Monte Carlo SEs of 95%% for every parameter",
+    "except %s (%s)."), paste(off, collapse = ", "),
+    paste(pct(ss$coverage[ss$parameter %in% off]), collapse = ", ")) else
+    "The coverage of every 95% Wald interval is within two Monte Carlo SEs of 95%."
+  et <- sim$replicates$estimate_theta[sim$replicates$class == "usable"]
+  skew <- function(x) mean(((x - mean(x)) / stats::sd(x))^3)
+  cl <- row("log(theta)")$coverage
+  ct <- row("theta")$coverage
+  theta_txt <- sprintf(paste(
+    "For theta, the interval built on the log scale and transformed back",
+    "covers %s of the time, and theta ± 1.96 SE(theta) %s. The estimates of",
+    "theta are skewed (skewness %.2f; %.2f for log theta)%s."),
+    pct(cl), pct(ct), skew(et), skew(log(et)),
+    if (abs(cl - 0.95) < abs(ct - 0.95)) {
+      ", and the log scale, where they are closer to normal, gives the more accurate interval"
+    } else if (abs(cl - 0.95) > abs(ct - 0.95)) {
+      ", although here the theta-scale interval is closer to 95%"
+    } else "")
+  paste(usable_txt, bias_txt, ratio_txt, cov_txt, theta_txt)
+} else ""
+```
+
+**Results.** `r results_text`
+
+```{r}
+#| label: sim-profile-text
+#| include: false
+prof_text <- if (sim_ok) {
+  sprintf(paste(
+    "The profile-likelihood interval for theta from `confint()` was computed",
+    "for the first %d data sets: %d were finite, %d unbounded above",
+    "(certified), and %d could not be evaluated. Its coverage over the %d",
+    "evaluable intervals is %s (MC SE %s)%s."),
+    prof$n, prof$counts[["finite"]], prof$counts[["unbounded"]],
+    prof$n - prof$evaluable, prof$evaluable, pct(prof$coverage),
+    pct(prof$coverage_mcse),
+    if (prof$n > prof$evaluable) sprintf(
+      "; counting the others as not covering or covering gives %s to %s",
+      pct(prof$lower_bound), pct(prof$upper_bound)) else "")
+} else ""
+# Profile intervals that failed because the profile search found a higher
+# likelihood than the fit: the fit had stopped at a local maximum.
+local_max <- if (sim_ok) {
+  d <- sim$replicates$profile_detail
+  which(!is.na(d) & grepl("not at its maximum", d, fixed = TRUE))
+} else integer()
+local_text <- if (length(local_max)) sprintf(paste(
+  "In %s (data set %s), `confint()` refused to give an interval because its",
+  "search over theta found a higher likelihood than the fit: `zinbreg()`",
+  "had converged, with its gradient check passed, to a local maximum. Excess",
+  "zeros can be explained either by zero inflation or by overdispersion, and",
+  "the ZINB likelihood can have a maximum for each; EM finds the one its",
+  "starting values lead to. The other fits in this table are maxima in the",
+  "same sense, so a small share of them may be local maxima too."),
+  if (length(local_max) == 1L) "one case" else paste(length(local_max), "cases"),
+  paste(sim$replicates$replication[local_max], collapse = ", ")) else ""
+```
+
+`r prof_text` `r local_text`
+
+The fits took a median of
+`r if (sim_ok) sprintf("%.2f", stats::median(sim$replicates$seconds))` s and
+`r if (sim_ok) stats::median(sim$replicates$iterations)` EM iterations each.
+`r if (sim_ok) sprintf("The results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(sim_prov$git_commit, 1, 7), sim_prov$fingerprint_installed, sim_prov$status, sim_prov$r_version)`
+`r if (sim_ok) (if (sim_check$status == "matches") sim_check$message else paste0("**", sim_check$message, "**")) else ""`
 
 ## Data analysis: NMES1988
 

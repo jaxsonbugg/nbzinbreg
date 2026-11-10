@@ -1,5 +1,18 @@
 # nbzinbreg 0.0.0.9000
 
+* Simulation study of `zinbreg()` (`inst/benchmark/simulation.R`):
+  - the setup: 1000 data sets of n = 500 from a known ZINB model (two
+    covariates per part, fixed design), fitted with `zinbreg()`;
+  - every fit is classified (usable, boundary, invalid, not converged,
+    error) with a reason;
+  - the summaries: bias, relative bias, Monte Carlo SD against the mean
+    reported SE, RMSE and Wald coverage, each with a Monte Carlo SE
+    (analytic or bootstrap over the replications);
+  - profile-interval coverage for theta on 200 data sets.
+
+  The results of record (all 1000 fits usable, coverage 94.5% to 95.8%)
+  are saved with the package and used by the report.
+
 * Benchmark against `MASS::glm.nb()` and `pscl::zeroinfl()` on
   bioChemists and NMES1988 (`inst/benchmark/`):
   - validity checks for every pair, and side-by-side tables against the

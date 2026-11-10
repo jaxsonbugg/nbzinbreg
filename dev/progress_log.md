@@ -348,3 +348,63 @@ Timing (median of 10 runs; R 4.3.1, Windows 10, Intel Family 6 Model 186, 20 cor
 - The report renders to HTML and PDF, and the supplement to HTML (outside the repository). `pkgdown::check_pkgdown()` passes, and `pkgdown::build_articles()` builds both articles into a scratch site.
 - In the rendered report, the provenance check says the installed code matches the code that produced the timings.
 - CI and the fresh-install check for this commit are recorded in the next entry.
+
+## 2026-11-10: Simulation study (simulation commits 1 to 3)
+
+**Benchmark phase, recorded here as promised:** CI on `08963f8` is green on all five platforms. `install_github()` of `08963f8` into an empty library gave output identical to `README.md` for all three examples (18, 31 and 21 lines). The benchmark files resolved through `system.file()`, the installed fingerprint equalled the source's, and the saved timings' provenance check reported "matches".
+
+**Plan.** The owner's decisions:
+- R = 1000 data sets of n = 500;
+- two covariates per part, in a fixed design;
+- Monte Carlo SEs for every summary;
+- theta on both scales;
+- profile-interval coverage on the first 200 data sets;
+- fit diagnostics.
+
+The owner's revisions to the plan:
+- a stronger definition of a usable replication, with explicit classes and reasons, and per-parameter validity;
+- RMSE computed directly;
+- bootstrap Monte Carlo SEs for the nonlinear summaries, with the normal-theory SE of the SD only as a labelled comparison;
+- profile intervals classified as finite, unbounded (evaluated), or not evaluable, with sensitivity bounds.
+
+Partway through, the owner asked for every commit to be pushed as it came, to be reviewed together.
+
+| Commit | Content |
+|---|---|
+| `445d9d3` | `inst/benchmark/simulation_functions.R`, `simulation.R`, `tests/testthat/test-simulation.R` (12 tests); `provenance()` gained `files` |
+| `4dcd0f8` | the results of record, and `dev/simulation_bias_investigation.R` |
+| this commit | the report's Simulation study section, README, notes |
+
+**Results of record** (COMPLETE; provenance verified at `445d9d3`, fingerprint `f6f29a27…`; 933 s):
+* All 1000 fits usable.
+* Zero share 0.5333 observed against 0.5330 expected (53.3% zeros, 61.9% of them structural).
+* Coverage of the 95% Wald intervals: 94.5% to 95.8%, all within 2 Monte Carlo SEs of 95%.
+* SE/SD ratios: 0.92 to 1.02.
+* Profile intervals: 199 finite and 1 error; coverage 93.5% over 199 (bounds 93.0% to 93.5%).
+
+**The bias threshold was tripped and investigated** (`dev/simulation_bias_investigation.R`). The biases exceeding 3 Monte Carlo SEs were 4.3 to 5.6 SEs for the zero part and log theta, and 9.3 for theta.
+* At n = 2000 they shrink 2.5× to 7× and are all within about 2.7 SEs of zero.
+* `pscl::zeroinfl()` on the same data sets shows the same biases.
+* So this is the small-sample (order 1/n) bias of maximum likelihood, at most 31% of a standard error, and the coverage is unaffected.
+
+**A finding about `zinbreg()` itself.** On 2 of the 300 data sets compared (86 and 264), `zinbreg()` converged, with its gradient check passed, to a local maximum below the one `zeroinfl()` found:
+* the log-likelihoods were −770.262 against −770.050, and −781.404 against −780.012;
+* `zeroinfl()`'s maxima have strong overdispersion and almost no zero inflation (theta 0.77 and 0.58, zero intercepts −2.4 and −13.0);
+* `zinbreg()`'s have real zero inflation.
+
+The ZINB likelihood can have one maximum for each explanation of the excess zeros. EM finds the one its starting values lead to, here in about 0.7% of the data sets. The single profile-interval error is data set 86: `confint()` found the higher likelihood and refused to give an interval, as designed.
+
+`zinbreg()` was **not** changed. The results describe it as it is. A multi-start option (also starting near the NB boundary and keeping the higher log-likelihood, as the bootstrap LR test does) is left to the owner. The report's Simulation study section states the local-maximum case in general terms, from the saved results.
+
+**Problems caught along the way:**
+- The plan described the design as about 45% zeros. That was a rough figure at the covariate means; the exact design value is 53.3%.
+- The full run took 16 minutes, not the hour estimated.
+- The first investigation script crashed while printing (rounding a data frame with a text column), so its n = 2000 part had to be rerun.
+- In the PDF, the first results table ran past the right margin. A raw-LaTeX `\small` had no effect; the table was split, with RMSE and relative bias moved into a second table.
+- The provenance sentence reused the benchmark's wording ("the timings"); it now says "the simulation results".
+
+**Gates (this commit):**
+- Test suite with `NOT_CRAN = "true"`: 314 tests, 1992 expectations, 0 failed, 0 errors, 0 warnings, 0 skipped.
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check`: Status: OK.
+- The report renders to HTML and PDF (outside the repository); the PDF pages were inspected.
+- CI on `445d9d3` is green; the later commits are recorded in the next entry.

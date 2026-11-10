@@ -416,3 +416,42 @@ An invalid pair is reported as "not assessed" and fails the run; it is never com
 * A run that fails (an invalid pair, a quantity beyond its tolerance, or unverified provenance) still saves every number, marked FAILED in `benchmark_status.txt`, and exits with status 1.
 * Estimates are never adjusted to pass.
 * Only a passed run is committed as the benchmark of record. The record was produced at commit `65f2720`; its numbers are in `dev/progress_log.md`.
+
+## Part 7. The simulation study
+
+The simulation (project description, Section 5.1) checks the whole estimation procedure where the truth is known. It lives in `inst/benchmark/`, like the benchmark:
+* `simulation_functions.R` holds the functions;
+* `simulation.R` runs the study against the installed package and saves the results;
+* the report's "Simulation study" section reads the saved results.
+
+**Design.** A *fixed design*: the covariates are drawn once, and only the response is redrawn, so the results describe the estimator for this design (inference conditional on the covariates).
+* The covariates (n = 500): x1 ~ N(0, 1) in both parts, x2 ~ Bernoulli(0.5) in the count part, and z ~ N(0, 1) in the zero part.
+* The true model: log mu = 1 + 0.5 x1 − 0.5 x2, logit pi = −0.8 + 0.6 x1 − 0.5 z, theta = 1.5.
+* Over this design, 53.3% of the observations are expected to be zero, and 61.9% of those zeros are structural.
+* The fitted model is the true one, `zinbreg(y ~ x1 + x2 | x1 + z)`.
+* R = 1000 data sets. The seed is 651 for the design, and data set r uses seed 651 + r, so any one data set can be reproduced alone.
+
+**What is recorded and how replications are classified.** Every data set's fit records:
+* the estimates, SEs and 95% Wald intervals of the six coefficients, log theta and theta (theta ± 1.96 SE(theta), with SE(theta) by the delta method);
+* whether each interval covers the truth, and a validity flag for each parameter;
+* the diagnostics.
+
+Each replication gets a class, with a reason: error, not converged (or a failed gradient check), boundary (diverging, collapsed zero part, theta on a bound), invalid covariance, invalid values, or usable. The summaries use the usable replications. Every other one is counted and listed, and the coverage gets sensitivity bounds (non-usable replications counted as not covering, or as covering).
+
+**Summaries and Monte Carlo SEs.**
+* The summaries: bias, relative bias, Monte Carlo SD, mean SE, the SE/SD ratio, the RMSE (computed directly, sqrt(mean((estimate − truth)²))) and coverage.
+* Each has a Monte Carlo SE. It is analytic where it is exact (mean, bias, mean SE, binomial coverage). For the nonlinear summaries it comes from a bootstrap over the replications (2000 resamples of the same rows for every parameter): relative bias, SD, SE ratio and RMSE.
+* The normal-theory SE of the SD, SD / sqrt(2 (R − 1)), is reported alongside, because it assumes normally distributed estimates.
+
+**Profile intervals.** The profile interval for theta from `confint()` is computed on the first 200 replications. Each is classified as:
+* finite;
+* unbounded: a certified [lower, Inf), which is evaluated as covering if lower ≤ theta;
+* unresolved, error, or fit not usable.
+
+Its coverage is over the evaluable intervals, with sensitivity bounds over all 200.
+
+**Provenance and status.**
+* The same code fingerprint as the benchmark, now checked against both helper scripts.
+* The run is complete when the provenance is verified and every replication was attempted. Fits that fail are results of the study, not failures of the run.
+* A failed run still saves everything, marked FAILED.
+* Results are never re-run with another seed to look better.

@@ -112,9 +112,9 @@ Tips: run the references with tight tolerances (`glm.control(epsilon = 1e-10, ma
 
 ## 6. Simulation study
 
-- [ ] At least R = 100 datasets with n = 500 from a ZINB model with one or two covariates in each part and known (beta, gamma, theta).
-- [ ] Report bias of each estimate, mean estimated SE vs Monte Carlo SD, and empirical coverage of 95% Wald intervals.
-- [ ] Set a seed so results are reproducible.
+- [x] At least R = 100 datasets with n = 500 from a ZINB model with one or two covariates in each part and known (beta, gamma, theta). *(R = 1000, n = 500, two covariates per part in a fixed design; `inst/benchmark/simulation.R`, results of record from commit `445d9d3`.)*
+- [x] Report bias of each estimate, mean estimated SE vs Monte Carlo SD, and empirical coverage of 95% Wald intervals. *(All with Monte Carlo SEs; also relative bias, RMSE, theta on both scales, profile-interval coverage for theta, and fit diagnostics. Coverage 94.5% to 95.8%; SE/SD 0.92 to 1.02; the zero-part and theta biases are small-sample bias of maximum likelihood, which shrinks at n = 2000.)*
+- [x] Set a seed so results are reproducible. *(Seed 651 for the design and 651 + r for data set r; the RNG kind and R version are recorded.)*
 
 ## 7. Data analysis: NMES1988 (`AER::NMES1988`)
 
