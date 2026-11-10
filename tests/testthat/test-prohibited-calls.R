@@ -20,7 +20,18 @@ test_that("detector flags direct, qualified and indirect prohibited calls", {
     parse_text       = function(f) eval(parse(text = "optim(1, f)")),
     str2lang_text    = function() str2lang("glm(y ~ x)"),
     in_default_arg   = function(fit = optim) fit,
-    nested_function  = function() function(x) nlm(x, 1)
+    nested_function  = function() function(x) nlm(x, 1),
+    # names built at run time
+    get_pasted       = function() get(paste0("op", "tim")),
+    get_named_arg    = function() get(x = paste("nl", "minb", sep = "")),
+    match_fun_built  = function(s) match.fun(sprintf("%s", s)),
+    do_call_built    = function(a) do.call(paste0("gl", "m"), a),
+    exported_built   = function() getExportedValue("stats", paste0("op", "tim")),
+    # functions taken out of a namespace by name
+    namespace_dollar = function() asNamespace("stats")$optim,
+    namespace_brackets = function() asNamespace("stats")[["optim"]],
+    get_namespace    = function(d) getNamespace("stats")$glm(y ~ x, data = d),
+    environment_get  = function() as.environment("package:stats")[["nlminb"]]
   )
   for (nm in names(flagged)) {
     expect_true(length(detect_prohibited(flagged[[nm]])) > 0,
@@ -41,7 +52,14 @@ test_that("detector ignores comments, local names and ordinary strings", {
     argument_tag    = function() list(glm = 1, optim = 2),
     message_text    = function() stop("this package does not use optim() or glm()"),
     allowed_tools   = function(X, w, z) qr.coef(qr(sqrt(w) * X), sqrt(w) * z),
-    allowed_derivs  = function(y, th) digamma(y + th) - digamma(th)
+    allowed_derivs  = function(y, th) digamma(y + th) - digamma(th),
+    # passing a function held in a variable, or a qualified one, is fine
+    do_call_symbol  = function(f, a) do.call(f, a),
+    do_call_qualified = function(a) do.call(graphics::plot, a),
+    do_call_literal = function(a) do.call("rbind", a),
+    # a field that happens to share a prohibited name is not a lookup
+    list_field      = function(fit) fit$glm,
+    namespace_ok    = function() asNamespace("stats")$qlogis
   )
   for (nm in names(clean)) {
     expect_identical(detect_prohibited(clean[[nm]]), character(),
@@ -55,6 +73,14 @@ test_that("no function defined by nbzinbreg uses a prohibited function", {
   fns <- package_functions()
   # Guard against a scoping mistake that would silently check nothing.
   expect_gt(length(fns), 0)
+  # Internal engines and S3 methods are checked; functions re-exported or
+  # imported from other packages (generics::tidy, generics::glance,
+  # Formula::Formula, numDeriv::hessian) are not, because they are not
+  # the package's own code.
+  expect_true(all(c("nbreg_fit", "zinb_em", "logit_irls", "nbreg",
+                    "zinbreg", "predict.zinbreg", "tidy.zinbreg") %in%
+                    names(fns)))
+  expect_false(any(c("tidy", "glance", "Formula", "hessian") %in% names(fns)))
 
   hits <- Filter(length, lapply(fns, detect_prohibited))
   if (length(hits)) {

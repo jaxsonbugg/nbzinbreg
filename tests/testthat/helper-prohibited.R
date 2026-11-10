@@ -27,6 +27,21 @@
 #      `str2expression()`.
 #    Ordinary strings, such as error messages or `inherits(x, "glm")`, are not
 #    flagged, because they do not call anything.
+# 4. Two ways of hiding the name are flagged as well:
+#    - a name built at run time and handed to a lookup function, for example
+#      `get(paste0("op", "tim"))` or `do.call(sprintf("%s", f), args)`. The
+#      detector cannot know what such a string will be, so any computed
+#      (non-literal) function name given to `get()`, `get0()`, `mget()`,
+#      `match.fun()`, `do.call()`, `getExportedValue()` or
+#      `getFromNamespace()` is flagged. A plain variable
+#      (`do.call(f, args)`) or a literal is not computed and stays allowed;
+#    - a function taken out of a namespace by name, for example
+#      `asNamespace("stats")$optim`, `asNamespace("stats")[["optim"]]` or
+#      `getNamespace("stats")$glm`, where the object is a namespace or
+#      environment lookup and the selected name is prohibited.
+#    What remains possible (for example building a call with `as.call()` from
+#    pieces) is beyond a static check; the rule in CLAUDE.md still applies,
+#    and R/ is also checked by reading it.
 
 prohibited_functions <- c(
   "optim", "optimize", "optimise", "nlm", "nlminb", "uniroot",
@@ -51,6 +66,36 @@ lookup_functions <- c(
 
 # Functions that turn a string of R code into code.
 parse_functions <- c("parse", "str2lang", "str2expression")
+
+# For the lookup functions that take a function name: which argument holds
+# it (by name, and by position when unnamed).
+name_argument <- list(
+  get = c("x", 1L), get0 = c("x", 1L), mget = c("x", 1L),
+  match.fun = c("FUN", 1L), do.call = c("what", 1L),
+  getExportedValue = c("name", 2L), getFromNamespace = c("x", 1L))
+
+# Calls that return a namespace or an environment to look a name up in.
+namespace_functions <- c("asNamespace", "getNamespace", "loadNamespace",
+                         "as.environment", "environment", "baseenv",
+                         "globalenv", "topenv", "parent.env")
+
+# The argument of a call that holds the function name, or NULL.
+name_arg_of <- function(x, head_name) {
+  spec <- name_argument[[head_name]]
+  args <- as.list(x)[-1]
+  nms <- names(args)
+  if (!is.null(nms) && spec[1] %in% nms) return(args[[spec[1]]])
+  unnamed <- if (is.null(nms)) args else args[!nzchar(nms)]
+  pos <- as.integer(spec[2])
+  if (length(unnamed) >= pos) unnamed[[pos]] else NULL
+}
+
+# TRUE if `a` is a computed name: a call other than `::` / `:::` (a
+# qualified function is a function, not a name to look up).
+is_computed_name <- function(a) {
+  is.call(a) && !(is.symbol(a[[1]]) &&
+                    as.character(a[[1]]) %in% c("::", ":::", "function"))
+}
 
 is_empty_arg <- function(x) identical(x, quote(expr = ))
 
@@ -91,6 +136,27 @@ walk_prohibited <- function(expr, from_text = FALSE) {
       bad <- strings[strings %in% c(prohibited_functions, prohibited_packages)]
       if (length(bad)) {
         hits <<- c(hits, paste0(head_name, '("', bad, '")'))
+      }
+    }
+
+    # a function name computed at run time and handed to a lookup function
+    if (head_name %in% names(name_argument)) {
+      a <- name_arg_of(x, head_name)
+      if (!is.null(a) && is_computed_name(a)) {
+        hits <<- c(hits, paste0(head_name, "(<computed name: ",
+                                paste(deparse(a), collapse = " "), ">)"))
+      }
+    }
+
+    # a prohibited function taken out of a namespace or environment by name
+    if (head_name %in% c("$", "[[", "@") && length(x) >= 3L) {
+      obj <- x[[2]]
+      sel <- x[[3]]
+      sel_name <- if (is.symbol(sel) || is.character(sel)) as.character(sel) else ""
+      obj_head <- if (is.call(obj) && is.symbol(obj[[1]])) as.character(obj[[1]]) else ""
+      if (obj_head %in% namespace_functions &&
+          sel_name %in% prohibited_functions) {
+        hits <<- c(hits, paste0(obj_head, "(...)", head_name, sel_name))
       }
     }
 
