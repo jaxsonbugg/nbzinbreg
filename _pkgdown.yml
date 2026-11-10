@@ -15,19 +15,26 @@ reference:
     contents:
       - nbreg-methods
       - zinbreg-methods
-  - title: Provisional (not yet implemented)
+  - title: Inference
     desc: >
-      Planned extras. Their names and arguments may change before they are
-      implemented.
+      Confidence intervals, likelihood-ratio tests of nested models, the
+      overdispersion test, and the comparison of a zero-inflated fit with a
+      negative binomial fit.
     contents:
       - confint-nbzinbreg
-      - anova.nbreg
+      - anova-nbzinbreg
       - overdispersion_test
       - vuong_test
+  - title: Simulation and bootstrap
+    contents:
       - simulate-nbzinbreg
       - boot_se
+  - title: Diagnostics
+    contents:
       - expected_counts
       - rootogram
+  - title: Tidiers
+    contents:
       - tidiers-nbzinbreg
   - title: Package
     contents:
