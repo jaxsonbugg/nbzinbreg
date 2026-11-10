@@ -1,4 +1,4 @@
-#' Methods for zinbreg fits
+#' Summaries, predictions and other methods for zinbreg fits
 #'
 #' @description
 #' Standard methods for objects returned by [zinbreg()]: printing, summaries

@@ -1,4 +1,4 @@
-#' Methods for nbreg fits
+#' Summaries, predictions and other methods for nbreg fits
 #'
 #' @description
 #' Standard methods for objects returned by [nbreg()]: printing, summaries
