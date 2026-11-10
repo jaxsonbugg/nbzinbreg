@@ -13,3 +13,4 @@
 ^README\.Rmd$
 ^\.github$
 ^vignettes/\.quarto$
+^inst/benchmark/nmes_bootstrap_checkpoint\.rds
