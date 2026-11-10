@@ -559,8 +559,373 @@ The fits took a median of
 
 ## Data analysis: NMES1988 {#sec-nmes}
 
-*Placeholder.* Descriptive summary, model comparison, interpretation of the
-main effects, and the preferred model.
+```{r}
+#| label: nmes-setup
+#| include: false
+# The fits are computed now, at render time, from the installed package
+# (about 10 s); the slow bootstrap test (inst/benchmark/nmes_bootstrap.R,
+# about 7 hours) is read from its saved results.
+source(system.file("benchmark", "nmes_functions.R", package = "nbzinbreg"))
+boot_file <- system.file("benchmark", "nmes_bootstrap_results.rds",
+                         package = "nbzinbreg")
+boot <- if (nzchar(boot_file)) readRDS(boot_file)
+boot_ok <- !is.null(boot)
+nm_maxit <- if (boot_ok) boot$settings$maxit else 5000L
+nm_data <- nmes_data()
+nm_desc <- nmes_descriptives(nm_data)
+nm_fits <- nmes_fits(nm_data, maxit = nm_maxit)
+nm_cmp <- nmes_comparison(nm_fits)
+nm_irr_nb <- nmes_effects(nm_fits$nb, "count")
+nm_irr_zi <- nmes_effects(nm_fits$zinb, "count")
+nm_or <- nmes_effects(nm_fits$zinb, "zero")
+nm_th_nb <- nmes_theta(nm_fits$nb)
+nm_th_zi <- nmes_theta(nm_fits$zinb)
+nm_od <- overdispersion_test(nm_fits$nb)
+nm_vu <- vuong_test(nm_fits$zinb, nm_fits$nb)
+nm_tabs <- lapply(nm_fits[c("poisson", "nb", "zinb")], nmes_count_table,
+                  max_count = 30L)
+if (boot_ok) {
+  boot_check <- check_saved_provenance(boot$provenance)
+  boot_check$message <- gsub("the timings", "the bootstrap results",
+                             boot_check$message, fixed = TRUE)
+  # the fits in the report must be the fits the bootstrap used
+  stopifnot(identical(nmes_fit_hash(nm_fits$nb, nm_fits$zinb),
+                      boot$header$fit_hash))
+}
+cm <- function(m, col) nm_cmp[nm_cmp$model == m, col]
+f1 <- function(x) formatC(x, format = "f", digits = 1, big.mark = ",")
+f0 <- function(x) formatC(x, format = "f", digits = 0, big.mark = ",")
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+ci2 <- function(lo, hi) sprintf("%s to %s", f2(lo), f2(hi))
+pct <- function(x, d = 1) sprintf(paste0("%.", d, "f%%"), 100 * x)
+# observed minus expected frequency at a count k, for one model
+gap <- function(m, k) nm_tabs[[m]]$observed[k + 1] - nm_tabs[[m]]$expected[k + 1]
+abs_err <- function(m) sum(abs(gap(m, 1:30)))
+```
+
+```{r}
+#| label: nmes-claims
+#| include: false
+# Claim guards: every qualitative statement in the text below is checked
+# here. If new results contradict one, rendering stops instead of leaving a
+# false sentence in the report.
+stopifnot(
+  nm_desc$variance_to_mean > 5,                    # strongly overdispersed
+  cm("poisson", "expected_zeros") < 0.1 * nm_desc$observed_zeros,
+  cm("poisson", "expected_zeros") > nm_desc$poisson_unconditional_zeros,
+  cm("nb", "expected_zeros") < nm_desc$observed_zeros,      # NB too few zeros
+  cm("zinb", "expected_zeros") > nm_desc$observed_zeros,    # ZINB slightly too many
+  abs(cm("zinb", "expected_zeros") - nm_desc$observed_zeros) <
+    abs(cm("nb", "expected_zeros") - nm_desc$observed_zeros),
+  gap("nb", 1) < 0, gap("nb", 2) < 0,              # NB: too many 1s and 2s
+  abs_err("zinb") < abs_err("nb"),                 # ZINB closer above zero too
+  cm("zinb", "AIC") < cm("nb", "AIC"),             # both criteria favour ZINB
+  cm("zinb", "BIC") < cm("nb", "BIC"),
+  cm("zinb_health", "AIC") > cm("zinb", "AIC"),    # health adds nothing
+  cm("zinb_health", "BIC") > cm("zinb", "BIC"),
+  nm_od$p.value < 1e-10,
+  all(nm_vu$statistic > 2),
+  all(nm_or$p_value[nm_or$term != "hospital"] < 0.01),
+  nm_or$p_value[nm_or$term == "hospital"] > 0.05,
+  all(nm_irr_zi$p_value < 0.01),
+  # the NB effects are further from 1 than the ZINB count effects
+  all(abs(log(nm_irr_nb$ratio)) >=
+        abs(log(nm_irr_zi$ratio[match(nm_irr_nb$term, nm_irr_zi$term)]))),
+  # chronic illness and insurance: less likely a non-user, more visits
+  nm_or$ratio[nm_or$term == "chronic"] < 1,
+  nm_or$ratio[nm_or$term == "insuranceyes"] < 1,
+  nm_irr_zi$ratio[nm_irr_zi$term == "chronic"] > 1,
+  nm_irr_zi$ratio[nm_irr_zi$term == "insuranceyes"] > 1)
+# the bootstrap may not contradict the preference stated below: a
+# conclusive non-rejection would need the discussion to be rewritten
+if (boot_ok && boot$run_status == "COMPLETE" && boot$inference == "CONCLUSIVE") {
+  stopifnot(isTRUE(boot$pool$reject))
+}
+```
+
+**The data.** The NMES1988 data [@deb1997; @kleiber2008] come from the
+1987–88 US National Medical Expenditure Survey and describe
+`r f0(nm_desc$n)` people aged 66 and over. The response is `visits`, the
+number of physician office visits. The covariates are `hospital` (the number
+of hospital stays), `health` (self-perceived health: poor, average or
+excellent, with average as the reference level), `chronic` (the number of
+chronic conditions), `gender`, `school` (years of education) and `insurance`
+(whether the person has private insurance). Both models use all six in the
+count part. The ZINB zero part uses the handout's set, which is every
+covariate except `health`; the check at the end of the model comparison
+supports that choice.
+
+**Descriptive evidence.** The mean number of visits is
+`r f2(nm_desc$mean)` and the variance is `r f1(nm_desc$variance)`, about
+`r f0(nm_desc$variance_to_mean)` times the mean. A Poisson distribution has
+its variance equal to its mean, so the counts are strongly *overdispersed*:
+they are far more spread out than a Poisson model allows.
+`r f0(nm_desc$observed_zeros)` people (`r pct(nm_desc$observed_zero_share)`)
+made no visits at all. As a first, rough look that ignores the covariates, a
+single Poisson distribution with the sample mean would give
+$e^{-`r f2(nm_desc$mean)`}$ = `r pct(nm_desc$poisson_unconditional_zero_share, 2)`
+zeros, about `r f0(nm_desc$poisson_unconditional_zeros)` people
+(@fig-visits). That comparison exaggerates the problem: people differ in
+health, and a mixture of people with different means always has more zeros
+and more spread than a single mean gives. The model comparison below
+accounts for the covariates.
+
+```{r}
+#| label: fig-visits
+#| fig-cap: "Observed frequencies of physician office visits (bars) and the frequencies a single Poisson distribution with the sample mean would give (points). The single Poisson ignores the covariates; it is a descriptive reference only."
+#| fig-width: 7
+#| fig-height: 3.4
+fr <- nm_desc$freq
+op <- par(mar = c(4.2, 4.2, 0.5, 0.5))
+bp <- barplot(fr$observed, names.arg = fr$visits, col = "grey80",
+              border = "grey40", las = 2, cex.names = 0.7,
+              ylim = c(0, 1.05 * max(fr$observed, fr$poisson_unconditional)),
+              xlab = "Physician office visits (30+ = 30 or more)",
+              ylab = "Number of people")
+points(bp, fr$poisson_unconditional, pch = 19, col = "firebrick", cex = 0.7)
+legend("topright", c("Observed", "Single Poisson with the sample mean"),
+       pch = c(22, 19), pt.bg = c("grey80", NA), pt.cex = c(1.6, 0.8),
+       col = c("grey40", "firebrick"), bty = "n")
+par(op)
+```
+
+**Model comparison.** @tbl-nmes-compare compares the Poisson regression
+(fitted with `glm()`), the NB model and the ZINB model, both fitted with our
+package. The expected number of zeros of a model is the sum, over all
+people, of the probability the fitted model gives to that person making no
+visits.
+
+```{r}
+#| label: tbl-nmes-compare
+#| tbl-cap: "Model comparison for NMES1988. Expected zeros: the sum over people of each fitted model's probability of zero visits; observed zeros: 683. The last row adds `health` to the ZINB zero part (a sensitivity check)."
+#| tbl-colwidths: false
+kbl(data.frame(
+  Model = nm_cmp$label,
+  df = nm_cmp$df,
+  `Log-likelihood` = f1(nm_cmp$loglik),
+  AIC = f1(nm_cmp$AIC),
+  BIC = f1(nm_cmp$BIC),
+  `Expected zeros` = f1(nm_cmp$expected_zeros),
+  check.names = FALSE), align = "lrrrrr")
+```
+
+Letting each person's mean depend on the covariates raises the Poisson
+model's expected zeros from `r f0(nm_desc$poisson_unconditional_zeros)` (one
+mean for everybody) to `r f0(cm("poisson", "expected_zeros"))`, which is
+still a small fraction of the `r f0(nm_desc$observed_zeros)` observed. The
+Poisson model is also far worse than the NB model in log-likelihood: the
+likelihood-ratio test for overdispersion gives LR =
+`r f0(nm_od$statistic)` (p `r format.pval(nm_od$p.value, eps = 1e-16)`;
+the p-value accounts for theta = infinity being the boundary of the NB
+model). The NB model, with $\hat\theta$ = `r f2(nm_th_nb[["theta"]])`
+(95% profile interval `r ci2(nm_th_nb[["profile_lower"]], nm_th_nb[["profile_upper"]])`),
+predicts `r f0(cm("nb", "expected_zeros"))` zeros: overdispersion alone
+accounts for most of the zeros, but about
+`r f0(nm_desc$observed_zeros - cm("nb", "expected_zeros"))` are still
+missing. The ZINB model predicts `r f0(cm("zinb", "expected_zeros"))`, about
+`r f0(cm("zinb", "expected_zeros") - nm_desc$observed_zeros)` too many,
+a smaller error in the other direction. ZINB also has the lower AIC (by
+`r f1(cm("nb", "AIC") - cm("zinb", "AIC"))`) and, despite BIC's larger
+penalty for its `r cm("zinb", "df") - cm("nb", "df")` extra parameters, the
+lower BIC (by `r f1(cm("nb", "BIC") - cm("zinb", "BIC"))`). Adding `health`
+to the zero part raises the log-likelihood by only
+`r f2(cm("zinb_health", "loglik") - cm("zinb", "loglik"))` for two more
+parameters, and makes both AIC and BIC worse, so the smaller zero model is
+kept.
+
+@fig-rootogram shows the fit at every count, not only at zero. Each bar is
+an observed frequency hung from the model's expected frequency, on a square
+root scale so that small frequencies stay visible. A bar that ends below the
+dashed line marks a count the model under-predicts; one that ends above it
+marks a count the model over-predicts. The Poisson model misses everywhere.
+The NB model has a specific pattern at the low end: too few zeros and too
+many people with one or two visits (`r f0(-gap("nb", 1))` and
+`r f0(-gap("nb", 2))` too many). The ZINB model removes most of that
+pattern, and its total absolute error over the counts 1 to 30 is
+`r f0(abs_err("zinb"))`, against `r f0(abs_err("nb"))` for NB.
+
+```{r}
+#| label: fig-rootogram
+#| fig-cap: "Hanging rootograms: observed frequencies (bars) hanging from each model's expected frequencies (red points), on a square-root scale, for 0 to 30 visits. The NB and ZINB panels share one vertical scale; the Poisson panel needs a wider one."
+#| fig-width: 7.5
+#| fig-height: 2.8
+y_range <- function(t) {
+  s <- seq_len(nrow(t) - 1L)
+  range(0, sqrt(t$expected[s]) - sqrt(t$observed[s]), sqrt(t$expected[s]))
+}
+yl_nb <- range(y_range(nm_tabs$nb), y_range(nm_tabs$zinb))
+op <- par(mfrow = c(1, 3), mar = c(4, 4, 2, 0.5), cex = 0.7)
+nmes_rootogram_panel(nm_tabs$poisson, "Poisson regression")
+nmes_rootogram_panel(nm_tabs$nb, "NB", ylim = yl_nb)
+nmes_rootogram_panel(nm_tabs$zinb, "ZINB", ylim = yl_nb)
+par(op)
+```
+
+```{r}
+#| label: nmes-boot-text
+#| include: false
+# The bootstrap paragraph reports what the saved run found. It separates
+# two questions: did the run finish (run status), and can the test decide
+# (inference)? An inconclusive test is reported with its reasons and is
+# not used as evidence either way.
+boot_text <- if (!boot_ok) {
+  "The bootstrap results have not been produced yet."
+} else if (boot$run_status != "COMPLETE") {
+  sprintf("The bootstrap run did not complete (%s), so no result is reported.",
+          paste(boot$run_reasons, collapse = "; "))
+} else {
+  pl <- boot$pool
+  base <- sprintf(paste(
+    "In the parametric bootstrap likelihood-ratio test, %s data sets were",
+    "simulated from the fitted NB model, and both models were refitted to",
+    "each. %s of them could not be refitted reliably (failed replicates).",
+    "Of the %s usable replicates, %d had a likelihood-ratio statistic at",
+    "least as large as the observed LR = %s, which gives p = %s. Counting",
+    "every failed replicate as below the observed value, or as at or above",
+    "it, puts p between %s and %s."),
+    f0(boot$settings$B), f0(pl$failures), f0(pl$used), pl$exceed,
+    f1(boot$observed$statistic), format(signif(pl$p.value, 2)),
+    format(signif(pl$p.bounds[["lower"]], 2)),
+    format(signif(pl$p.bounds[["upper"]], 2)))
+  verdict <- if (boot$inference == "CONCLUSIVE") {
+    if (isTRUE(pl$reject)) {
+      "The test is conclusive and rejects the NB model in favour of ZINB at the 5% level."
+    } else {
+      "The test is conclusive and does not reject the NB model at the 5% level."
+    }
+  } else {
+    sprintf(paste(
+      "The test is **inconclusive**: %s. It therefore cannot decide",
+      "between NB and ZINB, and no conclusion is drawn from it."),
+      paste(boot$inference_reasons, collapse = "; "))
+  }
+  paste(base, verdict)
+}
+boot_note <- if (boot_ok && !is.null(boot$maxit_decision)) {
+  sprintf(paste(
+    "The refits used the EM iteration limit maxit = %d, chosen before the",
+    "full run by a fixed rule that looks only at the share of failed",
+    "replicates in a 50-replicate pilot (%s)."),
+    boot$settings$maxit, boot$maxit_decision$summary)
+} else ""
+```
+
+A formal test of NB against ZINB is harder than it looks, because the NB
+model is the edge of the ZINB model (a zero-inflation probability of 0, with
+the zero-part intercept at minus infinity), and the usual chi-squared
+reference for a likelihood-ratio test does not hold on such a boundary. The
+Vuong statistics [@vuong1989], z = `r f1(nm_vu$statistic[["Raw"]])` (raw),
+`r f1(nm_vu$statistic[["AIC-corrected"]])` (AIC-corrected) and
+`r f1(nm_vu$statistic[["BIC-corrected"]])` (BIC-corrected), all favour ZINB,
+but for the same reason they are descriptive here, not a test.
+`r boot_text``r if (nzchar(boot_note)) paste0("^[", boot_note, "]") else ""`
+
+**Interpretation.** @tbl-nmes-irr gives the count-part effects as
+*incidence rate ratios* (IRRs): the factor by which the expected number of
+visits is multiplied when a covariate increases by one unit (or, for a
+factor, compared with its reference level), holding the others fixed. In the
+ZINB model, the count part describes the people who are "at risk" of
+visiting a physician.
+
+```{r}
+#| label: tbl-nmes-irr
+#| tbl-cap: "Count part: incidence rate ratios with 95% Wald confidence intervals, for the NB model and the ZINB count part."
+#| tbl-colwidths: false
+irr_cell <- function(e) sprintf("%s (%s, %s)", f2(e$ratio), f2(e$lower), f2(e$upper))
+kbl(data.frame(
+  Covariate = nm_irr_nb$term,
+  `NB IRR (95% CI)` = irr_cell(nm_irr_nb),
+  `ZINB count IRR (95% CI)` = irr_cell(nm_irr_zi[match(nm_irr_nb$term, nm_irr_zi$term), ]),
+  check.names = FALSE), align = "lcc")
+```
+
+```{r}
+#| label: nmes-effects-text
+#| include: false
+irr <- function(term) nm_irr_zi[nm_irr_zi$term == term, ]
+or <- function(term) nm_or[nm_or$term == term, ]
+change <- function(r) sprintf("%s%% %s", f0(100 * abs(r - 1)),
+                              if (r > 1) "more" else "fewer")
+odds_change <- function(r) sprintf("%s%% %s", f0(100 * abs(r - 1)),
+                                   if (r > 1) "higher" else "lower")
+eff <- function(e) sprintf("%s (95%% CI %s)", f2(e$ratio), ci2(e$lower, e$upper))
+```
+
+In the ZINB model every count-part effect is clearly different from 1. Each
+additional hospital stay multiplies the expected number of visits by
+`r eff(irr("hospital"))`, about `r change(irr("hospital")$ratio)` visits,
+and each additional chronic condition by `r eff(irr("chronic"))`. Compared
+with people in average health, those in poor health are expected to make
+`r change(irr("healthpoor")$ratio)` visits, IRR `r eff(irr("healthpoor"))`,
+and those in excellent health `r change(irr("healthexcellent")$ratio)`,
+IRR `r eff(irr("healthexcellent"))`. Men are expected to make
+`r change(irr("gendermale")$ratio)` visits than women, IRR
+`r eff(irr("gendermale"))`; each additional year of education goes with
+`r change(irr("school")$ratio)` visits, IRR `r eff(irr("school"))`; and
+private insurance with `r change(irr("insuranceyes")$ratio)`, IRR
+`r eff(irr("insuranceyes"))`. The NB estimates in @tbl-nmes-irr point the
+same way and are all further from 1. That is expected: the NB model has no
+separate group of non-users, so it has to fit those people's zeros through
+the same covariate effects.
+
+```{r}
+#| label: tbl-nmes-or
+#| tbl-cap: "ZINB zero part: odds ratios of being a structural zero (a person who would make no visits in any case), with 95% Wald confidence intervals."
+#| tbl-colwidths: false
+kbl(data.frame(
+  Covariate = nm_or$term,
+  `OR (95% CI)` = irr_cell(nm_or),
+  `p-value` = format.pval(nm_or$p_value, digits = 2, eps = 1e-4),
+  check.names = FALSE), align = "lcc")
+```
+
+The zero part needs care in reading. It models the probability $\pi_i$
+that a person is a **structural zero**: someone who would make no physician
+office visits in any case, a "non-user". The odds ratios in @tbl-nmes-or are
+therefore ratios of the odds of *belonging to the non-user group*. They are
+not odds ratios of observing zero visits. A person can also make no visits
+in the period while being at risk, by chance, so the probability of an
+observed zero combines both parts,
+$P(Y_i = 0) = \pi_i + (1 - \pi_i)\, f_{\mathrm{NB}}(0; \mu_i, \theta)$,
+and a covariate's effect on it depends on both its odds ratio and its IRR.
+With that in mind: each additional chronic condition multiplies the odds of
+being a non-user by `r eff(or("chronic"))`, about
+`r odds_change(or("chronic")$ratio)` odds, and private insurance by
+`r eff(or("insuranceyes"))`. Men have `r f2(or("gendermale")$ratio)` times
+the odds of women (95% CI `r ci2(or("gendermale")$lower, or("gendermale")$upper)`),
+and each year of education multiplies the odds by `r eff(or("school"))`.
+The hospital-stay odds ratio, `r eff(or("hospital"))`, is not significant at
+the 5% level (p = `r f2(or("hospital")$p_value)`). Chronic illness and
+insurance therefore work in the same direction in both parts: they make a
+person less likely to be a non-user and, among users, more likely to visit
+often. The dispersion of the counts among users stays clear:
+$\hat\theta$ = `r f2(nm_th_zi[["theta"]])` (95% Wald interval
+`r ci2(nm_th_zi[["wald_lower"]], nm_th_zi[["wald_upper"]])`, profile
+interval `r ci2(nm_th_zi[["profile_lower"]], nm_th_zi[["profile_upper"]])`),
+so even within the at-risk group the variance is well above a Poisson's.
+
+**Which model?** The Poisson model is clearly inadequate: it cannot produce
+counts this spread out, and the overdispersion test rejects it decisively.
+The choice between NB and ZINB rests on several pieces of evidence that
+point the same way without any one being decisive alone. Both information
+criteria favour ZINB, and BIC does so although it penalizes the six extra
+parameters heavily. The NB model's errors have a systematic shape (too few
+zeros, too many ones and twos), which is what a separate group of non-users
+would produce, and the ZINB model removes most of it. The zero-part effects
+are large, mostly precisely estimated and plausible: people with chronic
+conditions or private insurance are much less likely never to see a
+physician. Against that, ZINB slightly over-predicts the zeros, so it is not
+a perfect description either, and its split of the zeros into structural and
+chance zeros depends on its assumptions (a logistic model for the non-users
+and an NB distribution for the users); the data cannot verify that split
+directly. `r if (boot_ok && boot$run_status == "COMPLETE") (if (boot$inference == "CONCLUSIVE") "The bootstrap test agrees with this assessment." else "The bootstrap test could not settle the question, so the preference rests on the information criteria and the fit at each count.") else ""`
+On balance we prefer the **ZINB model**, mainly for its better fit at the
+low counts and its interpretable two-part structure. All the effects are
+associations in a 1987–88 survey of people aged 66 and over, not causal
+effects, and they need not carry over to other populations.
+
+`r if (boot_ok) sprintf("The bootstrap results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(boot$provenance$git_commit, 1, 7), boot$provenance$fingerprint_installed, boot$provenance$status, boot$provenance$r_version)`
+`r if (boot_ok) (if (boot_check$status == "matches") boot_check$message else paste0("**", boot_check$message, "**")) else ""`
 
 ## Discussion {#sec-discussion}
 
