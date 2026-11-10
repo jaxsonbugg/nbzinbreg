@@ -1,0 +1,15 @@
+"spec","data_name","model","fit","median_s","min_s","max_s","runs"
+"bioChemists_NB","bioChemists","NB","nbreg() (default settings)",0.0238443000000643,0.0214251000000445,0.0284785000000056,10
+"bioChemists_NB","bioChemists","NB","glm.nb() (tight settings)",0.0403328000000442,0.0363851000000182,0.0715228000000252,10
+"bioChemists_NB","bioChemists","NB","glm.nb() (default settings)",0.030744550000037,0.0290564000000586,0.0328224000000432,10
+"bioChemists_ZINB","bioChemists","ZINB","zinbreg() (default settings, analytic Hessian)",1.12161394999998,1.09225429999992,1.1724408,10
+"bioChemists_ZINB","bioChemists","ZINB","zinbreg() (default settings, numeric Hessian)",1.46756324999998,1.41485899999998,1.55656950000002,10
+"bioChemists_ZINB","bioChemists","ZINB","zeroinfl() (tight settings)",0.151917000000054,0.147369100000049,0.157081900000037,10
+"bioChemists_ZINB","bioChemists","ZINB","zeroinfl() (default settings)",0.155746150000056,0.148597600000016,0.216419900000062,10
+"NMES1988_NB","NMES1988","NB","nbreg() (default settings)",0.0904925000000105,0.0832536000000346,0.0960211999999956,10
+"NMES1988_NB","NMES1988","NB","glm.nb() (tight settings)",0.12895560000004,0.122128700000076,0.192250200000046,10
+"NMES1988_NB","NMES1988","NB","glm.nb() (default settings)",0.0998538000000053,0.0942630999999778,0.111964399999977,10
+"NMES1988_ZINB","NMES1988","ZINB","zinbreg() (default settings, analytic Hessian)",2.34926440000001,2.28932250000008,2.39596910000006,10
+"NMES1988_ZINB","NMES1988","ZINB","zinbreg() (default settings, numeric Hessian)",4.49048685000002,4.39289100000002,4.80920190000001,10
+"NMES1988_ZINB","NMES1988","ZINB","zeroinfl() (tight settings)",0.691873850000036,0.677164600000026,0.75904950000006,10
+"NMES1988_ZINB","NMES1988","ZINB","zeroinfl() (default settings)",0.698316749999975,0.691063799999995,0.776927899999976,10

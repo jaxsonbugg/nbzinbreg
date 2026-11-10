@@ -1,0 +1,12 @@
+PASSED
+
+All validity checks passed and every required quantity is within its tolerance.
+
+Provenance:
+- status: verified
+- git commit: 65f2720b0fc178074ae477c7b23d55ba54768b71 (relevant paths clean: TRUE)
+- code fingerprint (installed / source): f6f29a27eff95d07ab6302d5a428954e / f6f29a27eff95d07ab6302d5a428954e
+- nbzinbreg 0.0.0.9000, built R 4.3.1; ; 2026-11-10 03:40:08 UTC; windows
+- R version 4.3.1 (2023-06-16 ucrt) on x86_64-w64-mingw32 (Windows 10 x64; Intel64 Family 6 Model 186 Stepping 2, GenuineIntel, 20 cores)
+- packages: nbzinbreg 0.0.0.9000, MASS 7.3.60, pscl 1.5.9, AER 1.2.17, bench 1.1.4
+- run at 2026-11-10 03:40:19 UTC, 10 timing runs per fit
