@@ -1114,12 +1114,103 @@ effects, and they need not carry over to other populations.
 
 ## Discussion {#sec-discussion}
 
-*Placeholder.* Limitations and possible extensions.
+```{r}
+#| label: discussion-guards
+#| include: false
+# Claim guards for the qualitative statements below.
+stopifnot(is.na(ratio_bc) || ratio_bc > 1, is.na(ratio_nm) || ratio_nm > 1,
+          # "standard errors that match the actual spread"
+          !sim_ok || (ratio_range[1] >= 0.9 && ratio_range[2] <= 1.1),
+          all(req$passed))
+```
+
+**What the package achieves.** Both models are fitted with the algorithms
+the project prescribes, IRLS, Newton–Raphson and EM, and no general-purpose
+optimizer. They reproduce `glm.nb()` and `zeroinfl()` well within the
+required tolerances on both data sets (@sec-benchmark), and the simulation
+(@sec-simulation) shows that `zinbreg()` recovers known parameters with
+standard errors that match the actual spread of the estimates.
+
+**Limitations.**
+
+* *Speed.* EM converges linearly, so near the maximum each iteration gains
+  less than the one before. `zinbreg()` was
+  `r if (!is.na(ratio_bc)) sprintf("%.0f", ratio_bc) else "several"` times
+  slower than `zeroinfl()` on bioChemists and
+  `r if (!is.na(ratio_nm)) sprintf("%.0f", ratio_nm) else "several"` times
+  slower on NMES1988, partly because its stopping rule (the gradient check)
+  is stricter. This matters little for one fit, but a lot when the model is
+  refitted many times, as in the bootstrap test of @sec-nmes.
+* *Wald intervals.* The intervals are estimate ± 1.96 SE. They rely on the
+  estimates being approximately normal, which holds less well for the
+  zero-part coefficients and for $\theta$ at moderate sample sizes; the
+  profile interval for $\theta$ that `confint()` provides avoids this for
+  $\theta$.
+* *The simulation* used one fixed design, one set of true values and one
+  sample size, all with the correct model. It shows that the estimator works
+  where its assumptions hold; it does not show how it behaves under
+  misspecification or with weak zero inflation.
+* *Testing NB against ZINB.* The NB model lies on the boundary of the ZINB
+  model, so the standard likelihood-ratio and Vuong tests do not apply. The
+  parametric bootstrap test is valid but slow, and some of its refits fail;
+  the package reports bounds that account for the failures rather than
+  dropping them.
+* *Local maxima.* The ZINB likelihood can have more than one maximum,
+  because excess zeros can be explained either by zero inflation or by
+  overdispersion. EM finds the maximum its starting values lead to, and the
+  gradient check confirms a maximum, not that it is the highest one.
+  `r if (length(local_max)) sprintf("In the simulation, %s stopped at a local maximum, which the profile search in confint() detected.", if (length(local_max) == 1L) "one fit" else paste(length(local_max), "fits")) else ""`
+  Refitting from several starting values would guard against this.
+* *Interpretation.* The split of zeros into structural and chance zeros
+  comes from the model's assumptions, not directly from the data.
+
+**Possible extensions.** Hurdle models, which separate zero and positive
+counts completely, are a natural companion to ZINB. EM could be accelerated
+(for example by switching to Newton steps on the full parameter vector
+near the maximum, using the analytic Hessian the package already computes).
+Sandwich (robust) standard errors would protect against a misspecified
+variance, and further simulations could vary the sample size, the strength
+of zero inflation and the model specification.
 
 ## AI-use statement
 
-*Placeholder.* How Claude Code was used, what was verified independently, and
-an example of output that had to be corrected.
+::: {.callout-warning}
+## Outline — to be written by the author before submission
+
+This section must be written by the author in their own words. The points
+the project requires, and candidate examples from `dev/ai_use_log.md`, are
+listed below as a starting point; delete this box when the statement is
+written.
+:::
+
+**Required points.**
+
+1. What Claude Code was asked to do (planning, implementation, tests,
+   benchmark and simulation scripts, the report).
+2. What was verified independently (equations checked against the project
+   description; comparisons with `glm.nb()` and `zeroinfl()`; tests; the
+   prohibited-function check; reading the code).
+3. At least one concrete example where Claude's output had to be corrected
+   or rejected.
+
+**Candidate examples from the log** (choose and describe in your own words):
+
+* *2026-11-08, `nbreg()` plan:* Claude's first plan clipped $\eta$ and
+  floored $\mu$, which would have silently changed the likelihood; it also
+  used the number of positive-weight observations instead of the sum of the
+  weights in the starting value for $\theta$.
+* *2026-11-08, code review:* `check_whole()` accepted values above the
+  integer maximum, and edited `nbreg_control` objects were trusted without
+  revalidation.
+* *2026-11-09, `zinbreg()` plan:* the first plan could treat non-converged
+  M-steps as converged, and had no gradient check at termination.
+* *2026-11-09, `zinbreg()` validation:* with weights, `zeroinfl()` disagreed
+  with `zinbreg()` by 0.03; instead of relaxing the tolerance, the
+  investigation showed that `zeroinfl()`'s weighted fit stops at a point that
+  is not a maximum.
+* *2026-11-09, `grad_tol`:* the planned tolerance of $10^{-6}$ could have
+  allowed errors above the required $10^{-3}$ on bioChemists, and was changed
+  to $10^{-8}$ on that evidence.
 
 ## References {.unnumbered}
 
