@@ -1,5 +1,10 @@
 # nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM
 
+[Download the
+PDF](https://jaxsonbugg.github.io/nbzinbreg/articles/report.pdf)   For
+how to use the package itself, see the [Usage
+guide](https://jaxsonbugg.github.io/nbzinbreg/articles/usage.md).
+
 ## 1 Introduction
 
 Many responses in applied work are counts: the number of doctor visits

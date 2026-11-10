@@ -1,5 +1,10 @@
 # Articles
 
+### Usage
+
+- [Using
+  nbzinbreg](https://jaxsonbugg.github.io/nbzinbreg/articles/usage.md):
+
 ### Report
 
 - [nbzinbreg: negative binomial and zero-inflated negative binomial
