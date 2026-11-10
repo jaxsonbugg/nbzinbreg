@@ -62,18 +62,203 @@ kbl <- function(x, ...) {
 
 ## Introduction
 
-*Placeholder.* Count data, overdispersion and excess zeros; the goals of the
-package.
+Many responses in applied work are counts: the number of doctor visits in a
+year, articles published, defects on a production line. The standard model
+for counts is Poisson regression, which assumes that the variance of each
+count equals its mean. Real counts are usually more spread out than that,
+which is called **overdispersion**, and they often contain **more zeros**
+than a Poisson model allows [@cameron2013]. Ignoring either problem gives
+standard errors that are too small and predictions that miss the zeros.
+
+Two models address these problems. **Negative binomial (NB) regression**
+adds a dispersion parameter $\theta$, so the variance becomes
+$\mu + \mu^2/\theta$. The **zero-inflated negative binomial (ZINB)** model
+goes further: it treats the data as a mixture of a group that always
+produces zeros and a group whose counts follow an NB regression
+[@lambert1992]. In R, these models are usually fitted with
+`MASS::glm.nb()` [@venables2002] and `pscl::zeroinfl()` [@zeileis2008].
+
+This project builds an R package, **nbzinbreg**, that fits both models
+without any general-purpose optimizer. The NB model is fitted by
+iteratively reweighted least squares (IRLS) for the regression coefficients,
+alternated with Newton–Raphson for $\theta$. The ZINB model is fitted by an
+EM algorithm whose M-steps are IRLS fits. The report describes the methods
+(@sec-methods) and the package (@sec-package). It then shows that the
+package reproduces `glm.nb()` and `zeroinfl()` (@sec-benchmark) and that
+`zinbreg()` recovers known parameters in a simulation (@sec-simulation). It
+analyses physician visits in the NMES1988 data (@sec-nmes) and ends with a
+discussion of limitations (@sec-discussion).
 
 ## Methods {#sec-methods}
 
-*Placeholder.* The NB and ZINB models; IRLS, Newton-Raphson and EM, with
-equations; how standard errors are computed; convergence criteria.
+**The NB model.** For counts $y_i$ with covariates $x_i$, an optional
+offset $o_i$ and prior weights $a_i$ (1 for an ordinary fit), the NB2 model
+has mean $\mu_i = \exp(\eta_i)$ with linear predictor
+$\eta_i = x_i^\top\beta + o_i$, and log-likelihood
+
+$$
+\ell(\beta, \theta) = \sum_i a_i \Big[\log\Gamma(y_i + \theta) -
+\log\Gamma(\theta) - \log y_i! + \theta\log\theta + y_i\log\mu_i -
+(\theta + y_i)\log(\theta + \mu_i)\Big].
+$$ {#eq-nb-ll}
+
+This is the parameterization of `glm.nb()`. As $\theta \to \infty$ the
+model becomes the Poisson.
+
+**IRLS for $\beta$ with $\theta$ fixed.** With $\theta$ held fixed, the NB
+model is a generalized linear model with log link and variance function
+$V(\mu) = \mu + \mu^2/\theta$. Fisher scoring for such a model is the same
+as repeating a weighted least-squares fit, with weights and a "working
+response"
+
+$$
+w_i = a_i\,\frac{\theta\mu_i}{\theta + \mu_i}, \qquad
+z_i = (\eta_i - o_i) + \frac{y_i - \mu_i}{\mu_i}, \qquad
+\beta^{\text{new}} = (X^\top W X)^{-1} X^\top W z.
+$$ {#eq-irls}
+
+The solution is computed from the QR decomposition of $\sqrt{W}X$, not by
+inverting $X^\top WX$. A step that would lower the log-likelihood is halved
+back towards the current $\beta$.
+
+**Newton–Raphson for $\theta$ with $\beta$ fixed.** Write $U(\theta)$ and
+$H(\theta)$ for the first and second derivatives of @eq-nb-ll in $\theta$;
+they involve the digamma and trigamma functions. The update works on
+$\phi = \log\theta$, which keeps $\theta$ positive:
+
+$$
+U_\phi = \theta\,U(\theta), \qquad
+H_\phi = \theta^2 H(\theta) + \theta\,U(\theta), \qquad
+\phi^{\text{new}} = \phi - U_\phi / H_\phi .
+$$ {#eq-nr}
+
+If $H_\phi$ is not negative (the log-likelihood is not hill-shaped there),
+a scaled uphill step is used instead, and every step must pass a line search
+that guarantees an increase in the log-likelihood.
+
+**The NB outer loop and standard errors.** The fit starts from a Poisson
+IRLS fit and a moment estimate of $\theta$, then alternates @eq-irls and
+@eq-nr until the relative change in the log-likelihood is below $10^{-8}$
+and the coefficients and $\log\theta$ have stopped moving. As in `glm.nb()`,
+$\widehat{\operatorname{Var}}(\hat\beta) = (X^\top \hat W X)^{-1}$, treating
+$\theta$ as known, and
+$\operatorname{SE}(\hat\theta) = \{-H(\hat\theta)\}^{-1/2}$.
+
+**The ZINB model.** Each person is a *structural zero* with probability
+$\pi_i$, with $\operatorname{logit}\pi_i = z_i^\top\gamma$; otherwise the
+count follows the NB model above. With
+$f_0 = \{\theta/(\theta + \mu_i)\}^\theta$ the NB probability of a zero, the
+observed-data log-likelihood is
+
+$$
+\ell(\beta, \gamma, \theta) = \sum_{y_i = 0} a_i \log\big[\pi_i + (1 -
+\pi_i) f_0\big] + \sum_{y_i > 0} a_i \Big[\log(1 - \pi_i) + \log
+f_{\text{NB}}(y_i; \mu_i, \theta)\Big].
+$$ {#eq-zinb-ll}
+
+The first sum mixes the two sources of zeros inside a logarithm, so the
+ZINB model is not a GLM and cannot be fitted by IRLS directly.
+
+**EM.** If we knew which zeros were structural, the model would split into
+two ordinary regressions. The EM algorithm [@dempster1977] treats that
+label as missing and alternates two steps. The **E-step** computes, for each
+zero, the probability that it is structural, given the current estimates:
+
+$$
+\tau_i = \frac{\pi_i}{\pi_i + (1 - \pi_i) f_0} \quad (y_i = 0), \qquad
+\tau_i = 0 \quad (y_i > 0).
+$$ {#eq-estep}
+
+The **M-step** then fits the two regressions with these probabilities as
+weights. The zero part is a logistic regression of the fractional response
+$\tau_i$ on $z_i$, fitted by IRLS; each round solves
+$(Z^\top VZ)\,\Delta = Z^\top A(\tau - \pi)$ with
+$V = \operatorname{diag}\{a_i\pi_i(1 - \pi_i)\}$, the same Fisher-scoring
+step written so that nothing is divided by $\pi_i(1 - \pi_i)$, which can
+underflow. The count part is exactly the NB fit above, with prior weights
+$a_i(1 - \tau_i)$, so the NB code is reused. All of these quantities are
+computed on the log scale.
+
+**Monotonicity and convergence.** EM can never lower the observed-data
+log-likelihood. The package checks this at every iteration, together with
+each M-step's own objective, and a decrease (beyond rounding) is reported
+and blocks convergence; the check cannot be switched off. EM converges
+slowly near the maximum, so small changes alone are a poor stopping rule:
+the fit stops only when the relative change in the log-likelihood is below
+$10^{-8}$, the parameters are stable, and the **Newton decrement**
+$\delta = g^\top(-H)^{-1}g$ (with $g$ and $H$ the gradient and Hessian of
+@eq-zinb-ll) is at most $10^{-8}$. Half of $\delta$ approximates the
+log-likelihood still to be gained.
+
+**Standard errors for ZINB.** EM gives no standard errors. They come from
+the inverse of the observed information, $-H$, the negative Hessian of
+@eq-zinb-ll in $(\beta, \gamma, \log\theta)$ at the estimates. The package
+computes $H$ **analytically**, from closed-form derivatives of each
+observation's contribution, and offers `numDeriv::hessian()` of our own
+log-likelihood as an option; the two agree to about $10^{-11}$. Before
+inverting, the Hessian is checked to be finite, symmetric and negative
+definite. As in `zeroinfl()`, $\log\theta$ is reported with its standard
+error, and $\theta$ with the delta-method standard error
+$\theta \cdot \operatorname{SE}(\log\theta)$.
 
 ## The R package {#sec-package}
 
-*Placeholder.* Design, main functions and S3 methods, a short usage example,
-and installation instructions.
+The package is installed from GitHub:
+
+```{r}
+#| label: install
+#| eval: false
+#| echo: true
+# install.packages("devtools")
+devtools::install_github("jaxsonbugg/nbzinbreg")
+```
+
+`nbreg()` and `zinbreg()` take `formula, data, offset, control` in that
+order, as the project requires. A `zinbreg()` formula has the form
+`y ~ x1 + x2 | z1 + z2`, with the count covariates before the bar and the
+zero covariates after it. The package provides:
+
+* **Fitting:** `nbreg()` (IRLS and Newton–Raphson) and `zinbreg()` (EM with
+  IRLS M-steps), with `nbreg_control()` and `zinbreg_control()` for the
+  tolerances, iteration limits, tracing and the Hessian method.
+* **Methods for both classes:** `print`, `summary`, `coef`, `vcov`,
+  `logLik` (so `AIC()` and `BIC()` work), `fitted`, `residuals` (response
+  and Pearson), `nobs` and `predict` with `newdata`; for ZINB, `predict`
+  gives the types `response`, `count`, `zero` and `prob`, with standard
+  errors.
+* **Inference:** `confint()` (with a profile-likelihood interval for
+  $\theta$), `anova()` for nested models, `overdispersion_test()` and
+  `vuong_test()` (with a parametric bootstrap test of NB against ZINB).
+* **Diagnostics and tools:** `expected_counts()`, `rootogram()`,
+  `simulate()`, `boot_se()`, `tidy()` and `glance()`.
+
+A short example, with the bioChemists data used in the project handout:
+
+```{r}
+#| label: usage
+#| echo: true
+library(nbzinbreg)
+data("bioChemists", package = "pscl")
+fit <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
+               data = bioChemists)
+round(coef(fit), 3)
+round(c(theta = fit$theta, logLik = as.numeric(logLik(fit))), 3)
+```
+
+**Design.** The user-facing functions check every input and give classed
+errors and warnings that say what is wrong and how to fix it. The numerical
+work happens in internal engines that never warn but return flags (for
+example, a coefficient running off to infinity, or $\theta$ reaching its
+upper bound in the Poisson limit). The ZINB count M-step calls the same NB
+engine as `nbreg()`.
+
+**Testing.** The test suite compares both models with `glm.nb()` and
+`zeroinfl()` within the required tolerances, checks basic behaviour (offsets,
+single-covariate models, informative errors for bad input), checks the
+analytic Hessian against a numerical one, and runs on five platforms in
+GitHub Actions. One test reads the package's own source code and fails if
+any fitting function calls a prohibited optimizer or model-fitting function
+(`optim()`, `glm()`, `zeroinfl()` and others), directly or indirectly.
 
 ## Benchmarking {#sec-benchmark}
 
