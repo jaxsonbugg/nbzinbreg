@@ -25,9 +25,6 @@
 #' `nbzinbreg_error_input`: `x` of the wrong class, `conf.int` not `TRUE` or
 #' `FALSE`, `conf.level` outside (0, 1), or unused arguments.
 #'
-#' @section Provisional:
-#' The columns returned may change.
-#'
 #' @param x An `nbreg` or `zinbreg` fit.
 #' @param conf.int Logical; add Wald confidence limits (`conf.low`,
 #'   `conf.high`) to the `tidy()` output.

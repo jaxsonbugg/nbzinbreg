@@ -204,6 +204,17 @@ confint.zinbreg <- function(object, parm, level = 0.95,
 #' test. Removing the zero part entirely is not, because that is the boundary
 #' `pi = 0`; see [vuong_test()].
 #'
+#' @section Errors and warnings:
+#' * `nbzinbreg_error_input`: fewer than two fits, fits of different classes
+#'   or not fits at all, fits to different data (rows, response, weights or
+#'   offsets), models that are not nested, or two fits with the same number
+#'   of parameters.
+#' * `nbzinbreg_error_fit`: a larger fit that is not at its maximum (its
+#'   embedding refit is higher), or a negative statistic beyond rounding.
+#' * `nbzinbreg_warning_convergence`, `nbzinbreg_warning_divergence`,
+#'   `nbzinbreg_warning_theta`: a fit in a comparison is not regular, so its
+#'   p-value is `NA` (see the `Note` column).
+#'
 #' @param object An `nbreg` or `zinbreg` fit.
 #' @param ... Further fits of the same class, nested with `object`.
 #' @return A data frame of class `"anova"` with one row per fit (sorted by the

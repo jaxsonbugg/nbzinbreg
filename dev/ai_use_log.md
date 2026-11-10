@@ -93,3 +93,45 @@ A running record of how Claude Code is used in this project. It is the raw mater
     - several wrong expectations in Claude's own tests (an index, a count of zeros, and a tolerance tighter than EM's stopping rule).
   - **A judgment the owner had to make:** with weights, `zeroinfl()` disagreed with `zinbreg()` by 0.03. Claude did not relax the tolerance. It investigated and showed that zeroinfl's weighted fit stops at a point that is not a maximum. The owner agreed to use `zeroinfl()` on repeated rows as the reference for integer frequency weights.
   - **A plan value changed with evidence:** `grad_tol` became 1e-8 instead of 1e-6, because 1e-6 could allow errors above the 1e-3 tolerance on bioChemists. This is recorded in `dev/progress_log.md`.
+
+### 2026-11-09: The extras
+
+- **Asked Claude to:** plan, then implement, the extras: `confint()` with profile intervals for theta, `anova()`, `overdispersion_test()`, `vuong_test()` with a bootstrap LR test, `simulate()`, `boot_se()`, `expected_counts()`, `rootogram()`, `tidy()` and `glance()`. The errors were to be comprehensive, and the work was done in eight commits, each pushed and reviewed before the next.
+- **What Claude produced:**
+  - `R/extras-utils.R`, `R/profile.R`, `R/anova.R`, `R/vuong.R`, and the extras in `R/inference.R`, `R/simulate.R`, `R/diagnostics.R` and `R/tidiers.R`;
+  - fixed-theta EM and zero-part separation detection in the ZINB engine;
+  - one test file per extra (about 650 new expectations).
+- **How it was checked:**
+  - every extra was compared with a reference: `confint.default(glm.nb)`, `confint(zeroinfl)`, `anova()` of `glm.nb` fits, zeroinfl log-likelihoods, `pscl::odTest()`, `pscl::vuong()` (also on repeated rows for weights), and `colSums(pscl::predprob())`;
+  - profile limits were checked against profile log-likelihoods maximized independently (`glm(negative.binomial(theta))`, and `optim()` in tests only);
+  - each regression test was confirmed to fail on the previous code;
+  - the full suite with the slow tests, `devtools::check()`, plain `R CMD check`, and CI on five platforms after every commit.
+- **Problems found and how they were corrected:**
+  - **In the owner's plan review (before any code was written),** eight gaps in Claude's first plan:
+    - the bootstrap LR test did not handle replicates at the pi = 0 boundary;
+    - failed replicates had no effect on the p-value;
+    - frequency weights were drawn once per row instead of independently;
+    - profile-interval endpoints at a bound were not classified;
+    - the overdispersion test did not separate the Poisson limit from a truncating bound;
+    - `anova()` gave chi-squared p-values for irregular fits;
+    - the weighted Vuong statistic was undefined;
+    - several smaller points.
+  - **The owner's code reviews caught, after pushed commits:**
+    - `check_parm()` with `Inf`;
+    - no allocation limit for bootstrap data;
+    - weights that round to 0;
+    - an integer overflow in the profile retry limit;
+    - an unbounded endpoint certified outside the region;
+    - a p-value for a non-converged NB fit;
+    - unconverged boundary replicates counted as failures;
+    - separation concluded from extreme probabilities alone;
+    - `boot_se()` running on a non-converged fit;
+    - an unconverged higher likelihood ignored in LR replicates.
+
+    Each was fixed in its own commit with regression tests.
+  - **Claude's own probes and tests caught:**
+    - separation of the zero part by a continuous covariate, which the engine did not detect;
+    - `boot_refit()` keeping a lower boundary result over a higher interior one;
+    - an interior local maximum in the supplied ZINB fit (equal to zeroinfl's) on pure NB data, below a separated supremum;
+    - a default-start refit crawling for thousands of EM iterations, which made the bootstrap 2.2 times slower;
+    - several wrong expectations in Claude's own tests (a tolerance tighter than the stopping rule, an assumption that a boundary refit reaches the global maximum, `NULL` dropped from a list in a mock, and the plot region's 4% margin).

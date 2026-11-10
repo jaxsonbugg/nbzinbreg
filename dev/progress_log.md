@@ -221,3 +221,68 @@ Each regression test was confirmed to fail on the previous code. `devtools::test
 - `CLAUDE.md`: package map and warning classes.
 - The AI-use log has a ZINB entry.
 - A test for positional `offset` in `zinbreg()` was added, so the review item on the `offset = NULL` default could be closed for both models.
+
+## 2026-11-09: Extras phase (extras commits 1 to 8)
+
+**Gate C for the ZINB phase (recorded here, as promised):** `install_github()` of the documentation commit (`beeb2df`) into an empty library, in a fresh session, gave output identical to `README.md` for both examples (18 lines for `nbreg()`, 31 for `zinbreg()`). CI on that commit was green on all five platforms.
+
+**What was built.** The plan was reviewed and approved by the owner before any code. The owner's decisions:
+* the Vuong statistics are descriptive only, with an optional bootstrap LR test;
+* profile intervals for theta in both classes;
+* failed bootstrap replicates are dropped and counted, with sensitivity bounds for the LR test;
+* `anova()` for both classes.
+
+Each commit was pushed and reviewed before the next. The design as built is in `dev/design.md`, Part 5.
+
+| Commit | Content |
+|---|---|
+| `d707980` | shared internals (`R/extras-utils.R`): validators, seeds, the frequency-weight bootstrap scheme, `refit_model()`, `poisson_fit()` |
+| `0f693b6`, `f848b79` | `confint()`, `tidy()`, `glance()` for nbreg and zinbreg; profile interval for theta (`R/profile.R`), fixed-theta EM |
+| `36df38d` | `anova()` for both classes, `overdispersion_test()` |
+| `753836f` | `simulate()`, `boot_se()` |
+| `421cbaa` | `vuong_test()` with the bootstrap LR test (`R/vuong.R`) |
+| `e5fcab8` | `expected_counts()`, `rootogram()` |
+| this commit | documentation, the placeholder test removed, Gate A |
+
+**Corrective commits from the owner's reviews** (each with regression tests confirmed to fail on the previous code):
+- `d24cecd`: `check_parm()` checks finiteness first, a 1e7-draw bootstrap limit checked before allocation, and positive weights that would round to 0 are refused.
+- `c375178`: the profile retry limit could overflow (`4L * irls_maxit`); an infinite endpoint is certified only when the limit lies inside the region.
+- `af0fe16`: a non-converged NB fit gets no overdispersion p-value.
+- `a40e036`: `zinbreg()` detects complete separation of the zero part by a continuous covariate (found by a bootstrap replicate with zero coefficients near −1529 and 620).
+- `e58a59e`:
+  - unconverged bootstrap replicates at pi -> 0 are accepted only on explicit likelihood and score evidence;
+  - separation needs a likelihood certificate, not just extreme probabilities (a well-identified zero part with every pi within 1e-8 of 0 or 1 was misreported before);
+  - `boot_se()` refuses a non-converged fit.
+
+  Reviewing `boot_refit()` also showed that it took the first regular refit. In a probe of 60 replicates, about 10 refits from the original estimates ended on a boundary while the default start reached a higher log-likelihood (for example +1.59 against +3.22 over NB). It now keeps the higher one.
+- `566aec4`: in the LR replicates, an unconverged refit materially above every converged one is continued once; if still unresolved, the replicate fails instead of understating LR.
+
+**Findings worth knowing:**
+- On one pure-NB data set, the zinbreg fit (identical to `zeroinfl()`'s) is an interior local maximum. The supremum, reached from the NB boundary, is a completely separated zero part 1.4 log-likelihood units higher. The LR test uses the supremum and warns; this case is a regression test.
+- The LR bootstrap costs about 9 s per replicate on bioChemists (915 rows), so B = 199 takes about half an hour. Capping the default-start refit at 500 EM iterations halved the time and changed no replicate statistic (to 7 digits on 20 replicates).
+- `pscl::odTest()` evaluates its data in the global environment, so its test assigns the data there temporarily.
+
+**Gate A (this commit):**
+- Full validation run with `NOT_CRAN = "true"` (every `skip_on_cran()` test runs): 288 tests, 1789 expectations, 0 failed, 0 errors, 0 warnings, 0 skipped (the placeholder is gone).
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD build` and `R CMD check --no-manual`: Status: OK.
+- Side by side with the references on bioChemists (`art ~ fem + mar + kid5 + phd + ment`, zero part `| ment` for zinbreg; references with `epsilon = 1e-10` and `reltol = 1e-12`):
+
+| Comparison | Ours | Reference | Max. abs. difference | Tolerance |
+|---|---|---|---|---|
+| `confint` nbreg, Wald coefficient limits | | `confint.default(glm.nb)` | 5.7e-8 | 1e-5 |
+| `confint` nbreg, profile theta limits: \|D(limit) − q\| | [1.8073, 2.8985] | `glm(negative.binomial(theta))` | 5.6e-6 | 1e-4 |
+| `confint` zinbreg, Wald coefficient limits | | `confint(zeroinfl)` | 4.7e-5 | 1e-3 |
+| `confint` zinbreg, profile theta limits: \|D(limit) − q\| | [2.0958, 3.6916] | `optim()` over (beta, gamma) at fixed theta | 6.1e-6 | 1e-4 |
+| `anova` nbreg, LR statistics | 74.7207, 8.11536 | `anova()` of `glm.nb` fits | 4.5e-12 | 1e-5 |
+| `anova` zinbreg, LR statistic | 7.62832 | 2 × logLik difference of `zeroinfl` fits | 6.4e-10 | 1e-3 |
+| `overdispersion_test`, LR | 180.196 | `pscl::odTest()` (printed to 4 decimals) | 4.5e-5 | 1e-4 |
+| `vuong_test`, z (raw, AIC, BIC) | 1.8805, 1.3912, 0.21239 | `pscl::vuong(zeroinfl, glm.nb)` | 1.7e-5 | 1e-4 |
+| `vuong_test` with frequency weights | 2.5946, 2.241, 1.2693 | `pscl::vuong()` on the repeated rows | 1.9e-5 | 1e-4 |
+| `expected_counts` zinbreg, 0..max(y) | 286.383 zeros | `colSums(pscl::predprob(zeroinfl))` | 4.5e-4 | 1e-3 |
+| `expected_counts` nbreg, 0..max(y) | 277.790 zeros | sums of `dnbinom()` at the `glm.nb` fit | 2.5e-6 | 1e-4 |
+
+The tolerances are the model tolerances of `dev/requirements.md`, section 5: 1e-5 or 1e-4 for NB quantities, 1e-3 for ZINB ones. The differences come from the small differences between the packages' estimates. The two profile rows compare against independently maximized profile log-likelihoods, so the remaining difference is the 1e-6 bisection on log theta. The zinbreg profile interval took 28 s. The Vuong statistics are on the pscl scale, whose estimates differ from ours by about 1e-6.
+
+Gates B (CI on all five platforms) and C (fresh `install_github()` with the README examples, now including the extras example) run after this commit is pushed; their results go in the next entry.
+
+**Documentation:** README (the extras row ✅, an executed inference and diagnostics example), NEWS, `dev/design.md` Part 5 as built, `dev/requirements.md` (extras ticked, the ZINB-versus-NB review item resolved), `CLAUDE.md` (package map, the `nbzinbreg_warning_bootstrap` class, the empty stub list), and the AI-use log. Every extra has an "Errors and warnings" section and runnable examples (slow bootstrap examples in `\donttest{}`). The skipped placeholder `test-extras.R` was removed, since every extra now has its own test file.

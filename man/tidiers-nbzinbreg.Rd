@@ -61,11 +61,6 @@ gradient check at the estimates.
 \code{FALSE}, \code{conf.level} outside (0, 1), or unused arguments.
 }
 
-\section{Provisional}{
-
-The columns returned may change.
-}
-
 \examples{
 d <- data.frame(x = 1:8, y = c(1, 0, 6, 1, 9, 2, 20, 4))
 fit <- nbreg(y ~ x, data = d)

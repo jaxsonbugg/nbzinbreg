@@ -2,12 +2,13 @@
 
 # Signal that an exported function is still a documented stub.
 #
-# Every planned function exists with its final (or provisional) signature and
-# documentation, but until it is implemented its body calls this helper. The
-# error has its own class, `nbzinbreg_not_implemented`, so tests can tell
-# "not written yet" apart from any other error. When a function is
-# implemented, its call to not_implemented() disappears and its name is
-# removed from the `stubbed` list in tests/testthat/test-stubs.R.
+# During development every planned function existed with its signature and
+# documentation before it was implemented, and its body called this helper.
+# The error has its own class, `nbzinbreg_not_implemented`, so tests can tell
+# "not written yet" apart from any other error. Every planned function is now
+# implemented, so nothing calls it; it is kept for future stubs, and
+# tests/testthat/test-stubs.R fails if a function calls it without being
+# listed there.
 not_implemented <- function(what) {
   cnd <- structure(
     class = c("nbzinbreg_not_implemented", "error", "condition"),
@@ -37,6 +38,8 @@ not_implemented <- function(what) {
 #             nbzinbreg_warning_theta       (theta very large or on a bound)
 #             nbzinbreg_warning_divergence  (coefficients running to +-Inf)
 #             nbzinbreg_warning_se          (standard errors unavailable)
+#             nbzinbreg_warning_bootstrap   (bootstrap replicates failed, or
+#                                            a bootstrap test is inconclusive)
 #
 # Each also carries the parent class nbzinbreg_error or nbzinbreg_warning.
 # The call is left out (call = NULL) because the messages already say which

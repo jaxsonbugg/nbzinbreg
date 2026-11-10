@@ -4,7 +4,7 @@
 - Part 1 (`nbreg()`): `R/nbreg.R` and `R/nbreg-fit.R`, validated against `MASS::glm.nb`.
 - Part 2 (`zinbreg()`): `R/zinbreg.R`, `R/zinbreg-fit.R` and `R/zinbreg-hessian.R`, validated against `pscl::zeroinfl`.
 
-Both meet the required tolerances.
+Both meet the required tolerances. The extras (Part 5) are implemented too, and Part 5 also describes them as built.
 
 This document explains the algorithms in plain language, records the numerical safeguards, and gives a small worked example that is the first test.
 
@@ -288,17 +288,98 @@ These are part of the design, not optional extras. Each one prevents a specific 
 
   `grad_tol` is 1e-8, not the 1e-6 first planned. The bioChemists zero intercept has SE 1.32, and every estimate is within sqrt(δ) SEs of the maximum, so 1e-6 would allow errors up to 1.3e-3, above the 1e-3 tolerance. `start` is a list with exactly `count`, `zero` and `theta`; named values are matched to the columns.
 
-## Part 5. Planned extras (provisional)
+## Part 5. The extras, as built
 
-Built only after the core matches the references. Each is checked against a reference where one exists.
+The extras were built only after both models matched their references. Each one is checked against a reference where one exists (the measured agreement is in `dev/progress_log.md`, "Extras phase"). They share the internals in `R/extras-utils.R`: argument validators, the seed handling, the simulation of responses, the frequency-weight bootstrap scheme, and `refit_model()`, which refits a model to a new response and reduces every engine flag to one status.
 
-| Extra | What it does | Reference to check against |
-|---|---|---|
-| `confint()` | Wald intervals for coefficients; profile-likelihood interval for theta, found with a hand-written bisection (`uniroot()` is prohibited) | profile values computed by refitting at fixed theta |
-| `anova.nbreg()` | likelihood-ratio tests for nested fits | `anova()` of `glm.nb` fits |
-| `overdispersion_test()` | Poisson vs NB, with the boundary-corrected (halved) p-value | `pscl::odTest()` |
-| `vuong_test()` | ZINB vs NB comparison | `pscl::vuong()` |
-| `simulate()`, `boot_se()` | draws from the fitted model; parametric bootstrap standard errors | the Hessian-based standard errors |
-| `expected_counts()`, `rootogram()` | observed vs expected frequency of each count; rootogram plot | direct calculation |
-| `predict()` extras | `se.fit` (done for both), `type = "prob"` (done for `zinbreg`) | `predict()` of `glm.nb` fits; the columns of `pscl::predict.zeroinfl(type = "prob")` |
-| `tidy()`, `glance()` | data frames for report tables | `coef()`, `summary()`, `logLik()` |
+| Extra | File | What it does | Reference |
+|---|---|---|---|
+| `confint()` | `R/inference.R`, `R/profile.R` | Wald intervals for the coefficients; profile-likelihood or Wald interval for theta | `confint.default(glm.nb)`, `confint(zeroinfl)`; profile limits by `glm(negative.binomial(theta))` and `optim()` at fixed theta (tests only) |
+| `anova()` (both classes) | `R/inference.R`, `R/anova.R` | likelihood-ratio tests of nested fits | `anova()` of `glm.nb` fits; zeroinfl log-likelihoods |
+| `overdispersion_test()` | `R/inference.R` | Poisson against NB, boundary-corrected p-value | `pscl::odTest()` |
+| `vuong_test()` | `R/inference.R`, `R/vuong.R` | Vuong statistics (descriptive) and a bootstrap LR test of NB against ZINB | `pscl::vuong()`, also on repeated rows for weights |
+| `simulate()`, `boot_se()` | `R/simulate.R` | draws from the fitted model; parametric bootstrap SEs | the Hessian-based SEs; an expanded-data bootstrap |
+| `expected_counts()`, `rootogram()` | `R/diagnostics.R` | observed against expected frequency of each count; hanging rootogram | `colSums(pscl::predprob())`; `dnbinom` sums |
+| `tidy()`, `glance()` | `R/tidiers.R` | data frames for report tables | `coef()`, `summary()`, `logLik()` |
+
+The sections below explain the parts that needed design decisions.
+
+### Frequency weights in every bootstrap
+
+A prior weight w_i is read as "row i stands for w_i independent observations". So a bootstrap data set draws w_i **independent** responses for row i, and then collapses them to the distinct (row, value) pairs with their multiplicities as weights. For example, a row with weight 3 might give the values 2, 0 and 2, which become the value 2 with weight 2 and the value 0 with weight 1. Refitting this is exactly refitting the fully expanded data. Drawing one value per row and keeping the weight 3 would make the three observations identical copies, which understates the variability.
+
+Weights that are not whole numbers have no such meaning, so every bootstrap (and the weighted Vuong statistics) refuses them with an input error. So does a positive weight that would round to 0. A bootstrap data set of more than 1e7 draws is refused before anything is allocated. `simulate()` is different: like `stats::simulate()`, it draws one response per row and ignores the weights.
+
+### Profile-likelihood interval for theta
+
+The profile log-likelihood l_p(theta) is the largest log-likelihood possible with theta held fixed. The 95% interval is the set of theta whose deviance D(theta) = 2 (l_hat − l_p(theta)) is below q = qchisq(0.95, 1) = 3.84. No root finder is used (`uniroot()` is prohibited). The search works on phi = log(theta): it steps outward from phi_hat, doubling the step, until D exceeds q, and then bisects between the last point inside and the first point outside until the bracket is shorter than 1e-6.
+
+Every l_p value comes from a converged inner fit at fixed theta: IRLS for `nbreg`, and EM with theta fixed (`zinb_em(fixed_theta = )`) for `zinbreg`. A failed inner fit is retried once from a cold start (for zinbreg from the original estimates) with a larger iteration limit. If l_p ever exceeds l_hat beyond rounding, the fit is not at its maximum. The model is refitted from that point, and the result is an error that gives the higher log-likelihood, not an interval.
+
+Each endpoint gets a status:
+* **finite**: the cutoff was crossed;
+* **unbounded** (`Inf`): the search reached `theta_max` and the profile has flattened out at a limit below the cutoff. The limit must be certified: it is unchanged over a factor of 100 in theta, it lies inside the region (D_inf < q − 2 tol), and for nbreg it equals the Poisson log-likelihood;
+* **beyond theta_max** (`NA`): the limit could not be certified;
+* **below theta_min** (`NA`): the lower end was not reached;
+* **inner fit failed** (`NA`).
+
+### Likelihood-ratio tests: `anova()` and `overdispersion_test()`
+
+`anova()` requires fits of the same class to exactly the same data, with nested column spaces. Nesting is checked by QR residuals, not by comparing formulas. Before testing, each larger model is refitted from an exact embedding of the smaller fit. Both engines never lower the log-likelihood, so this refit reaches at least the smaller fit's value. If it beats the stored larger fit, that fit was not at its maximum and an error is raised.
+
+A chi-squared p-value is given only when every fit in the comparison is regular: converged, no diverging coefficient, theta inside its bounds, and (zinbreg) a zero part that has not collapsed. Otherwise the p-value is `NA`, with the reason in the `Note` column.
+
+`overdispersion_test()` compares an NB fit with the Poisson fit (`poisson_fit()`, IRLS). Theta = Inf, the Poisson model, is on the boundary of the parameter space, so the p-value is P(chi-squared(1) > LR) / 2. When theta is on its upper bound, a certified Poisson limit gives LR = 0 and p = 0.5. A bound that truncates the comparison gives p = `NA`. A non-converged NB fit also gives p = `NA`.
+
+### `boot_se()`: parametric bootstrap standard errors
+
+The fit must have converged. Each data set is refitted from the original estimates. If that refit fails, does not converge, or ends on a boundary, the default start is tried too, and the regular refit with the higher log-likelihood is used.
+
+An estimate on a boundary is a valid sample: a coefficient running to infinity, a collapsed or separated zero part, or theta on a bound. Only the affected parameters are left out of that replicate. If more than 5% of the replicates put a parameter on a boundary, its bootstrap distribution has mass at infinity, so its SE is `NA`.
+
+A zinbreg replicate whose refits all stop unconverged is accepted at the boundary pi -> 0 only on explicit evidence:
+* a zero-part intercept;
+* a converged NB refit of the replicate;
+* a score at pi = 0 that is not positive, D = sum_i w_i e^{o_i} (I(y_i = 0) / f0_i − 1) <= 0;
+* no refit above the NB log-likelihood;
+* a monotone refit from the boundary start.
+
+Every other failed replicate is a numerical failure. Up to 10% gives a warning; more than 10% gives an error.
+
+### Zero-part separation
+
+Extreme fitted probabilities alone do not show that the zero coefficients are infinite. A zero part can have every pi within 1e-8 of 0 or 1 and still have a finite, well-determined maximum, for example through a zero-part offset with large frequency weights. So separation needs a likelihood certificate too. Scale the zero coefficients to infinity along their fitted direction, with the count part fixed. Each pi then goes to 1 where Z gamma > 0 and to 0 where Z gamma < 0. The zero part is separated only if this limit is still inside the 95% likelihood region of the fit, 2 (l_hat − l_limit) < qchisq(0.95, 1). The data then put no upper bound on the size of the coefficients, and those coefficients get `NA` standard errors.
+
+### `vuong_test()`
+
+The **Vuong statistics** follow `pscl::vuong()` exactly. Its conventions were taken from its source: m_i = log p1(y_i) − log p2(y_i) in the order given, k = the number of coefficients (theta not counted), and one-sided p-values. With frequency weights, N = sum(w), and the weighted mean and variance (divisor N − 1) are those of the expanded data.
+
+The statistics are reported as **descriptive only**. The NB model is the boundary pi = 0 of the ZINB model, so the two are not non-nested models, and the statistic does not have its normal reference distribution under NB.
+
+The **bootstrap LR test** (`B > 0`) is the inferential tool. The null hypothesis is the NB model, which must be the ZINB count part, with a zero-part intercept.
+
+* **Observed statistic.** LR = 2 (l_sup − l_NB), where l_sup is the supremum over the closure of the ZINB model: the largest of the supplied fit, a refit started at the NB boundary (pi = 1e-8), and l_NB itself. So LR >= 0, and differences within 1e-6 (|l_NB| + 1) count as 0.
+  - Example found in testing: on one pure-NB data set, the supplied fit (equal to `zeroinfl()`'s) was an interior local maximum, and the supremum was a separated zero part 1.4 higher. The higher value is used, with a warning.
+* **Replicates.** B data sets are simulated from the NB fit.
+  - The NB model is refitted. Theta on a bound is accepted only at a certified Poisson limit.
+  - The ZINB model is refitted from the NB boundary and from the default start. The default-start refit is capped at 500 EM iterations, because near the boundary EM crawls toward pi -> 0 for thousands of iterations.
+  - Any unconverged refit that ends materially above every converged one gets one continuation from where it stopped. If it is still unresolved, the replicate fails rather than understating LR.
+* **Boundary replicates.** At (or within rounding of) the boundary, the score at pi = 0 decides. If it is positive, a collapsed result is retried from an interior start, and fails if it collapses again. Data sets without zeros, or with only zeros, have LR = 0.
+* **p-value with failures.** With B_u usable replicates, F failures and c usable replicates with LR* >= LR:
+  - p = (1 + c) / (B_u + 1);
+  - p_lo = (1 + c) / (B + 1), counting every failure as below LR;
+  - p_hi = (1 + c + F) / (B + 1), counting every failure as at or above LR.
+
+  The test is inconclusive when p_lo <= alpha < p_hi, when more than 10% failed, or when fewer than 99 are usable.
+
+### `expected_counts()` and `rootogram()`
+
+The expected frequency of count k is sum_i w_i P(Y_i = k), with P(Y_i = 0) = pi_i + (1 − pi_i) f0_i for ZINB. Counts above `max_count` share a last row labelled `"<max_count + 1>+"`, whose expected value is sum_i w_i (1 − pi_i) P_NB(Y_i > max_count). So both columns add up to the total weight. A table of more than 1e8 probabilities is refused before it is computed. `rootogram()` draws the hanging rootogram of Kleiber and Zeileis (2016) from this table in base graphics.
+
+### Limitations
+
+* **Calibration and speed.**
+  - The bootstrap LR test simulates from the *estimated* NB model, so it is approximate in finite samples.
+  - Profile intervals assume a unimodal profile and use the chi-squared(1) calibration, which may not hold near the Poisson boundary.
+  - The ZINB profile (about 60 EM refits) and the bootstraps (one or two EM fits per replicate) are slow: about 9 s per LR replicate on bioChemists.
+* **Thresholds.** The 5% and 10% thresholds are fixed constants.

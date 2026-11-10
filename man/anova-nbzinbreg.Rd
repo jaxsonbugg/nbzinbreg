@@ -66,6 +66,21 @@ Dropping zero-part covariates of a \code{zinbreg} model is an ordinary nested
 test. Removing the zero part entirely is not, because that is the boundary
 \code{pi = 0}; see \code{\link[=vuong_test]{vuong_test()}}.
 }
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}: fewer than two fits, fits of different classes
+or not fits at all, fits to different data (rows, response, weights or
+offsets), models that are not nested, or two fits with the same number
+of parameters.
+\item \code{nbzinbreg_error_fit}: a larger fit that is not at its maximum (its
+embedding refit is higher), or a negative statistic beyond rounding.
+\item \code{nbzinbreg_warning_convergence}, \code{nbzinbreg_warning_divergence},
+\code{nbzinbreg_warning_theta}: a fit in a comparison is not regular, so its
+p-value is \code{NA} (see the \code{Note} column).
+}
+}
+
 \examples{
 if (requireNamespace("pscl", quietly = TRUE)) {
   data("bioChemists", package = "pscl")

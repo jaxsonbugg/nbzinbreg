@@ -10,22 +10,30 @@ R package `nbzinbreg`: negative binomial (NB) and zero-inflated negative binomia
 - `R/zinbreg-hessian.R`: the analytic gradient and Hessian, the gradient check (Newton decrement), the numeric Hessian option and the checks before inversion.
 - `R/control.R`: `nbreg_control()`, `zinbreg_control()` and the shared `resolve_control()`.
 - `R/methods-nbreg.R`, `R/methods-zinbreg.R`: the required S3 methods for both classes.
-- `R/inference.R`, `R/simulate.R`, `R/diagnostics.R`, `R/tidiers.R`: provisional extras (their documentation says so); still stubs.
-- `R/utils.R`: internal helpers: `not_implemented()`, the classed-condition helpers `abort_nbz()` / `warn_nbz()`, and the scalar validators.
+- The extras (all implemented; design in `dev/design.md`, Part 5):
+  - `R/extras-utils.R`: the shared internals: argument validators, `with_seed()`, the simulation of responses, the frequency-weight bootstrap scheme (`bootstrap_sample()`), `refit_model()` (refit to a new response and reduce the engine flags to one status) and `poisson_fit()`.
+  - `R/inference.R`: the exported `confint()` methods, `anova()` methods, `overdispersion_test()` and `vuong_test()`.
+  - `R/profile.R`: the profile-likelihood interval for theta (bisection on log theta, endpoint statuses, limit certification).
+  - `R/anova.R`: nesting checks, the embedding refit and the regularity rules for `anova()`.
+  - `R/vuong.R`: the Vuong statistics and the bootstrap LR test of NB against ZINB.
+  - `R/simulate.R`: `simulate()` methods and `boot_se()`.
+  - `R/diagnostics.R`: `expected_counts()` and `rootogram()`.
+  - `R/tidiers.R`: `tidy()` and `glance()`.
+- `R/utils.R`: internal helpers: `not_implemented()` (unused now, kept for future stubs), the classed-condition helpers `abort_nbz()` / `warn_nbz()`, and the scalar validators.
 - `tests/testthat/`:
-  - the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`) and the stub list (`test-stubs.R`);
+  - the prohibited-call detector (`helper-prohibited.R`, `test-prohibited-calls.R`) and the stub guard (`test-stubs.R`, whose list is now empty);
   - the NB tests (`test-nbreg-*.R`);
   - the ZINB tests (`test-zinbreg-*.R`, `test-hessian.R`);
   - the shared `test-methods.R` and `test-input-validation.R`;
-  - a skipped placeholder for the extras.
+  - one file per extra: `test-extras-utils.R`, `test-confint.R`, `test-tidiers.R`, `test-anova.R`, `test-simulate.R`, `test-vuong.R`, `test-diagnostics.R`.
 
 ## Errors and warnings
 
-Raise every error and warning through `abort_nbz(message, class)` / `warn_nbz(message, class)` with one of the documented classes (`nbzinbreg_error_input`, `_rank`, `_fit`; `nbzinbreg_warning_convergence`, `_monotone`, `_theta`, `_divergence`, `_se`). Never use plain `stop()` or `warning()` for user-facing problems. Messages name the argument, say what was received (with how many offending values and the first few), and say how to fix it. Wrap calls to base functions that can fail on user input (`model.frame()`, `model.matrix()`, `model.offset()`) so their errors become classed errors that keep the original text. Every new error needs a test that checks its class and a key phrase.
+Raise every error and warning through `abort_nbz(message, class)` / `warn_nbz(message, class)` with one of the documented classes (`nbzinbreg_error_input`, `_rank`, `_fit`; `nbzinbreg_warning_convergence`, `_monotone`, `_theta`, `_divergence`, `_se`, `_bootstrap`). Never use plain `stop()` or `warning()` for user-facing problems. Messages name the argument, say what was received (with how many offending values and the first few), and say how to fix it. Wrap calls to base functions that can fail on user input (`model.frame()`, `model.matrix()`, `model.offset()`) so their errors become classed errors that keep the original text. Every new error needs a test that checks its class and a key phrase.
 
 ## Stubs and what "done" means
 
-Functions that are not written yet are documented stubs whose body calls `not_implemented()`. When implementing one: replace the body, remove its name from `stubbed` and `stub_calls` in `tests/testthat/test-stubs.R`, activate its placeholder tests, and add `@examples`. `test-stubs.R` fails if the list and the code disagree.
+Every planned function is implemented, so the `stubbed` list in `tests/testthat/test-stubs.R` is empty. If a new function is added as a documented stub, its body calls `not_implemented()` and its name goes into `stubbed` and `stub_calls`. When it is implemented, replace the body, remove it from the list, give it its own test file and add `@examples`. `test-stubs.R` fails if the list and the code disagree.
 
 Keep two levels of "done" apart when reporting progress: a **verified skeleton** (installs, documented, `R CMD check` clean, detector and stub tests pass) is not a **verified statistical implementation** (matches `glm.nb()` / `zeroinfl()` within the required tolerances). Never describe the first as the second.
 

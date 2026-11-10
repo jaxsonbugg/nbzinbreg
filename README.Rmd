@@ -32,7 +32,8 @@ against `MASS::glm.nb()`, and ZINB results against `pscl::zeroinfl()`.
 ## Status
 
 Negative binomial and zero-inflated negative binomial regression are
-implemented and validated, with all required methods. The extras,
+implemented and validated, with all required methods and the extras
+(confidence intervals, model tests, bootstrap and diagnostics). The
 benchmarks, simulation study, data analysis and report come next.
 
 | Part | Status |
@@ -41,7 +42,7 @@ benchmarks, simulation study, data analysis and report come next.
 | `nbreg()`: negative binomial regression | ✅ Done |
 | `zinbreg()`: zero-inflated NB regression | ✅ Done |
 | Methods (`print`, `summary`, `predict`, …) | ✅ Done |
-| Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
+| Extras (confidence intervals, model tests, diagnostics) | ✅ Done |
 | Benchmarks against `glm.nb()` and `zeroinfl()` | ⬜ Not started |
 | Simulation study | ⬜ Not started |
 | NMES1988 data analysis | ⬜ Not started |
@@ -83,6 +84,24 @@ data("bioChemists", package = "pscl")
 fit_zinb <- zinbreg(art ~ fem + mar + kid5 + phd + ment, data = bioChemists)
 summary(fit_zinb)
 ```
+
+### Inference and diagnostics
+
+```{r extras-example}
+# Profile-likelihood interval for theta, Wald intervals for the coefficients
+confint(fit_nb)
+
+# Is there overdispersion? (Poisson against NB)
+overdispersion_test(fit_nb)
+
+# Observed against expected frequencies of the first few counts
+head(expected_counts(fit_zinb), 4)
+```
+
+Model comparison with `anova()` and `vuong_test()` (including a bootstrap
+likelihood-ratio test of NB against ZINB), bootstrap standard errors
+(`boot_se()`), `simulate()`, `rootogram()`, and `tidy()` / `glance()` are
+also available; see the function reference.
 
 ## Check results
 

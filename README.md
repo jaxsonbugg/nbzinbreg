@@ -23,7 +23,8 @@ results against `pscl::zeroinfl()`.
 ## Status
 
 Negative binomial and zero-inflated negative binomial regression are
-implemented and validated, with all required methods. The extras,
+implemented and validated, with all required methods and the extras
+(confidence intervals, model tests, bootstrap and diagnostics). The
 benchmarks, simulation study, data analysis and report come next.
 
 | Part                                                    | Status         |
@@ -32,7 +33,7 @@ benchmarks, simulation study, data analysis and report come next.
 | `nbreg()`: negative binomial regression                 | ✅ Done        |
 | `zinbreg()`: zero-inflated NB regression                | ✅ Done        |
 | Methods (`print`, `summary`, `predict`, …)              | ✅ Done        |
-| Extras (confidence intervals, model tests, diagnostics) | ⬜ Not started |
+| Extras (confidence intervals, model tests, diagnostics) | ✅ Done        |
 | Benchmarks against `glm.nb()` and `zeroinfl()`          | ⬜ Not started |
 | Simulation study                                        | ⬜ Not started |
 | NMES1988 data analysis                                  | ⬜ Not started |
@@ -139,6 +140,47 @@ summary(fit_zinb)
 #> Gradient check: Newton decrement 8.47e-09 (grad_tol 1e-08)
 #> Starting values: count part from negative binomial fit; zero part from logistic fit of I(y == 0)
 ```
+
+### Inference and diagnostics
+
+``` r
+# Profile-likelihood interval for theta, Wald intervals for the coefficients
+confint(fit_nb)
+#>                2.5 %   97.5 %
+#> (Intercept) -0.01305  0.52534
+#> femWomen    -0.35878 -0.07405
+#> marMarried  -0.01042  0.31140
+#> kid5        -0.27993 -0.07290
+#> phd         -0.05504  0.08558
+#> ment         0.02278  0.03538
+#> theta        1.80734  2.89853
+
+# Is there overdispersion? (Poisson against NB)
+overdispersion_test(fit_nb)
+#> 
+#>  Likelihood-ratio test for overdispersion (Poisson against negative
+#>  binomial; boundary-corrected p-value)
+#> 
+#> data:  art ~ fem + mar + kid5 + phd + ment
+#> LR = 180.2, p-value < 2.2e-16
+#> alternative hypothesis: true theta is less than Inf
+#> sample estimates:
+#>    theta 
+#> 2.264388
+
+# Observed against expected frequencies of the first few counts
+head(expected_counts(fit_zinb), 4)
+#>   count observed expected
+#> 1     0      275 285.4333
+#> 2     1      246 233.9321
+#> 3     2      178 165.3441
+#> 4     3       84 101.2073
+```
+
+Model comparison with `anova()` and `vuong_test()` (including a
+bootstrap likelihood-ratio test of NB against ZINB), bootstrap standard
+errors (`boot_se()`), `simulate()`, `rootogram()`, and `tidy()` /
+`glance()` are also available; see the function reference.
 
 ## Check results
 

@@ -44,6 +44,35 @@
 * Methods for `nbreg` fits: `print()`, `summary()`, `coef()`, `vcov()`,
   `logLik()`, `fitted()`, `residuals()`, `nobs()` and `predict()` (with
   `newdata`, `se.fit` and offsets).
-* The extras (confidence intervals, model tests, simulation, diagnostics
-  and tidiers) are still documented stubs that signal
-  `nbzinbreg_not_implemented`.
+* `confint()` for both classes: Wald intervals for the coefficients, and a
+  profile-likelihood interval for `theta` found by bisection on
+  `log(theta)` without a root finder. Every endpoint has a status
+  (finite, a certified unbounded limit, or unresolved at a bound), and a
+  profile value above the fit's maximum stops with an error.
+* `anova()` for nested `nbreg` fits and for nested `zinbreg` fits. Nesting
+  is checked on the model matrices, each larger fit is verified by an
+  embedding refit, and chi-squared p-values are given only for regular
+  fits.
+* `overdispersion_test()`: Poisson against NB, with the boundary-corrected
+  p-value and a certified Poisson limit when `theta` is on its upper bound.
+* `vuong_test()`: the Vuong statistics as in `pscl::vuong()` (descriptive
+  only, because NB is the boundary `pi = 0` of ZINB), and an optional
+  parametric bootstrap likelihood-ratio test of NB against ZINB.
+  - It uses the closure supremum of the ZINB likelihood and boundary-aware
+    replicates.
+  - Its p-value comes with bounds for failed replicates, and the test is
+    declared inconclusive when they could change the decision.
+* `simulate()` methods and `boot_se()`, parametric bootstrap standard
+  errors.
+  - Frequency weights are honoured (w independent draws per row).
+  - Boundary replicates are kept, per parameter.
+  - Failed replicates are counted, with a warning up to 10% and an error
+    above.
+* `expected_counts()` and `rootogram()`: observed against expected count
+  frequencies with a grouped tail row, and a hanging rootogram.
+* `tidy()` and `glance()` for both classes.
+* `zinbreg()` now detects complete separation of the zero part by a
+  continuous covariate. Extreme fitted probabilities are confirmed by a
+  likelihood certificate, so a well-identified zero part with extreme
+  probabilities is not misreported.
+* New warning class `nbzinbreg_warning_bootstrap`.
