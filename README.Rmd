@@ -48,13 +48,20 @@ the author's AI-use statement and final review come next.
 | Benchmarks against `glm.nb()` and `zeroinfl()` | ✅ Done |
 | Simulation study | ✅ Done |
 | NMES1988 data analysis | ✅ Done |
-| Report and website | 🚧 In progress |
+| Report and website | 🚧 Awaiting the author's AI-use statement and review |
 
 Details: [progress log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
 · [design notes](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/design.md)
 · [requirements checklist](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/requirements.md)
 
 <!-- status: end -->
+
+## Website and report
+
+* Package website, with the function reference and the report:
+  <https://jaxsonbugg.github.io/nbzinbreg/>
+* The report as a PDF:
+  [report/report.pdf](https://github.com/jaxsonbugg/nbzinbreg/blob/main/report/report.pdf)
 
 ## Installation
 

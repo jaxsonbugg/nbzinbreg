@@ -29,17 +29,17 @@ benchmarked against `glm.nb()` and `zeroinfl()`, with a simulation study
 of `zinbreg()` and an analysis of the NMES1988 data. The report is
 drafted; the author’s AI-use statement and final review come next.
 
-| Part                                                    | Status         |
-|---------------------------------------------------------|----------------|
-| Package skeleton (installs, documented, CI)             | ✅ Done        |
-| `nbreg()`: negative binomial regression                 | ✅ Done        |
-| `zinbreg()`: zero-inflated NB regression                | ✅ Done        |
-| Methods (`print`, `summary`, `predict`, …)              | ✅ Done        |
-| Extras (confidence intervals, model tests, diagnostics) | ✅ Done        |
-| Benchmarks against `glm.nb()` and `zeroinfl()`          | ✅ Done        |
-| Simulation study                                        | ✅ Done        |
-| NMES1988 data analysis                                  | ✅ Done        |
-| Report and website                                      | 🚧 In progress |
+| Part | Status |
+|----|----|
+| Package skeleton (installs, documented, CI) | ✅ Done |
+| `nbreg()`: negative binomial regression | ✅ Done |
+| `zinbreg()`: zero-inflated NB regression | ✅ Done |
+| Methods (`print`, `summary`, `predict`, …) | ✅ Done |
+| Extras (confidence intervals, model tests, diagnostics) | ✅ Done |
+| Benchmarks against `glm.nb()` and `zeroinfl()` | ✅ Done |
+| Simulation study | ✅ Done |
+| NMES1988 data analysis | ✅ Done |
+| Report and website | 🚧 Awaiting the author’s AI-use statement and review |
 
 Details: [progress
 log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
@@ -49,6 +49,13 @@ notes](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/design.md)
 checklist](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/requirements.md)
 
 <!-- status: end -->
+
+## Website and report
+
+- Package website, with the function reference and the report:
+  <https://jaxsonbugg.github.io/nbzinbreg/>
+- The report as a PDF:
+  [report/report.pdf](https://github.com/jaxsonbugg/nbzinbreg/blob/main/report/report.pdf)
 
 ## Installation
 
