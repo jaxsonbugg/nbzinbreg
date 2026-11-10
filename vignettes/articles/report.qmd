@@ -1,6 +1,41 @@
 ---
 title: "nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM"
+subtitle: "STA 651 Final Project, Fall 2026"
 author: "Jaxson Bugg"
+date: today
+date-format: long
+abstract: |
+  This report describes nbzinbreg, an R package that fits negative binomial
+  (NB) regression by iteratively reweighted least squares and
+  Newton–Raphson, and zero-inflated negative binomial (ZINB) regression by an
+  EM algorithm whose M-steps are IRLS fits, without any general-purpose
+  optimizer. Standard errors for the ZINB model come from an analytic Hessian
+  of the observed-data log-likelihood. On two benchmark data sets the package
+  reproduces `MASS::glm.nb()` and `pscl::zeroinfl()` well within the required
+  tolerances, and a simulation of 1,000 data sets shows that `zinbreg()`
+  recovers known parameters with accurate standard errors. An analysis of
+  physician office visits in the NMES1988 data finds strong overdispersion
+  and excess zeros, and prefers the ZINB model.
+bibliography: references.bib
+number-sections: true
+toc: true
+execute:
+  echo: false
+  warning: false
+  message: false
+format:
+  html:
+    code-fold: true
+  pdf:
+    documentclass: article
+    fontsize: 11pt
+    geometry: margin=1in
+    tbl-colwidths: false
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \usepackage{float}
+        \floatplacement{table}{H}
 ---
 
 <!--
@@ -8,28 +43,39 @@ Single source of the project report. It is rendered two ways:
   - as an article on the pkgdown website (pkgdown::build_site());
   - as the PDF report: quarto render vignettes/articles/report.qmd --to pdf,
     copied to report/report.pdf.
-Output format settings are deliberately left out until the Quarto/pkgdown
-integration check is done at the start of the report phase.
-Every number, table and figure must come from code chunks that call the
-installed package.
+Every number, table and figure comes from code chunks that call the
+installed package; slow results (timings, the simulation, the NMES1988
+bootstrap) are read from the saved results in inst/benchmark/, with a
+provenance check.
 -->
+
+```{r}
+#| label: report-setup
+#| include: false
+# Tables: in the PDF, LaTeX booktabs tables that Quarto places in floats
+# (so a table never splits across pages); on the website, ordinary tables.
+kbl <- function(x, ...) {
+  knitr::kable(x, format = if (knitr::is_latex_output()) "latex" else "pipe",
+               booktabs = TRUE, linesep = "", ...)
+}
+```
 
 ## Introduction
 
 *Placeholder.* Count data, overdispersion and excess zeros; the goals of the
 package.
 
-## Methods
+## Methods {#sec-methods}
 
 *Placeholder.* The NB and ZINB models; IRLS, Newton-Raphson and EM, with
 equations; how standard errors are computed; convergence criteria.
 
-## The R package
+## The R package {#sec-package}
 
 *Placeholder.* Design, main functions and S3 methods, a short usage example,
 and installation instructions.
 
-## Benchmarking
+## Benchmarking {#sec-benchmark}
 
 ```{r}
 #| label: bench-setup
@@ -68,7 +114,7 @@ side_table <- function(id) {
     `SE ref.` = fmt_est(tab$se_reference),
     `SE |diff.|` = fmt_diff(tab$se_abs_diff),
     check.names = FALSE)
-  knitr::kable(out, align = "lrrrrrr")
+  kbl(out, align = "lrrrrrr")
 }
 max_of <- function(model, quantity) {
   max(req$max_abs_diff[req$model == model & req$quantity == quantity])
@@ -119,6 +165,8 @@ and standard errors are finite, both fits use the same observations and
 the same parameterization (the same coefficient names in the same order),
 and both covariance matrices are symmetric and positive definite.
 `r if (all_valid) sprintf("All %d checks passed for each of the four pairs.", n_checks[[1]]) else "**Not all checks passed; see the validity tables in the supplementary benchmark article.**"`
+The four comparisons are in @tbl-bench-bc-nb, @tbl-bench-nmes-nb,
+@tbl-bench-bc-zinb and @tbl-bench-nmes-zinb.
 
 ```{r}
 #| label: tbl-bench-bc-nb
@@ -165,7 +213,7 @@ summ <- data.frame(
   `Max. abs. difference` = fmt_diff(req$max_abs_diff),
   Tolerance = formatC(req$tolerance, format = "e", digits = 0),
   Met = ifelse(req$passed, "yes", "NO"), check.names = FALSE)
-knitr::kable(summ, align = "lllrrc")
+kbl(summ, align = "lllrrc")
 ```
 
 `r if (all_passed) "Every required quantity is within its tolerance" else "**Not every required quantity is within its tolerance**"`,
@@ -189,7 +237,8 @@ criterion. The log-likelihoods differ by at most
 `inst/benchmark/benchmark.R`, which runs each fit 10 times with
 `bench::mark()` and reports the median and the range. The references are
 timed both with the tight settings used above and with their own defaults,
-because the tight settings make them slower than in ordinary use.
+because the tight settings make them slower than in ordinary use
+(@tbl-bench-time).
 
 ```{r}
 #| label: tbl-bench-time
@@ -202,7 +251,7 @@ if (is.null(saved)) {
   tm <- saved$timing
   tm <- tm[!grepl("numeric Hessian", tm$fit), ]
   tm$fit <- sub(", analytic Hessian", "", tm$fit)
-  knitr::kable(data.frame(
+  kbl(data.frame(
     Data = tm$data_name, Model = tm$model, Fit = tm$fit,
     `Median (s)` = formatC(tm$median_s, digits = 3, format = "g"),
     `Range (s)` = sprintf("%s to %s", formatC(tm$min_s, digits = 3, format = "g"),
@@ -256,7 +305,7 @@ errors of theta and log(theta), the ZINB fits with the numeric Hessian, and
 the full validity checks) are in the supplementary benchmark article on the
 package website.
 
-## Simulation study
+## Simulation study {#sec-simulation}
 
 ```{r}
 #| label: sim-setup
@@ -340,7 +389,9 @@ resampling the R replications (a bootstrap with
 `r if (sim_ok) format(st$B, big.mark = ",")` resamples), which does not
 assume that the estimates are normally distributed. Theta is reported on
 both scales: log(theta), which `zinbreg()` estimates, and theta itself, with
-the interval theta ± 1.96 SE(theta).
+the interval theta ± 1.96 SE(theta). @tbl-sim gives the bias, spread,
+standard errors and coverage, @tbl-sim-rmse the relative bias and RMSE, and
+@fig-sim-z the standardized errors.
 
 ```{r}
 #| label: tbl-sim
@@ -348,7 +399,7 @@ the interval theta ± 1.96 SE(theta).
 #| echo: false
 #| tbl-colwidths: false
 if (sim_ok) {
-  knitr::kable(data.frame(
+  kbl(data.frame(
     Parameter = ss$parameter,
     Truth = formatC(ss$truth, digits = 3, format = "f"),
     Bias = pm(ss$bias, ss$bias_mcse),
@@ -369,7 +420,7 @@ if (sim_ok) {
 #| echo: false
 #| tbl-colwidths: false
 if (sim_ok) {
-  knitr::kable(data.frame(
+  kbl(data.frame(
     Parameter = ss$parameter,
     `Relative bias` = ifelse(is.na(ss$rel_bias), "",
                              sprintf("%.3f (%s)", ss$rel_bias,
@@ -506,12 +557,12 @@ The fits took a median of
 `r if (sim_ok) sprintf("The results were produced at commit %s (code fingerprint %s; provenance %s) under %s.", substr(sim_prov$git_commit, 1, 7), sim_prov$fingerprint_installed, sim_prov$status, sim_prov$r_version)`
 `r if (sim_ok) (if (sim_check$status == "matches") sim_check$message else paste0("**", sim_check$message, "**")) else ""`
 
-## Data analysis: NMES1988
+## Data analysis: NMES1988 {#sec-nmes}
 
 *Placeholder.* Descriptive summary, model comparison, interpretation of the
 main effects, and the preferred model.
 
-## Discussion
+## Discussion {#sec-discussion}
 
 *Placeholder.* Limitations and possible extensions.
 
@@ -520,6 +571,7 @@ main effects, and the preferred model.
 *Placeholder.* How Claude Code was used, what was verified independently, and
 an example of output that had to be corrected.
 
-## References
+## References {.unnumbered}
 
-*Placeholder.*
+::: {#refs}
+:::
