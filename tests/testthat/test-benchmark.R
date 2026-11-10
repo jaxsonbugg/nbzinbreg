@@ -110,6 +110,17 @@ test_that("provenance records the code, the commit and the machine", {
   q <- b$provenance(file.path(tempdir(), "no-such-tree"))
   expect_identical(q$status, "unverified")
   expect_match(q$reasons, "benchmark functions differ", all = FALSE)
+  # several helper files: each is compared, and its MD5 recorded
+  p2 <- b$provenance(root, files = c("benchmark_functions.R",
+                                     "simulation_functions.R"))
+  expect_named(p2$helper_md5, c("benchmark_functions.R",
+                                "simulation_functions.R"))
+  expect_true(all(!is.na(p2$helper_md5)))
+  q2 <- b$provenance(file.path(tempdir(), "no-such-tree"),
+                     files = c("benchmark_functions.R", "simulation_functions.R"))
+  expect_match(q2$reasons, "simulation_functions.R differs", all = FALSE)
+  q3 <- b$provenance(root, files = "no_such_helper.R")
+  expect_match(q3$reasons, "no_such_helper.R differs", all = FALSE)
 })
 
 test_that("saved provenance is checked against the installed code", {

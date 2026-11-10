@@ -607,15 +607,19 @@ cpu_description <- function() {
 }
 
 # Where the results come from. `source_path` is the package source tree
-# (the repository root). The provenance is "verified" only if
+# (the repository root); `files` are the helper scripts in inst/benchmark/
+# that produced the results (the benchmark uses benchmark_functions.R; the
+# simulation also simulation_functions.R). The provenance is "verified"
+# only if
 #   * the installed code's fingerprint equals the source tree's,
-#   * the installed benchmark functions equal the source tree's copy,
-#   * R/, inst/benchmark/benchmark_functions.R, DESCRIPTION and NAMESPACE
-#     are unchanged from the git commit (so the fingerprint belongs to that
-#     commit, and anyone can recompute it from it),
+#   * every installed helper file equals the source tree's copy,
+#   * R/, those helper files, DESCRIPTION and NAMESPACE are unchanged from
+#     the git commit (so the fingerprint belongs to that commit, and anyone
+#     can recompute it from it),
 # and otherwise "unverified" with the reasons. Both fingerprints are
 # computed here, in one R session, so the R version is the same for both.
-provenance <- function(source_path = ".", package = "nbzinbreg") {
+provenance <- function(source_path = ".", package = "nbzinbreg",
+                       files = "benchmark_functions.R") {
   reasons <- character()
   src <- tryCatch(code_fingerprint_source(source_path),
                   error = function(e) {
@@ -637,25 +641,33 @@ provenance <- function(source_path = ".", package = "nbzinbreg") {
         " (only in the installed package: ",
         paste(cmp$extra_installed, collapse = ", "), ")")))
   }
-  bf_src <- file.path(source_path, "inst", "benchmark", "benchmark_functions.R")
-  bf_inst <- system.file("benchmark", "benchmark_functions.R", package = package)
-  bf_match <- file.exists(bf_src) && nzchar(bf_inst) &&
-    identical(unname(tools::md5sum(bf_src)), unname(tools::md5sum(bf_inst)))
-  if (!bf_match) {
-    reasons <- c(reasons, paste(
-      "the installed benchmark functions differ from the source tree's",
-      "inst/benchmark/benchmark_functions.R"))
+  helper_md5 <- vapply(files, function(f) {
+    inst_f <- system.file("benchmark", f, package = package)
+    if (nzchar(inst_f)) unname(tools::md5sum(inst_f)) else NA_character_
+  }, character(1))
+  for (f in files) {
+    src_f <- file.path(source_path, "inst", "benchmark", f)
+    ok <- file.exists(src_f) && !is.na(helper_md5[[f]]) &&
+      identical(unname(tools::md5sum(src_f)), helper_md5[[f]])
+    if (!ok) {
+      reasons <- c(reasons, if (f == "benchmark_functions.R") {
+        paste("the installed benchmark functions differ from the source",
+              "tree's inst/benchmark/benchmark_functions.R")
+      } else {
+        sprintf("the installed inst/benchmark/%s differs from the source tree's", f)
+      })
+    }
   }
   commit <- git_output(source_path, c("rev-parse", "HEAD"))
   dirty <- git_output(source_path, c(
-    "status", "--porcelain", "--", "R", "inst/benchmark/benchmark_functions.R",
+    "status", "--porcelain", "--", "R", file.path("inst", "benchmark", files),
     "DESCRIPTION", "NAMESPACE"))
   if (anyNA(commit)) {
     reasons <- c(reasons, "the git commit of the source tree is unknown")
   } else if (anyNA(dirty) || length(dirty)) {
     reasons <- c(reasons, paste(
-      "R/, the benchmark functions, DESCRIPTION or NAMESPACE have",
-      "uncommitted changes"))
+      "R/, the helper scripts in inst/benchmark/, DESCRIPTION or NAMESPACE",
+      "have uncommitted changes"))
   }
   desc <- utils::packageDescription(package)
   si <- Sys.info()
@@ -669,8 +681,9 @@ provenance <- function(source_path = ".", package = "nbzinbreg") {
     fingerprint_installed = inst$md5,
     fingerprint_source = if (!is.null(src)) src$md5 else NA_character_,
     fingerprint_objects = inst$objects,
-    benchmark_functions_md5 = if (nzchar(bf_inst))
-      unname(tools::md5sum(bf_inst)) else NA_character_,
+    benchmark_functions_md5 = if ("benchmark_functions.R" %in% files)
+      helper_md5[["benchmark_functions.R"]] else NA_character_,
+    helper_md5 = helper_md5,
     git_commit = if (anyNA(commit)) NA_character_ else commit[1L],
     git_clean = !anyNA(dirty) && !length(dirty),
     package_version = desc$Version,
