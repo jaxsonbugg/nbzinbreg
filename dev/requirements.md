@@ -43,7 +43,7 @@ The reference functions may be used in tests, benchmarks, and the report, but ne
 
 ## 4. Package requirements
 
-- [ ] Installs with `devtools::install_github("jaxsonbugg/nbzinbreg")` in a fresh R session.
+- [x] Installs with `devtools::install_github("jaxsonbugg/nbzinbreg")` in a fresh R session. *(2026-11-10: `install_github()` of `4e93776` into an empty library in a fresh session; the README examples reproduce all 74 output lines of `README.md`, every `inst/benchmark` file resolves, and the installed code fingerprint equals the source's.)*
 - [x] Imports listed in `Imports:`; test/vignette-only packages (MASS, pscl, AER, testthat, ...) in `Suggests:`.
 - [x] `devtools::check()` finishes with 0 errors and 0 warnings; any remaining NOTEs explained in the README. (True now; re-checked at the end.)
 - [x] GitHub Actions `check-standard` workflow, with its passing badge in the README.
@@ -56,7 +56,7 @@ The reference functions may be used in tests, benchmarks, and the report, but ne
 - [x] roxygen2 documentation with runnable `@examples` for every exported function. *(Both models, their control functions, their methods and every extra; slow bootstrap examples are in `\donttest{}`.)*
 - [x] testthat tests: (i) `nbreg()` vs `MASS::glm.nb()` and `zinbreg()` vs `pscl::zeroinfl()` within the tolerances below; (ii) basic behavior (offset, single-covariate model, informative errors for bad input). Use `skip_if_not_installed("pscl")`.
 - [x] README with installation instructions, a short usage example, and the CI badge. *(Both examples are executed.)*
-- [ ] pkgdown website published with GitHub Pages; link in the README and in the repo's About box.
+- [x] pkgdown website published with GitHub Pages; link in the README and in the repo's About box. *(Live at https://jaxsonbugg.github.io/nbzinbreg/ from `main` `/docs`; linked in the README and set as the repository's homepage.)*
 - [x] Edge cases: warn if theta-hat becomes very large (Poisson limit) or if `maxit` is hit without convergence.
 - [x] The GitHub repository is public.
 
@@ -144,7 +144,7 @@ Single Quarto source `vignettes/articles/report.qmd`, fully reproducible (all nu
 
 Outputs from the one source:
 - [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(Rendered and committed as the draft of record; this stays open until the author has written the AI-use statement and the final PDF is rendered.)*
-- [ ] Website via `pkgdown::build_site()` (report appears as an article next to the function reference), output in `docs/`, served by GitHub Pages from `main` `/docs`.
+- [x] Website via `pkgdown::build_site()` (report appears as an article next to the function reference), output in `docs/`, served by GitHub Pages from `main` `/docs`. *(Built with `CLAUDE.md` moved out of the root for the build, so it is not published.)*
 
 ## 9. Expected repository layout
 
@@ -165,14 +165,14 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 
 ## 10. Final checklist
 
-- [ ] `devtools::install_github("jaxsonbugg/nbzinbreg")` works in a fresh R session.
-- [ ] `devtools::check()`: 0 errors, 0 warnings; CI badge is green.
-- [ ] `devtools::test()` passes, including the comparisons with `glm.nb()` and `zeroinfl()`.
-- [ ] No prohibited function calls in `R/`.
-- [ ] Report renders to PDF; `report/report.pdf` is committed.
-- [ ] GitHub Pages site is live and contains the report and the function reference.
-- [ ] Commit history shows progress over time, not a single final commit.
-- [ ] README: the temporary status section has been removed, and the usage example is real and executed.
+- [x] `devtools::install_github("jaxsonbugg/nbzinbreg")` works in a fresh R session. *(2026-11-10: `install_github()` of `4e93776` into an empty library in a fresh session; the README examples reproduce all 74 output lines of `README.md`, every `inst/benchmark` file resolves, and the installed code fingerprint equals the source's.)*
+- [x] `devtools::check()`: 0 errors, 0 warnings; CI badge is green. *(1 note locally: the clock check. CI green on all five configurations for every commit of this phase.)*
+- [x] `devtools::test()` passes, including the comparisons with `glm.nb()` and `zeroinfl()`. *(323 tests, 2110 expectations, 0 failed, 0 skipped, with `NOT_CRAN = "true"`.)*
+- [x] No prohibited function calls in `R/`. *(The detector test passes on all 192 package functions, and a manual scan of `R/` finds the names only in comments and documentation.)*
+- [ ] Report renders to PDF; `report/report.pdf` is committed. *(Committed as the draft of record. Pending owner gate: the final PDF follows the author's AI-use statement.)*
+- [x] GitHub Pages site is live and contains the report and the function reference. *(Home, report, supplement, reference pages, the report's figures and its PDF all return HTTP 200.)*
+- [x] Commit history shows progress over time, not a single final commit. *(Small commits throughout the project; this phase alone has eleven.)*
+- [ ] README: the temporary status section has been removed, and the usage example is real and executed. *(Pending owner gate: removed when no work remains.)*
 
 ### Verification still required as functionality is added
 
@@ -180,11 +180,11 @@ The skeleton verification and the first CI runs are done. These checks remain, b
 
 - [x] `nbreg()` meets every reference tolerance against `MASS::glm.nb()` (section 5). *Largest differences: 3.4e-7 (coefficients), 9e-10 (SEs), 2.2e-8 (theta), 1.1e-12 (log-likelihood).*
 - [x] `zinbreg()` meets every reference tolerance against `pscl::zeroinfl()` (section 5). *Largest differences, with both Hessian methods: 4.8e-5 (coefficients), 2.8e-5 (SEs), 4.0e-6 (log theta), 1.2e-6 (SE of log theta), 4e-9 (log-likelihood).*
-- [ ] All five CI configurations pass after the statistical code is added, and again after each later phase. *(Passed after the NB phase, after the ZINB phase (the zinbreg methods commit), and on every extras commit.)*
+- [x] All five CI configurations pass after the statistical code is added, and again after each later phase. *(Passed after the NB phase, after the ZINB phase (the zinbreg methods commit), and on every extras commit.)* *(And on every commit of the NMES1988 and report phase.)*
 - [x] The README describes only tested functionality, and each model's usage example becomes executed code once that model is implemented and tested.
-- [ ] The Quarto report renders both as the PDF and as pkgdown HTML from the single source `vignettes/articles/report.qmd`.
-- [ ] The published GitHub Pages site displays its figures and supporting assets correctly.
-- [ ] The local Rtools workaround (`options(buildtools.check = ...)`) does not hide real build failures. Confirm with a plain `R CMD build` and `R CMD check` (no devtools) and with CI. *Confirmed after the NB phase, the ZINB phase and every extras commit: plain `R CMD build` and `R CMD check --no-manual` gave "Status: OK". Re-check after later phases.*
+- [x] The Quarto report renders both as the PDF and as pkgdown HTML from the single source `vignettes/articles/report.qmd`. *(Checked on every report commit; the HTML is on the website.)*
+- [x] The published GitHub Pages site displays its figures and supporting assets correctly. *(The three report figures and the CSS/JS assets load from the live site.)*
+- [x] The local Rtools workaround (`options(buildtools.check = ...)`) does not hide real build failures. Confirm with a plain `R CMD build` and `R CMD check` (no devtools) and with CI. *Confirmed after the NB phase, the ZINB phase and every extras commit: plain `R CMD build` and `R CMD check --no-manual` gave "Status: OK". Re-check after later phases.* *(Re-checked in this phase: plain `R CMD check --no-manual` gave Status: OK, and CI is green.)*
 
 ## 11. Grading weights (for prioritizing effort)
 

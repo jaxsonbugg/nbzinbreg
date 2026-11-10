@@ -487,3 +487,31 @@ ZINB is preferred, with its caveats stated.
 - The gradient check is described as establishing approximate first-order stationarity. Because the Newton decrement can only be computed where -H is positive definite (`gradient_check()` in `R/zinbreg-hessian.R`), a converged fit also has negative definite curvature, which indicates a local maximum but not the global one. The Methods, the benchmark discussion, the Discussion and the appendix's profile-interval paragraph now say so. The finding about competing local maxima (data set 86, detected by `confint()`) is kept.
 
 The supplementary benchmark article made no such claims. A regression check of the rendered report after the Commit 7 restructuring found all 14 tables and figures present (the four side-by-side benchmark comparisons among them), no unresolved cross-references, no render warnings, all eight references generated, and the bootstrap paragraph matching `inst/benchmark/nmes_bootstrap_status.txt` (COMPLETE, CONCLUSIVE, 967 usable, 32 failed, p = 0.001, bounds 0.001 to 0.033).
+
+## 2026-11-10: Automated phases complete — awaiting the author's AI-use statement and review
+
+**Website (`4e93776`).**
+- The pkgdown site was built into `docs/` with `CLAUDE.md` moved out of the repository root for the build. pkgdown publishes every root Markdown file, and `CLAUDE.md` is not part of the website.
+- GitHub Pages serves `main` `/docs` at https://jaxsonbugg.github.io/nbzinbreg/, which is also the repository's homepage.
+- The home page, the report, the supplement, the reference pages, the three report figures and the report PDF return HTTP 200, and `CLAUDE.html` returns 404.
+- Personal details (a user name in two local paths) were removed from `CLAUDE.md` and this log; earlier commits still contain them, and published history is not rewritten.
+
+**Final automated verification:**
+- `install_github("jaxsonbugg/nbzinbreg")` of `4e93776` into an empty library, in a fresh R session:
+  - the README examples reproduce all 74 output lines of `README.md` (whitespace normalized);
+  - all ten `inst/benchmark` files resolve through `system.file()`;
+  - the installed code fingerprint equals the source's (`f6f29a27eff95d07ab6302d5a428954e`).
+- The test suite with `NOT_CRAN = "true"`: 323 tests, 2110 expectations, 0 failed, 0 skipped.
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check --no-manual`: Status: OK.
+- A manual scan of `R/` finds no prohibited call and no use of `MASS::` or `pscl::` in code; the detector test passes on all 192 functions.
+- CI was green on all five configurations for every commit of this phase, including `98cef44` (the owner's wording corrections) and `4e93776`.
+
+**The owner gate (not automated).** The project is not yet submission-ready. After the author has written the AI-use statement in `vignettes/articles/report.qmd` (replacing the marked outline; about a third of a page keeps the main body within 10 pages), reviewed the report and asked to finalize:
+1. Check that the outline callout is gone and the statement covers what Claude was asked to do, what was verified, and one corrected example; check that no "Outline" or "Placeholder" text remains in `report.qmd`.
+2. Re-render `report/report.pdf` and check the page count.
+3. Rebuild `docs/` with `CLAUDE.md` moved out of the root for the build (see `CLAUDE.md`, local environment notes).
+4. Delete the README status section and re-knit `README.md`.
+5. Tick the remaining items in `dev/requirements.md` (sections 8 and 10), and log it here.
+6. Run the gates, then commit ("Finalize the report with the author's AI-use statement") and push; confirm that CI is green and the site has updated.
+
+The author then uploads `report/report.pdf` to Canvas and submits the repository URL and the Pages URL.
