@@ -1,0 +1,14 @@
+COMPLETE
+
+R = 1000 data sets of n = 500, seed 651, model y ~ x1 + x2 | x1 + z; profile intervals on the first 200; 2000 bootstrap resamples for the MC SEs.
+Replication classes: usable 1000, boundary 0, invalid covariance 0, invalid values 0, not converged 0, error 0.
+Profile intervals: finite 199, unbounded 0, unresolved 0, error 1, fit not usable 0; coverage 0.935 over 199 evaluable.
+Zero share: expected 0.5330, observed 0.5333; structural share: expected 0.3299, observed 0.3305.
+RNG: Mersenne-Twister, Inversion, Rejection; elapsed 933 s.
+
+Provenance:
+- status: verified
+- git commit: 445d9d3d16dd6c07cd077ae772e08ae8cb1ed442 (relevant paths clean: TRUE)
+- code fingerprint (installed / source): f6f29a27eff95d07ab6302d5a428954e / f6f29a27eff95d07ab6302d5a428954e
+- R version 4.3.1 (2023-06-16 ucrt) on x86_64-w64-mingw32 (Windows 10 x64; Intel64 Family 6 Model 186 Stepping 2, GenuineIntel, 20 cores)
+- run at 2026-11-10 04:42:24 UTC
