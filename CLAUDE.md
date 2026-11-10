@@ -97,6 +97,7 @@ The README is a short working-status page; keep it short and readable, and keep 
 
 - R 4.3.1 is at `C:\R-4.3.1` (on the user PATH). Rtools is not installed. The package has no compiled code, so it does not need Rtools, but devtools refuses to build without it. For `devtools::check()`, `devtools::install()` and `devtools::build_readme()`, run `options(buildtools.check = function(action) TRUE)` first in the same R session.
 - Pandoc is not on R's path. For `devtools::build_readme()` and pkgdown, set `Sys.setenv(RSTUDIO_PANDOC = file.path(Sys.getenv("LOCALAPPDATA"), "Programs/Quarto/bin/tools"))` (the Pandoc that comes with Quarto) in the same R session.
+- The website's home page comes from `pkgdown/index.md`, not from the README (which keeps its temporary status section until the project is finalized). The theme is in `_pkgdown.yml` and `pkgdown/extra.scss`; `pkgdown/extra.js` folds the report's appendix tables on the website only.
 - pkgdown turns every Markdown file in the repository root into a page, including this file, which is not part of the website. Build the site with `CLAUDE.md` moved out of the root for the build, and check that `docs/` has no `CLAUDE` page.
 - Keep personal details (user names, local paths) out of committed files; use environment variables such as `LOCALAPPDATA` instead.
 - Pushing anything under `.github/workflows/` needs the `workflow` scope on the GitHub CLI token (`gh auth refresh -h github.com -s workflow`).

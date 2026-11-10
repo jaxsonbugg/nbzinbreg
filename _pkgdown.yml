@@ -1,17 +1,73 @@
 url: https://jaxsonbugg.github.io/nbzinbreg/
+
+# A monotone slate blue-grey theme with a light/dark switch. The colours
+# that bslib variables do not cover (page tint, panels, dark mode) are in
+# pkgdown/extra.scss.
 template:
   bootstrap: 5
+  light-switch: true
+  bslib:
+    primary: "#3d5f82"
+    navbar-light-bg: "#2c3e50"
+    navbar-dark-bg: "#141c25"
+    font-size-base: "1.0625rem"
+    line-height-base: 1.6
+
+# Tabs on the left (Usage, Reference, Report, Supplementary, Changelog);
+# search, the light/dark switch and the GitHub icon on the right.
+navbar:
+  type: dark
+  structure:
+    left: [usage, reference, report, supplementary, news]
+    right: [search, lightswitch, github]
+  components:
+    usage:
+      text: Usage
+      href: articles/usage.html
+    report:
+      text: Report
+      menu:
+        - text: View
+          href: articles/report.html
+        - text: Download PDF
+          href: articles/report.pdf
+    supplementary:
+      text: Supplementary
+      href: articles/benchmark-supplement.html
+    github:
+      icon: fa-github
+      href: https://github.com/jaxsonbugg/nbzinbreg
+      aria-label: GitHub repository
+
+footer:
+  structure:
+    left: developed_by_school
+    right: built_with
+  components:
+    developed_by_school: "Developed by Jaxson Bugg, Miami University."
 
 reference:
   - title: Fitting models
+    desc: >
+      The two model-fitting functions. `nbreg()` fits negative binomial
+      regression for overdispersed counts; `zinbreg()` fits zero-inflated
+      negative binomial regression for counts with excess zeros, with a
+      two-part formula `y ~ count covariates | zero covariates`.
     contents:
       - nbreg
       - zinbreg
   - title: Control settings
+    desc: >
+      Tolerances, iteration limits, progress tracing and (for ZINB) the
+      Hessian method, passed to the fitting functions as `control`.
     contents:
       - nbreg_control
       - zinbreg_control
   - title: Methods for fitted models
+    desc: >
+      What you can do with a fit: print and summarize it, extract
+      coefficients, the covariance matrix, the log-likelihood (with `AIC()`
+      and `BIC()`), fitted values and residuals, and predict for new data.
     contents:
       - nbreg-methods
       - zinbreg-methods
@@ -26,22 +82,37 @@ reference:
       - overdispersion_test
       - vuong_test
   - title: Simulation and bootstrap
+    desc: >
+      Simulate new responses from a fitted model, and parametric bootstrap
+      standard errors.
     contents:
       - simulate-nbzinbreg
       - boot_se
   - title: Diagnostics
+    desc: >
+      Check the fit at every count: observed against expected frequencies,
+      as a table or as a hanging rootogram.
     contents:
       - expected_counts
       - rootogram
   - title: Tidiers
+    desc: >
+      The coefficient table and the model summary as data frames, in the
+      style of the broom package.
     contents:
       - tidiers-nbzinbreg
   - title: Package
+    desc: >
+      An overview of the package, and the `tidy()` and `glance()` generics,
+      which are re-exported from the generics package.
     contents:
       - nbzinbreg-package
       - reexports
 
 articles:
+  - title: Usage
+    contents:
+      - articles/usage
   - title: Report
     contents:
       - articles/report

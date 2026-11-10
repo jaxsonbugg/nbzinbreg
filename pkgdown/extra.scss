@@ -1,0 +1,158 @@
+// A monotone slate blue-grey theme for the pkgdown site. The page is lightly
+// tinted, content sits on white (or, in dark mode, slate) panels, and links,
+// code and tables use shades of the same hue.
+
+:root,
+[data-bs-theme="light"] {
+  --nbz-page: #e9eef3;
+  --nbz-panel: #ffffff;
+  --nbz-panel-border: #d3dbe4;
+  --nbz-text: #1f2a36;
+  --nbz-muted: #5a6b7d;
+  --nbz-link: #3d5f82;
+  --nbz-link-hover: #27425e;
+  --nbz-code-bg: #edf1f5;
+  --nbz-code-border: #d6dee7;
+  --nbz-stripe: #f3f6f9;
+  --nbz-summary-bg: #eef2f6;
+}
+
+[data-bs-theme="dark"] {
+  --nbz-page: #11171e;
+  --nbz-panel: #1a232d;
+  --nbz-panel-border: #2c3a48;
+  --nbz-text: #dbe3eb;
+  --nbz-muted: #9aabbb;
+  --nbz-link: #8fb3d6;
+  --nbz-link-hover: #b8d0e8;
+  --nbz-code-bg: #212c38;
+  --nbz-code-border: #33445a;
+  --nbz-stripe: #1f2a35;
+  --nbz-summary-bg: #22303e;
+}
+
+body {
+  background-color: var(--nbz-page);
+  color: var(--nbz-text);
+}
+
+a {
+  color: var(--nbz-link);
+}
+
+a:hover,
+a:focus {
+  color: var(--nbz-link-hover);
+}
+
+// Content panels: the main column and the sidebar sit on cards.
+main#main,
+aside.col-md-3 > * {
+  background-color: var(--nbz-panel);
+  border: 1px solid var(--nbz-panel-border);
+  border-radius: 0.5rem;
+}
+
+// pkgdown offsets the columns by the fixed navbar's height (56px); add a
+// small gap on top of that.
+.row > main#main {
+  padding: 1.5rem 2rem;
+  margin-top: calc(56px + 1.25rem);
+  margin-bottom: 1.5rem;
+}
+
+.row > aside.col-md-3 {
+  margin-top: calc(56px + 1.25rem);
+}
+
+aside.col-md-3 > * {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.text-muted,
+.small,
+footer {
+  color: var(--nbz-muted) !important;
+}
+
+// Navbar: clear space between the tabs, the same size for every tab.
+.navbar .navbar-nav .nav-item {
+  margin-right: 0.6rem;
+}
+
+.navbar .navbar-nav .nav-link {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  font-weight: 500;
+}
+
+.navbar .navbar-nav.ms-auto .nav-item,
+.navbar .navbar-nav:last-child .nav-item {
+  margin-right: 0;
+  margin-left: 0.25rem;
+}
+
+// Code and output: one box per block (the <pre>); the wrapper that pkgdown
+// puts around highlighted code gets no box of its own.
+div.sourceCode {
+  background-color: transparent;
+  border: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+pre {
+  background-color: var(--nbz-code-bg);
+  border: 1px solid var(--nbz-code-border);
+  border-radius: 0.35rem;
+}
+
+code {
+  color: inherit;
+}
+
+// The home page's installation and quick-start code: small and quiet, so the
+// description and features lead.
+.home-code pre {
+  font-size: 0.85rem;
+  background-color: transparent;
+  border: 1px dashed var(--nbz-code-border);
+  box-shadow: none;
+}
+
+// Tables: light stripes in the same hue.
+.table > tbody > tr:nth-of-type(odd) > * {
+  --bs-table-accent-bg: var(--nbz-stripe);
+}
+
+// Folded appendix tables in the report (see pkgdown/extra.js).
+details.nbz-fold {
+  border: 1px solid var(--nbz-panel-border);
+  border-radius: 0.4rem;
+  margin: 1rem 0;
+  background-color: var(--nbz-panel);
+
+  > summary {
+    cursor: pointer;
+    padding: 0.6rem 0.9rem;
+    background-color: var(--nbz-summary-bg);
+    border-radius: 0.4rem;
+    font-weight: 500;
+  }
+
+  &[open] > summary {
+    border-bottom: 1px solid var(--nbz-panel-border);
+    border-radius: 0.4rem 0.4rem 0 0;
+  }
+
+  > .nbz-fold-body {
+    padding: 0.5rem 0.9rem 0.9rem;
+    overflow-x: auto;
+  }
+}
+
+// The "Download the PDF" button at the top of the report page.
+.nbz-report-links {
+  margin: 0.5rem 0 1.5rem;
+}
