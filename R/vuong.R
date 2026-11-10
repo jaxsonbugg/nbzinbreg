@@ -198,24 +198,65 @@ lr_replicate <- function(zfit, nfit, map, s) {
   # The NB-boundary start (full iteration limit): EM is monotone from about
   # l_NB. The default start is a second search; near the boundary EM crawls
   # toward pi -> 0 for thousands of iterations, so it is limited to
-  # `lr_default_maxit` iterations, and continued to convergence from where
-  # it stopped only if it is then ahead of every other refit (so a start
-  # showing a higher likelihood is never abandoned).
+  # `lr_default_maxit` iterations. Any refit that stops unconverged but
+  # ahead of every converged one is continued (see resolve() below), so a
+  # start showing a higher likelihood is never abandoned.
+  lls <- function(fits) {
+    ll <- vapply(fits, function(a) a$loglik, numeric(1))
+    ll[is.na(ll)] <- -Inf
+    ll
+  }
+  best <- function(fits) fits[[which.max(lls(fits))]]
+  regular_of <- function(fits) Filter(Negate(failed), fits)
+  # The level an unconverged refit must exceed (by more than `tol`) to be an
+  # unresolved higher likelihood: the best converged refit, and at least l_NB.
+  level <- function(fits) {
+    reg <- regular_of(fits)
+    max(l0, if (length(reg)) max(lls(reg)) else -Inf)
+  }
+  ahead <- function(a, fits) {
+    identical(a$status, "not_converged") && is.finite(a$loglik) &&
+      a$loglik > level(fits) + tol
+  }
+  # Safeguarded continuation: each unconverged refit that is ahead is
+  # continued once, from where it stopped, with the full iteration limit
+  # (the highest first; a continuation is not continued again). Returns the
+  # refits with the continuations added.
+  resolve <- function(fits) {
+    repeat {
+      open <- which(vapply(fits, function(a) {
+        ahead(a, fits) && !isTRUE(a$continued)
+      }, logical(1)))
+      if (!length(open)) return(fits)
+      i <- open[which.max(lls(fits[open]))]
+      fits[[i]]$continued <- TRUE
+      cf <- fits[[i]]$coefficients
+      cont <- refit_model(zfit, s$y, s$w, rows = s$row, start = list(
+        count = cf$count, zero = cf$zero, theta = fits[[i]]$theta))
+      cont$continued <- TRUE
+      fits <- c(fits, list(cont))
+    }
+  }
+  # A higher likelihood that the continuation did not resolve: using the
+  # lower converged fit would understate LR, so the replicate fails.
+  unresolved <- function(fits) {
+    hi <- Filter(function(a) ahead(a, fits), fits)
+    if (!length(hi)) return(NULL)
+    fail(sprintf(paste(
+      "an unconverged zero-inflated refit reached a log-likelihood %s above",
+      "the best converged refit, and continuing it did not converge; the",
+      "converged refit would understate LR"),
+      format(signif(max(lls(hi)) - level(fits), 3))))
+  }
   st_b <- zinb_start_from_nb(zfit, map, r0$coefficients, r0$theta,
                              stats::qlogis(1e-8))
   a_b <- refit_model(zfit, s$y, s$w, rows = s$row, start = st_b)
   a_d <- refit_model(zfit, s$y, s$w, rows = s$row, maxit = lr_default_maxit)
-  if (identical(a_d$status, "not_converged") && is.finite(a_d$loglik) &&
-      a_d$loglik > max(l0, if (!failed(a_b)) a_b$loglik else -Inf) + tol) {
-    a_d <- refit_model(zfit, s$y, s$w, rows = s$row, start = list(
-      count = a_d$coefficients$count, zero = a_d$coefficients$zero,
-      theta = a_d$theta))
-  }
-  attempts <- list(a_d, a_b)
-  regular <- Filter(Negate(failed), attempts)
+  attempts <- resolve(list(a_d, a_b))
+  regular <- regular_of(attempts)
   if (!length(regular)) {
-    ev <- boot_boundary_evidence(s, nb0, Xn, off, off_zero, attempts,
-                                 attempts[[2L]])
+    # (unchanged boundary-acceptance rules; the boundary-start refit is a_b)
+    ev <- boot_boundary_evidence(s, nb0, Xn, off, off_zero, attempts, a_b)
     if (!ev$accept) {
       return(fail(paste("the zero-inflated refits did not converge, and the",
                         "sample is not at the pi -> 0 boundary:", ev$why)))
@@ -223,11 +264,8 @@ lr_replicate <- function(zfit, nfit, map, s) {
     return(list(statistic = 0, kind = "boundary_accepted",
                 message = NA_character_, monotone = FALSE))
   }
-  best <- function(fits) {
-    ll <- vapply(fits, function(a) a$loglik, numeric(1))
-    ll[is.na(ll)] <- -Inf
-    fits[[which.max(ll)]]
-  }
+  bad <- unresolved(attempts)
+  if (!is.null(bad)) return(bad)
   r1 <- best(regular)
   if (r1$loglik < l0 - tol) {
     return(fail(sprintf(paste(
@@ -242,7 +280,7 @@ lr_replicate <- function(zfit, nfit, map, s) {
     D <- zero_boundary_score(s, nb0, Xn, off, off_zero)
     if (!is.finite(D)) return(fail("the score at pi = 0 is not finite"))
     if (D > 0) {
-      f0 <-exp(nb_log_f0(lin_pred(Xn, r0$coefficients, off), r0$theta))
+      f0 <- exp(nb_log_f0(lin_pred(Xn, r0$coefficients, off), r0$theta))
       n_w <- sum(s$w[pos])
       e0 <- sum((s$w * f0)[pos])
       n0 <- sum(s$w[pos & s$y == 0])
@@ -250,7 +288,10 @@ lr_replicate <- function(zfit, nfit, map, s) {
       st_i <- zinb_start_from_nb(zfit, map, r0$coefficients, r0$theta,
                                  stats::qlogis(share))
       ri <- refit_model(zfit, s$y, s$w, rows = s$row, start = st_i)
-      if (!failed(ri)) r1 <- best(list(r1, ri))
+      attempts <- resolve(c(attempts, list(ri)))
+      bad <- unresolved(attempts)
+      if (!is.null(bad)) return(bad)
+      r1 <- best(regular_of(attempts))
       if (isTRUE(r1$engine$zero_collapsed)) {
         return(fail(sprintf(paste(
           "the score at pi = 0 is positive (D = %.3g), but every",

@@ -363,6 +363,107 @@ test_that("the default-start refit is capped and continued only when ahead", {
   expect_equal(r$statistic, 2)
 })
 
+# Scripted ZINB refits for the unresolved-likelihood tests: the default start
+# converges at l0 + 1; the NB-boundary start stops unconverged at
+# l0 + `ll_b`; a continuation (recognised by its start, the estimates of the
+# unconverged refit, tagged zero intercept -7) returns `cont`. `log` records
+# every ZINB call.
+unresolved_case <- function(rc, l0, ll_b, cont) {
+  log <- new.env()
+  log$calls <- list()
+  tagged <- function(status, ll, tag) {
+    f <- fake_zinb(status, ll)
+    f$coefficients$zero <- c(tag, 0)
+    f
+  }
+  fn <- mock_zinb_refits(rc, function(st, mx) {
+    log$calls <- c(log$calls, list(list(start = st, maxit = mx)))
+    if (is.null(st)) return(tagged("ok", l0 + 1, -1))
+    if (isTRUE(all.equal(unname(st$zero), c(-7, 0)))) return(cont(tagged))
+    tagged("not_converged", l0 + ll_b, -7)
+  })
+  list(fn = fn, log = log)
+}
+
+test_that("an unconverged refit materially above the converged ones is continued", {
+  rc <- replicate_case()
+  l0 <- rc$real(rc$n, rc$s$y, rc$s$w, rc$s$row)$loglik
+  # 1. the NB-boundary refit stops unconverged 3 units above the start, 2
+  #    above the converged default-start refit: it is continued from its own
+  #    estimates, with the full iteration limit, instead of being ignored
+  uc <- unresolved_case(rc, l0, 3, function(tagged) tagged("ok", l0 + 3.2, -3))
+  local_mocked_bindings(refit_model = uc$fn, .package = "nbzinbreg")
+  r <- rc$lr(rc$z, rc$n, rc$map, rc$s)
+  calls <- uc$log$calls
+  expect_identical(length(calls), 3L)
+  expect_equal(unname(calls[[3L]]$start$zero), c(-7, 0))
+  expect_null(calls[[3L]]$maxit)
+  # 2. the continuation converged higher: its likelihood gives LR
+  expect_identical(r$kind, "interior")
+  expect_equal(r$statistic, 6.4)
+})
+
+test_that("an unresolved higher likelihood fails instead of understating LR", {
+  rc <- replicate_case()
+  l0 <- rc$real(rc$n, rc$s$y, rc$s$w, rc$s$row)$loglik
+  # 3. the continuation is still unconverged (and still ahead): the lower
+  #    converged refit (LR = 2) must not be used
+  uc <- unresolved_case(rc, l0, 3, function(tagged) {
+    tagged("not_converged", l0 + 3.1, -9)
+  })
+  local_mocked_bindings(refit_model = uc$fn, .package = "nbzinbreg")
+  r <- rc$lr(rc$z, rc$n, rc$map, rc$s)
+  expect_identical(r$kind, "failure")
+  expect_true(is.na(r$statistic))
+  expect_match(r$message, "2.1 above the best converged refit.*understate LR")
+  # the continuation is not continued again
+  expect_identical(length(uc$log$calls), 3L)
+  # a continuation that fails outright leaves the candidate unresolved too
+  uc <- unresolved_case(rc, l0, 3, function(tagged) {
+    list(status = "error", message = "boom", loglik = NA_real_)
+  })
+  local_mocked_bindings(refit_model = uc$fn, .package = "nbzinbreg")
+  expect_identical(rc$lr(rc$z, rc$n, rc$map, rc$s)$kind, "failure")
+})
+
+test_that("an unconverged refit within rounding of the converged one is not pursued", {
+  rc <- replicate_case()
+  l0 <- rc$real(rc$n, rc$s$y, rc$s$w, rc$s$row)$loglik
+  # 4. unconverged, but only 1e-9 above the converged refit (tolerance
+  #    1e-6 (|l| + 1)): no continuation, and the converged refit is used
+  uc <- unresolved_case(rc, l0, 1 + 1e-9, function(tagged) {
+    stop("must not be continued")
+  })
+  local_mocked_bindings(refit_model = uc$fn, .package = "nbzinbreg")
+  r <- rc$lr(rc$z, rc$n, rc$map, rc$s)
+  expect_identical(length(uc$log$calls), 2L)
+  expect_identical(r$kind, "interior")
+  expect_equal(r$statistic, 2)
+  # unconverged and below the converged refit: likewise
+  uc <- unresolved_case(rc, l0, 0.5, function(tagged) stop("must not run"))
+  local_mocked_bindings(refit_model = uc$fn, .package = "nbzinbreg")
+  expect_equal(rc$lr(rc$z, rc$n, rc$map, rc$s)$statistic, 2)
+})
+
+test_that("the interior retry is subject to the same check", {
+  # positive score (excess zeros), every first refit collapsed at l_NB; the
+  # interior retry stops unconverged far above them and cannot be resolved
+  rc <- replicate_case()
+  s <- list(row = seq_along(rc$z$y), y = unname(rc$z$y),
+            w = rep(1, length(rc$z$y)))
+  l0 <- rc$n$loglik
+  k <- 0L
+  local_mocked_bindings(refit_model = mock_zinb_refits(rc, function(st, mx) {
+    k <<- k + 1L
+    if (k <= 2L) return(fake_zinb("zero_boundary", l0 - 1e-9, collapsed = TRUE))
+    fake_zinb("not_converged", l0 + 4)
+  }), .package = "nbzinbreg")
+  r <- rc$lr(rc$z, rc$n, rc$map, s)
+  expect_identical(k, 4L)   # two refits, the retry, its continuation
+  expect_identical(r$kind, "failure")
+  expect_match(r$message, "understate LR")
+})
+
 test_that("unconverged ZINB refits are accepted at the boundary only on evidence", {
   rc <- replicate_case(seed = 10)
   r0 <- rc$real(rc$n, rc$s$y, rc$s$w, rc$s$row)
