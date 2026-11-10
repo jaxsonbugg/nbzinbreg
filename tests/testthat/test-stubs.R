@@ -12,7 +12,6 @@
 
 stubbed <- c(
   # provisional extras
-  "vuong_test",
   "expected_counts", "rootogram"
 )
 
@@ -21,7 +20,6 @@ stubbed <- c(
 nb <- structure(list(), class = "nbreg")
 zinb <- structure(list(), class = "zinbreg")
 stub_calls <- list(
-  vuong_test = function() vuong_test(zinb, nb),
   expected_counts = function() expected_counts(nb),
   rootogram = function() rootogram(nb)
 )

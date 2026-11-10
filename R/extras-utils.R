@@ -279,7 +279,10 @@ bootstrap_sample <- function(object, w_int) {
 #                  the engine, or structural)
 #   theta_bound    theta ended on theta_min or theta_max
 #   ok             otherwise
-refit_model <- function(object, y, w, rows = seq_along(y), start = NULL) {
+# `maxit` (zinbreg only) overrides the EM iteration limit of the fit's
+# control; NULL keeps it.
+refit_model <- function(object, y, w, rows = seq_along(y), start = NULL,
+                        maxit = NULL) {
   zinb <- inherits(object, "zinbreg")
   pos <- w > 0
   out <- list(status = "error", message = NA_character_, loglik = NA_real_,
@@ -305,6 +308,7 @@ refit_model <- function(object, y, w, rows = seq_along(y), start = NULL) {
       ctrl$trace <- FALSE
       ctrl$nb_control$trace <- FALSE
       ctrl$start <- start
+      if (!is.null(maxit)) ctrl$maxit <- as.integer(maxit)
       zinb_em(X, object$z[rows, , drop = FALSE], y,
               object$offset$count[rows], object$offset$zero[rows], w, ctrl)
     } else {

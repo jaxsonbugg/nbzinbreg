@@ -424,15 +424,27 @@ boot_zero_boundary <- function(object, s, attempts) {
   out
 }
 
-# The evidence of steps 4a-4c above, for the replicate `s` with NB refit
-# `nb`; `attempts` are all ZINB refits, `rb` the one from the boundary start.
-boot_boundary_evidence <- function(s, nb, X, off, off_zero, attempts, rb) {
+# The score for moving every pi away from 0 together (the zero intercept,
+# from the boundary pi -> 0), at the NB fit `nb` (coefficients for X, offset
+# `off`) of the data `s`, up to a positive factor:
+#   D = sum_i w_i e^{o_i} (I(y_i = 0) / f0_i - 1),
+# with f0_i the NB probability of a zero and o_i the zero-part offset
+# (shifted by its maximum, which only rescales D). D > 0 means the
+# likelihood rises into the interior; D <= 0 that pi -> 0 is a local maximum
+# in that direction.
+zero_boundary_score <- function(s, nb, X, off, off_zero) {
   pos <- s$w > 0
-  tol <- 1e-6 * (abs(nb$loglik) + 1)
   log_f0 <- nb_log_f0(lin_pred(X, nb$coefficients, off), nb$theta)
   o <- off_zero - max(off_zero[pos])
   term <- ifelse(s$y == 0, exp(-log_f0), 0) - 1
-  D <- sum((s$w * exp(o) * term)[pos])
+  sum((s$w * exp(o) * term)[pos])
+}
+
+# The evidence of steps 4a-4c above, for the replicate `s` with NB refit
+# `nb`; `attempts` are all ZINB refits, `rb` the one from the boundary start.
+boot_boundary_evidence <- function(s, nb, X, off, off_zero, attempts, rb) {
+  tol <- 1e-6 * (abs(nb$loglik) + 1)
+  D <- zero_boundary_score(s, nb, X, off, off_zero)
   if (!is.finite(D) || D > 0) {
     return(list(accept = FALSE, why = sprintf(paste(
       "the score at pi = 0 is positive (D = %.3g), so the likelihood rises",

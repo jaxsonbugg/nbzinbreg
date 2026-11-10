@@ -63,8 +63,16 @@ zinb_loglik <- function(y, eta, zeta, theta, w) {
   zeta <- zeta[pos]
   w <- w[pos]
   if (any(!is.finite(eta)) || any(!is.finite(zeta))) return(-Inf)
+  if (any(!is.finite(exp(eta)))) return(-Inf)
+  out <- sum(w * zinb_log_density(y, eta, zeta, theta))
+  if (is.na(out)) -Inf else out
+}
+
+# The ZINB log-density of each observation, log P(Y_i = y_i), computed
+# stably: for y = 0, log(pi + (1 - pi) f0) as a log-sum-exp of zeta and
+# log f0, plus log(1 - pi).
+zinb_log_density <- function(y, eta, zeta, theta) {
   mu <- exp(eta)
-  if (any(!is.finite(mu))) return(-Inf)
   log_not_pi <- stats::plogis(-zeta, log.p = TRUE)
   zero <- y == 0
   ll <- numeric(length(y))
@@ -77,8 +85,7 @@ zinb_loglik <- function(y, eta, zeta, theta, w) {
     ll[!zero] <- log_not_pi[!zero] +
       stats::dnbinom(y[!zero], size = theta, mu = mu[!zero], log = TRUE)
   }
-  out <- sum(w * ll)
-  if (is.na(out)) -Inf else out
+  ll
 }
 
 # E-step: tau_i = pi / (pi + (1 - pi) f0) = plogis(zeta - log f0) for y = 0

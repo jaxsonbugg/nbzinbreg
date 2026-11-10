@@ -2,34 +2,159 @@
 % Please edit documentation in R/inference.R
 \name{vuong_test}
 \alias{vuong_test}
+\alias{print.nbzinbreg_vuong}
 \title{Compare a zinbreg fit with an nbreg fit}
 \usage{
-vuong_test(m1, m2, ...)
+vuong_test(m1, m2, B = 0, alpha = 0.05, seed = NULL, progress = FALSE, ...)
+
+\method{print}{nbzinbreg_vuong}(x, digits = max(3L, getOption("digits") - 3L), ...)
 }
 \arguments{
-\item{m1, m2}{Two fits to compare, typically a \code{zinbreg} and an \code{nbreg} fit
-to the same data.}
+\item{m1, m2}{A \code{zinbreg} fit and an \code{nbreg} fit to the same data, in
+either order.}
 
-\item{...}{Further arguments, currently unused.}
+\item{B}{Number of bootstrap replicates for the LR test; 0 (the default)
+skips it.}
+
+\item{alpha}{Significance level for the bootstrap decision.}
+
+\item{seed}{\code{NULL}, or a whole number for \code{\link[=set.seed]{set.seed()}} (bootstrap only).}
+
+\item{progress}{Logical; if \code{TRUE}, report bootstrap progress.}
+
+\item{...}{Not used (an error if supplied), except for \code{print()}.}
+
+\item{x}{An \code{nbzinbreg_vuong} object, for \code{print()}.}
+
+\item{digits}{Number of significant digits to print.}
 }
 \value{
-Once implemented, a list of test results.
+An object of class \code{nbzinbreg_vuong}, a list with:
+\itemize{
+\item \code{statistic} and \code{p.value}: the raw, AIC- and BIC-corrected
+statistics, and their p-values;
+\item \code{favours}: the model each statistic favours;
+\item \code{N}, \code{k}, \code{models}, \code{mean} and \code{sd} of the log ratios, and \code{notes};
+\item \code{bootstrap}: \code{NULL} without the bootstrap. Otherwise the LR statistic,
+\code{p.value}, \code{p.bounds}, \code{used}, \code{failures}, \code{conclusive}, \code{reasons},
+\code{reject}, the replicate statuses and statistics, and the seed.
+}
 }
 \description{
-Compares the zero-inflated model with the plain negative binomial model,
-using the Vuong test for non-nested models and a likelihood-ratio
-comparison. This helps decide whether the extra zero-inflation part is
-worth having.
-
-\strong{Not yet implemented.} This function is a documented stub; it signals an
-error of class \code{nbzinbreg_not_implemented}.
+Compares the zero-inflated model with the plain negative binomial (NB)
+model fitted to the same data. It reports the Vuong statistics as a
+descriptive comparison and, with \code{B > 0}, a parametric bootstrap
+likelihood-ratio (LR) test of NB against the zero-inflated model.
 }
-\section{Provisional}{
+\details{
+\strong{Vuong statistics.} With \verb{m_i = log p1(y_i) - log p2(y_i)} (models in
+the order given), \code{N} the number of observations, and \code{k1}, \code{k2} the
+numbers of coefficients (\code{theta} not counted, as in \code{pscl::vuong()}), the
+raw statistic is \verb{sqrt(N) mean(m) / sd(m)}. The AIC- and BIC-corrected
+versions subtract \code{(k1 - k2) / N} and \verb{(k1 - k2) log(N) / (2 N)} from the
+mean. A positive statistic favours model 1, a negative one model 2. The
+p-values are one-sided in that direction, as in \code{pscl::vuong()}.
+Frequency weights count as repeated observations: \code{N = sum(w)} and the
+weighted mean and variance (divisor \code{N - 1}) are those of the expanded
+data. Weights must therefore be whole numbers.
 
-Planned but not yet implemented; the name, arguments and output may
-change. The planned reference for testing is \code{pscl::vuong()}.
+\strong{The Vuong test is not a valid test of zero inflation.} The NB model is
+the boundary \code{pi = 0} of the zero-inflated model, so the models are nested
+at a boundary point rather than non-nested. Under the NB model the
+statistic does not have its normal reference distribution. The statistics
+are reported as a descriptive comparison only; use the bootstrap LR test
+for inference.
+
+\strong{Bootstrap LR test (\code{B > 0}).} The null hypothesis is the NB model. Its
+requirements:
+\itemize{
+\item the NB model is the count part of the zero-inflated one (the same
+covariate space and offset);
+\item the zero part has an intercept, so \code{pi -> 0} gives the NB model;
+\item both fits have converged;
+\item the weights are whole numbers.
 }
 
+The observed statistic is \code{LR = 2 (l_ZINB - l_NB)}. Here \code{l_ZINB} is the
+supremum over the closure of the zero-inflated model: the largest of the
+supplied fit, a refit started at the NB boundary (\code{pi} near 0), and
+\code{l_NB} itself. So \code{LR >= 0}, and differences within
+\verb{1e-6 (|l_NB| + 1)} count as 0.
+
+\code{B} data sets are simulated from the NB fit (a row of weight \code{w} gives \code{w}
+independent draws). Each is refitted under both models. The NB refit
+starts from the estimates, then from the default start. The zero-inflated
+refits start from the default start and from the NB boundary, and the
+higher log-likelihood is used.
+
+Data sets whose estimate lies on a boundary are valid samples:
+\itemize{
+\item with no zeros, only zeros, or a collapsed zero part, \code{LR = 0};
+\item near \code{pi = 0}, the score at \code{pi = 0} decides. If it is positive (the
+likelihood rises into the interior), a collapsed result is refitted
+from an interior start, and fails if it collapses again;
+\item if every zero-inflated refit stops unconverged, the data set is
+accepted at \code{pi -> 0} only on the evidence described in \code{\link[=boot_se]{boot_se()}}.
+}
+
+Anything else is a numerical failure. Examples are a refit that cannot be
+completed, NB \code{theta} on a bound that is not the Poisson limit, and a
+zero-inflated refit ending below the NB refit (also an
+\code{nbzinbreg_warning_monotone} warning).
+
+\strong{p-value with failures.} With \code{B_u} usable replicates, \code{F} failures and
+\code{c} usable replicates with \verb{LR* >= LR}, there are three p-values:
+\itemize{
+\item \code{p = (1 + c) / (B_u + 1)} (failures dropped);
+\item \code{p_lo = (1 + c) / (B + 1)} (every failure counted as below \code{LR});
+\item \code{p_hi = (1 + c + F) / (B + 1)} (every failure counted as at or above).
+}
+
+Failures may be selected (unusual data sets fail more often), so the
+bounds decide. The test is \strong{inconclusive} when
+\verb{p_lo <= alpha < p_hi}, when more than 10\% of the replicates failed, or
+when fewer than 99 are usable.
+
+The bootstrap is approximate. It simulates from the \emph{estimated} NB model,
+and inherits any misfit of that model; the parameters other than the zero
+part are interior, so it is consistent. Each replicate needs two EM fits,
+so \code{B = 199} takes a while; \code{progress = TRUE} reports progress.
+}
+\section{Errors and warnings}{
+
+\itemize{
+\item \code{nbzinbreg_error_input}:
+\itemize{
+\item not one \code{zinbreg} and one \code{nbreg} fit;
+\item fits to different data (rows, response or weights);
+\item non-integer frequency weights;
+\item an invalid \code{B}, \code{alpha}, \code{seed} or \code{progress}, or unused arguments;
+\item for \code{B > 0}: an NB model that is not the count part, no zero-part
+intercept, or a data set of more than 1e7 draws.
+}
+\item \code{nbzinbreg_error_fit}: \code{B > 0} with a fit that did not converge.
+\item \code{nbzinbreg_warning_convergence}: a fit did not converge (the Vuong
+p-values are then \code{NA}), or the supplied zinbreg fit is below a refit
+from the NB boundary.
+\item \code{nbzinbreg_warning_bootstrap}: failed replicates, or an inconclusive
+test.
+\item \code{nbzinbreg_warning_monotone}: replicates whose zero-inflated refit
+ended below the NB refit.
+}
+}
+
+\examples{
+set.seed(1)
+d <- data.frame(x = rnorm(200))
+d$y <- ifelse(runif(200) < 0.3, 0, rnbinom(200, size = 2, mu = exp(1 + d$x)))
+z <- zinbreg(y ~ x | 1, data = d)
+n <- nbreg(y ~ x, data = d)
+vuong_test(z, n)
+\donttest{
+# a short run (too few replicates for a conclusion: use B = 199 or more)
+vuong_test(z, n, B = 19, seed = 1)
+}
+}
 \seealso{
-\code{\link[=overdispersion_test]{overdispersion_test()}}
+\code{\link[=overdispersion_test]{overdispersion_test()}}, \code{\link[=anova.zinbreg]{anova.zinbreg()}}, \code{\link[=boot_se]{boot_se()}}
 }
