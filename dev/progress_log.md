@@ -481,3 +481,9 @@ ZINB is preferred, with its caveats stated.
 - CI was green on all five configurations for `c3ec075`, `b7110aa`, `c7056d6`, `777a43e`, `18b0a1e` and `0ffed8e`, each checked before the next push.
 
 **Still open (owner gate):** the AI-use statement (a marked outline is in the report), the final PDF, the removal of the README status section, and the final checklist items that depend on them.
+
+**Owner review of `60210c7` (2026-11-10).** Two wording corrections in the report, no change to code or results:
+- The benchmark no longer says that tight reference tolerances measure distance from "the exact maximum". They make the references' own stopping error negligible, so agreement shows that both implementations reach the same tightly converged estimates, not that these are the global maximum.
+- The gradient check is described as establishing approximate first-order stationarity. Because the Newton decrement can only be computed where -H is positive definite (`gradient_check()` in `R/zinbreg-hessian.R`), a converged fit also has negative definite curvature, which indicates a local maximum but not the global one. The Methods, the benchmark discussion, the Discussion and the appendix's profile-interval paragraph now say so. The finding about competing local maxima (data set 86, detected by `confint()`) is kept.
+
+The supplementary benchmark article made no such claims. A regression check of the rendered report after the Commit 7 restructuring found all 14 tables and figures present (the four side-by-side benchmark comparisons among them), no unresolved cross-references, no render warnings, all eight references generated, and the bootstrap paragraph matching `inst/benchmark/nmes_bootstrap_status.txt` (COMPLETE, CONCLUSIVE, 967 usable, 32 failed, p = 0.001, bounds 0.001 to 0.033).

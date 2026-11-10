@@ -188,8 +188,10 @@ slowly near the maximum, so small changes alone are a poor stopping rule:
 the fit stops only when the relative change in the log-likelihood is below
 $10^{-8}$, the parameters are stable, and the **Newton decrement**
 $\delta = g^\top(-H)^{-1}g$ (with $g$ and $H$ the gradient and Hessian of
-@eq-zinb-ll) is at most $10^{-8}$. Half of $\delta$ approximates the
-log-likelihood still to be gained.
+@eq-zinb-ll) is at most $10^{-8}$. This establishes approximate
+stationarity. $\delta$ can only be computed where $-H$ is positive
+definite, so a converged fit also has negative definite curvature: a local
+maximum, not necessarily the highest one.
 
 **Standard errors for ZINB.** EM gives no standard errors. They come from
 the inverse of the observed information, $-H$, the negative Hessian of
@@ -307,9 +309,10 @@ the zero part, as in Appendix A of the project description) and
 `AER::NMES1988` (the models of @sec-nmes). Our functions run at their
 **default** settings; the references run with **tight** tolerances
 (`glm.control(epsilon = 1e-10, maxit = 100)`,
-`zeroinfl.control(reltol = 1e-12)`), so that the differences measure how
-close our answer is to the exact maximum rather than the references' own
-stopping error. For every coefficient, standard error, theta (log theta for
+`zeroinfl.control(reltol = 1e-12)`), so that their own stopping error is
+negligible. Agreement then shows that both implementations reach the same
+tightly converged estimates; it does not show that these are the global
+maximum of the likelihood. For every coefficient, standard error, theta (log theta for
 ZINB, as `zeroinfl()` estimates it) and the log-likelihood, the *maximum
 absolute difference* |ours − reference| is compared with the required
 tolerance: 1e-5 for NB coefficients and standard errors, 1e-4 for NB theta
@@ -348,9 +351,9 @@ with a large margin: the largest differences are
 The NB fits agree almost to rounding error (closely related algorithms
 for the same likelihood). The ZINB differences are larger but still at
 least `r floor(1e-3 / max(req$max_abs_diff[req$model == "ZINB"]))`
-times below the tolerance: `zinbreg()` stops when a gradient check
-places every estimate within a tiny fraction of a standard error of the
-maximum, `zeroinfl()` by its own BFGS criterion. The log-likelihoods differ by at most
+times below the tolerance: `zinbreg()` stops when its gradient check
+places every estimate within a tiny fraction of a standard error of a
+stationary point, `zeroinfl()` by its own BFGS criterion. The log-likelihoods differ by at most
 `r fmt_diff(max_of("ZINB", "log-likelihood"))`;
 `r if (all(grepl("reference is higher", ll_higher))) "in all four comparisons the reference value is very slightly higher" else "the higher value is reported per pair in the table"`.
 
@@ -574,8 +577,9 @@ local_text <- if (length(local_max)) sprintf(paste(
   "had converged, with its gradient check passed, to a local maximum. Excess",
   "zeros can be explained either by zero inflation or by overdispersion, and",
   "the ZINB likelihood can have a maximum for each; EM finds the one its",
-  "starting values lead to. The other fits in this table are maxima in the",
-  "same sense, so a small share of them may be local maxima too."),
+  "starting values lead to. The other fits passed the same checks, which",
+  "establish a local maximum but not the highest one, so a small share of",
+  "them may also be lower local maxima."),
   if (length(local_max) == 1L) "one case" else paste(length(local_max), "cases"),
   paste(sim$replicates$replication[local_max], collapse = ", ")) else ""
 ```
@@ -960,8 +964,9 @@ parameters with accurate standard errors (@sec-simulation).
   test is valid but slow, and some refits fail, which the package reports
   as bounds rather than dropping them.
 * *Local maxima.* Excess zeros can be explained by zero inflation or by
-  overdispersion, so the ZINB likelihood can have several maxima; the
-  gradient check confirms a maximum, not the highest one.
+  overdispersion, so the ZINB likelihood can have several maxima. The
+  gradient check establishes only approximate stationarity (with the
+  curvature condition, a local maximum), not the global maximum.
   `r if (length(local_max)) sprintf("In the simulation, %s stopped at a local maximum, which confint() detected.", if (length(local_max) == 1L) "one fit" else paste(length(local_max), "fits")) else ""`
   Several starting values would guard against this.
 
