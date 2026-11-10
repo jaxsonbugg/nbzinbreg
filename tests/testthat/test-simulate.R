@@ -187,8 +187,8 @@ test_that("special replicates are classified as boundary samples", {
   expect_setequal(r0$boundary, c(names(coef(zfit)), "log(theta)"))
   # a completely separated zero part
   sep <- get("zero_part_separated", envir = asNamespace("nbzinbreg"))
-  expect_true(sep(c(-40, 40, -25)))
-  expect_false(sep(c(-40, 0, 40)))
+  expect_true(sep(c(-40, 40, -25), rep(1, 3)))
+  expect_false(sep(c(-40, 0, 40), rep(1, 3)))
 })
 
 test_that("diverging coefficients of the original fit get NA", {

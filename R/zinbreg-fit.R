@@ -858,7 +858,8 @@ zinb_em <- function(X, Z, y, offset, offset_zero, w, control,
        converged = converged, final = final,
        theta_bound = theta_bound, mstep_status = status,
        violations = violations, frozen = frozen, structural = structural,
-       zero_collapsed = zero_part_collapsed(zeta, w), gradient = grad,
+       zero_collapsed = zero_part_collapsed(zeta, w),
+       zero_separated = zero_part_separated(zeta, w), gradient = grad,
        gradient_evaluations = grad_evals, start_method = st$method,
        start_diverging = st$start_diverging, loglik_trace = loglik_trace)
 }

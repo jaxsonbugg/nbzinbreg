@@ -337,23 +337,14 @@ boot_values <- function(object, r) {
   }
 }
 
-# Is the zero part completely separated? Every fitted structural-zero
-# probability is within 1e-8 of 0 or of 1. The logistic part then has no
-# finite estimate (its coefficients run off to infinity, typically through a
-# continuous covariate, which the engine's indicator-column checks do not
-# cover), so its coefficients are on the boundary.
-zero_part_separated <- function(zeta) {
-  all(stats::plogis(zeta) < 1e-8 | stats::plogis(-zeta) < 1e-8)
-}
-
 # Parameters on a boundary in a refit: diverging coefficients, every zero
-# coefficient when the zero part collapsed or is completely separated, and
-# theta on a bound.
+# coefficient when the zero part collapsed or is completely separated (the
+# engine's flags; see zero_part_separated()), and theta on a bound.
 boot_boundary <- function(object, r) {
   eng <- r$engine
   out <- r$diverging
   if (inherits(object, "zinbreg")) {
-    if (isTRUE(eng$zero_collapsed) || zero_part_separated(eng$zeta)) {
+    if (isTRUE(eng$zero_collapsed) || isTRUE(eng$zero_separated)) {
       out <- union(out, paste0("zero_", colnames(object$z)))
     }
     if (!identical(eng$theta_bound, "none")) out <- c(out, "log(theta)")

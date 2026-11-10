@@ -124,9 +124,10 @@ zinb_numeric_hessian <- function(X, Z, y, offset, offset_zero, w, beta, gamma,
 # Parameters left out of the gradient check and of the inversion for standard
 # errors: coefficients found to diverge (held fixed by EM, or structurally
 # without a finite estimate), every zero coefficient when the zero part has
-# collapsed (all pi < 1e-8: no zero inflation is left to estimate), and
-# log(theta) when theta ended on a bound. The log-likelihood is flat in these
-# directions, so including them would make -H singular.
+# collapsed (all pi < 1e-8: no zero inflation is left to estimate) or is
+# completely separated (see below), and log(theta) when theta ended on a
+# bound. The log-likelihood is flat in these directions, so including them
+# would make -H singular.
 zinb_excluded <- function(X, Z, frozen, structural, zeta, w, theta_bound) {
   # paste0("count_", character(0)) would give "count_", not character(0)
   prefixed <- function(prefix, x) {
@@ -134,7 +135,7 @@ zinb_excluded <- function(X, Z, frozen, structural, zeta, w, theta_bound) {
   }
   out <- c(prefixed("count_", union(frozen$count, structural$count)),
            prefixed("zero_", union(frozen$zero, structural$zero)))
-  if (zero_part_collapsed(zeta, w)) {
+  if (zero_part_collapsed(zeta, w) || zero_part_separated(zeta, w)) {
     out <- union(out, paste0("zero_", colnames(Z)))
   }
   if (!identical(theta_bound, "none")) out <- c(out, "Log(theta)")
@@ -143,6 +144,21 @@ zinb_excluded <- function(X, Z, frozen, structural, zeta, w, theta_bound) {
 
 zero_part_collapsed <- function(zeta, w) {
   all(stats::plogis(zeta[w > 0]) < 1e-8)
+}
+
+# Is the zero part completely separated? Every fitted structural-zero
+# probability (rows with positive weight) is within 1e-8 of 0 or of 1, and
+# both occur. The logistic part then has no finite estimate: some
+# combination of the zero-part covariates splits the observations into
+# certain structural zeros and certain non-structural ones, so the
+# coefficients run off to infinity. This is the general, exact version of the
+# indicator-column checks, and covers separation by a continuous covariate.
+# (All probabilities near 0 is the collapsed case above.)
+zero_part_separated <- function(zeta, w) {
+  z <- zeta[w > 0]
+  near0 <- stats::plogis(z) < 1e-8
+  near1 <- stats::plogis(-z) < 1e-8
+  all(near0 | near1) && any(near0) && any(near1)
 }
 
 # Gradient check. With g the gradient and H the Hessian over the parameters

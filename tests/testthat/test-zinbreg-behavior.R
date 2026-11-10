@@ -320,3 +320,45 @@ test_that("standard-error problems give se warnings", {
   expect_true(all(is.na(fit$vcov)))
   expect_true(is.na(fit$SE.logtheta))
 })
+
+# ---- complete separation of the zero part -----------------------------------
+
+test_that("zero_part_separated() recognizes complete separation exactly", {
+  sep <- get("zero_part_separated", envir = asNamespace("nbzinbreg"))
+  expect_true(sep(c(-40, 40, -25, 30), rep(1, 4)))       # 0s and 1s only
+  expect_false(sep(c(-40, 0, 40), rep(1, 3)))            # one in between
+  expect_false(sep(c(-40, -30), rep(1, 2)))              # all near 0: collapsed
+  expect_false(sep(c(40, 30), rep(1, 2)))                # all near 1 only
+  expect_true(sep(c(-40, 40, 0), c(1, 1, 0)))            # weight 0 ignored
+})
+
+test_that("a zero part separated by a continuous covariate is reported", {
+  set.seed(11)
+  n <- 300
+  x <- stats::rnorm(n)
+  # every count above x = 0.5 is 0, every count below it is positive
+  y <- ifelse(x > 0.5, 0, 1 + stats::rnbinom(n, size = 2, mu = exp(1 + 0.3 * x)))
+  d <- data.frame(y, x)
+  expect_warning(fit <- zinbreg(y ~ x | x, d),
+                 class = "nbzinbreg_warning_divergence",
+                 regexp = "zero part is completely separated")
+  expect_setequal(fit$diverging, c("zero_(Intercept)", "zero_x"))
+  expect_true(all(is.na(diag(fit$vcov)[c("zero_(Intercept)", "zero_x")])))
+  expect_true(all(is.finite(diag(fit$vcov)[c("count_(Intercept)", "count_x")])))
+  expect_true(is.finite(fit$SE.logtheta))
+  expect_true(all(fit$pi < 1e-8 | fit$pi > 1 - 1e-8))
+  # the count part is still estimated from the non-structural observations
+  expect_true(fit$converged)
+})
+
+test_that("ordinary and legitimately extreme fits are not called separated", {
+  fit <- expect_silent(zinbreg(y ~ x | x, sim_zi()))
+  expect_identical(fit$diverging, character())
+  set.seed(6)
+  n <- 400
+  x <- stats::runif(n, -6, 6)
+  y <- ifelse(stats::runif(n) < stats::plogis(-1 + 4 * x), 0,
+              stats::rnbinom(n, size = 2, mu = exp(1 + 0.3 * x)))
+  ext <- expect_silent(zinbreg(y ~ x | x, data.frame(y, x)))
+  expect_identical(ext$diverging, character())
+})
