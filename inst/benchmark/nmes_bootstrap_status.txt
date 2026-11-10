@@ -1,0 +1,16 @@
+COMPLETE
+CONCLUSIVE
+
+Parametric bootstrap LR test of NB against ZINB on NMES1988: B = 999 in chunks of 25, seed 651, alpha 0.05, ZINB maxit 20000.
+maxit decision: maxit 20000 (pilot failure shares 0.060 (maxit 5000) and 0.040 (maxit 20000); the lower is used, the default on a tie)
+Observed LR = 159.6632; chunks run 40 of 40; resumes 0.
+Replicates: interior 318, boundary 649, boundary_accepted 0, failure 32; monotone violations 0.
+p = 0.001033 (bounds 0.001 to 0.033 counting failures below / at or above); 967 usable, 32 failed, 0 at or above the observed LR.
+RNG: Mersenne-Twister, Inversion, Rejection; compute time 29248 s.
+
+Provenance:
+- status: verified
+- git commit: c3ec0757dd51cf26b71033d4b3e8853503113418 (relevant paths clean: TRUE)
+- code fingerprint (installed / source): f6f29a27eff95d07ab6302d5a428954e / f6f29a27eff95d07ab6302d5a428954e
+- R version 4.3.1 (2023-06-16 ucrt) on x86_64-w64-mingw32
+- started 2026-11-10 02:09:20
