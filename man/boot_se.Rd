@@ -3,7 +3,7 @@
 \name{boot_se}
 \alias{boot_se}
 \alias{print.nbzinbreg_boot}
-\title{Parametric bootstrap standard errors}
+\title{Parametric Bootstrap Standard Errors}
 \usage{
 boot_se(object, R = 199, seed = NULL, progress = FALSE, ...)
 

@@ -3,7 +3,7 @@
 \name{vuong_test}
 \alias{vuong_test}
 \alias{print.nbzinbreg_vuong}
-\title{Compare a zinbreg fit with an nbreg fit}
+\title{Compare a zinbreg Fit with an nbreg Fit}
 \usage{
 vuong_test(m1, m2, B = 0, alpha = 0.05, seed = NULL, progress = FALSE, ...)
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostics.R
 \name{rootogram}
 \alias{rootogram}
-\title{Rootogram of observed and expected count frequencies}
+\title{Rootogram of Observed and Expected Count Frequencies}
 \usage{
 rootogram(object, max_count = NULL, ...)
 }

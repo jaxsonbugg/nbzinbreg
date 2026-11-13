@@ -12,7 +12,7 @@
 \alias{residuals.zinbreg}
 \alias{nobs.zinbreg}
 \alias{predict.zinbreg}
-\title{Summaries, predictions and other methods for zinbreg fits}
+\title{Summaries, Predictions and Other Methods for zinbreg Fits}
 \usage{
 \method{print}{zinbreg}(x, digits = max(3L, getOption("digits") - 3L), ...)
 

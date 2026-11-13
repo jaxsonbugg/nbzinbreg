@@ -1,5 +1,5 @@
 ---
-title: "Benchmark: supplementary checks"
+title: "Benchmark: Supplementary Checks"
 ---
 
 <!--
@@ -53,7 +53,7 @@ The data, formulas and settings are those of the report: our functions at
 their default settings, `MASS::glm.nb()` and `pscl::zeroinfl()` with tight
 tolerances.
 
-## Standard errors of theta and log(theta)
+## Standard Errors of theta and log(theta)
 
 `nbreg()` reports SE(theta) and `zinbreg()` reports SE(log theta), as the
 references do. Their agreement with the references:
@@ -72,7 +72,7 @@ knitr::kable(data.frame(Comparison = pair_label(s1$pair),
                         check.names = FALSE), align = "llrr")
 ```
 
-## ZINB with the numeric Hessian
+## ZINB with the Numeric Hessian
 
 `zinbreg()` computes standard errors from the analytic Hessian (matrix of
 second derivatives) of the log-likelihood by default; with
@@ -104,7 +104,7 @@ vs_ref <- min(s2$max_abs_diff[grepl("_numeric$", s2$pair) &
 
 `r if (avn < vs_ref / 10) sprintf("Our two Hessian methods give standard errors that agree with each other to %s, far more closely than either agrees with zeroinfl() (at least %s). The remaining differences from zeroinfl() therefore come from the small differences between the two packages' estimates, not from how the standard errors are computed.", fmt(avn), fmt(vs_ref)) else sprintf("Our two Hessian methods differ by up to %s in the standard errors, which is not much smaller than their differences from zeroinfl() (%s); this deserves a closer look.", fmt(avn), fmt(vs_ref))`
 
-## Validity checks
+## Validity Checks
 
 Every comparison in the report and here is made only after these checks
 pass for both fits of a pair. A failed check would be reported here with its
@@ -124,7 +124,7 @@ for (id in names(bench$validity)) {
 }
 ```
 
-## Timing with the numeric Hessian
+## Timing with the Numeric Hessian
 
 The numeric Hessian needs many more evaluations of the log-likelihood, so it
 is slower. Timings are from the saved benchmark results (median of 10 runs,

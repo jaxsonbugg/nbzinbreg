@@ -1,4 +1,4 @@
-#' Simulate responses from nbreg and zinbreg fits
+#' Simulate Responses from nbreg and zinbreg Fits
 #'
 #' @description
 #' Draws new response vectors from a fitted model, keeping the covariates
@@ -78,7 +78,7 @@ simulate_fit <- function(object, nsim, seed) {
   })
 }
 
-#' Parametric bootstrap standard errors
+#' Parametric Bootstrap Standard Errors
 #'
 #' @description
 #' Simulates `R` new data sets from a fitted model, refits the model to each,

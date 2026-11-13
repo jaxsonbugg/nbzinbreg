@@ -1,4 +1,4 @@
-#' Tidy summaries of nbreg and zinbreg fits
+#' Tidy Summaries of nbreg and zinbreg Fits
 #'
 #' @description
 #' `tidy()` returns a data frame with one row per parameter (estimate,

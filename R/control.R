@@ -1,4 +1,4 @@
-#' Control settings for nbreg()
+#' Control Settings for nbreg()
 #'
 #' @description
 #' Collects and checks the tolerances, iteration limits and other settings
@@ -95,7 +95,7 @@ nbreg_control <- function(tol = 1e-8, maxit = 100, trace = FALSE,
   )
 }
 
-#' Control settings for zinbreg()
+#' Control Settings for zinbreg()
 #'
 #' @description
 #' Collects and checks the tolerances, iteration limits and other settings

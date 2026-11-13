@@ -1,4 +1,4 @@
-#' Confidence intervals for nbreg and zinbreg fits
+#' Confidence Intervals for nbreg and zinbreg Fits
 #'
 #' @description
 #' Confidence intervals for the coefficients and for the dispersion parameter
@@ -166,7 +166,7 @@ confint.zinbreg <- function(object, parm, level = 0.95,
                 theta_ci, "theta", method)
 }
 
-#' Likelihood-ratio tests for nested nbreg or zinbreg fits
+#' Likelihood-Ratio Tests for Nested nbreg or zinbreg Fits
 #'
 #' @description
 #' Compares nested fits of the same class with likelihood-ratio tests: twice
@@ -267,7 +267,7 @@ print.nbzinbreg_anova <- function(x, digits = max(getOption("digits") - 2L,
   invisible(x)
 }
 
-#' Test for overdispersion: Poisson against negative binomial
+#' Test for Overdispersion: Poisson against Negative Binomial
 #'
 #' @description
 #' Tests whether the negative binomial model fits better than the Poisson
@@ -429,7 +429,7 @@ overdispersion_test <- function(object, ...) {
     class = "htest")
 }
 
-#' Compare a zinbreg fit with an nbreg fit
+#' Compare a zinbreg Fit with an nbreg Fit
 #'
 #' @description
 #' Compares the zero-inflated model with the plain negative binomial (NB)

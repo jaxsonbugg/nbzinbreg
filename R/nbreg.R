@@ -1,4 +1,4 @@
-#' Negative binomial regression by IRLS and Newton-Raphson
+#' Negative Binomial Regression by IRLS and Newton-Raphson
 #'
 #' @description
 #' Fits a negative binomial (NB2) regression model for count data, with the

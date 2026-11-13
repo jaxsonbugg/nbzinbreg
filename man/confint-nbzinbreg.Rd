@@ -5,7 +5,7 @@
 \alias{confint.nbreg}
 \alias{print.nbzinbreg_confint}
 \alias{confint.zinbreg}
-\title{Confidence intervals for nbreg and zinbreg fits}
+\title{Confidence Intervals for nbreg and zinbreg Fits}
 \usage{
 \method{confint}{nbreg}(object, parm, level = 0.95, method = c("profile", "wald"), ...)
 

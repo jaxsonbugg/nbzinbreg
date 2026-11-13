@@ -2,7 +2,7 @@
 % Please edit documentation in R/nbreg.R
 \name{nbreg}
 \alias{nbreg}
-\title{Negative binomial regression by IRLS and Newton-Raphson}
+\title{Negative Binomial Regression by IRLS and Newton-Raphson}
 \usage{
 nbreg(
   formula,

@@ -47,7 +47,7 @@ footer:
     developed_by_school: "Developed by Jaxson Bugg, Miami University."
 
 reference:
-  - title: Fitting models
+  - title: Fitting Models
     desc: >
       The two model-fitting functions. `nbreg()` fits negative binomial
       regression for overdispersed counts; `zinbreg()` fits zero-inflated
@@ -56,14 +56,14 @@ reference:
     contents:
       - nbreg
       - zinbreg
-  - title: Control settings
+  - title: Control Settings
     desc: >
       Tolerances, iteration limits, progress tracing and (for ZINB) the
       Hessian method, passed to the fitting functions as `control`.
     contents:
       - nbreg_control
       - zinbreg_control
-  - title: Methods for fitted models
+  - title: Methods for Fitted Models
     desc: >
       What you can do with a fit: print and summarize it, extract
       coefficients, the covariance matrix, the log-likelihood (with `AIC()`
@@ -81,7 +81,7 @@ reference:
       - anova-nbzinbreg
       - overdispersion_test
       - vuong_test
-  - title: Simulation and bootstrap
+  - title: Simulation and Bootstrap
     desc: >
       Simulate new responses from a fitted model, and parametric bootstrap
       standard errors.
@@ -116,6 +116,6 @@ articles:
   - title: Report
     contents:
       - articles/report
-  - title: Supplementary material
+  - title: Supplementary Material
     contents:
       - articles/benchmark-supplement

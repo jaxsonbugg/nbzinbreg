@@ -2,7 +2,7 @@
 % Please edit documentation in R/inference.R
 \name{overdispersion_test}
 \alias{overdispersion_test}
-\title{Test for overdispersion: Poisson against negative binomial}
+\title{Test for Overdispersion: Poisson against Negative Binomial}
 \usage{
 overdispersion_test(object, ...)
 }

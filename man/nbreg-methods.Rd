@@ -12,7 +12,7 @@
 \alias{residuals.nbreg}
 \alias{nobs.nbreg}
 \alias{predict.nbreg}
-\title{Summaries, predictions and other methods for nbreg fits}
+\title{Summaries, Predictions and Other Methods for nbreg Fits}
 \usage{
 \method{print}{nbreg}(x, digits = max(3L, getOption("digits") - 3L), ...)
 

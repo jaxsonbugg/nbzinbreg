@@ -2,7 +2,7 @@
 % Please edit documentation in R/zinbreg.R
 \name{zinbreg}
 \alias{zinbreg}
-\title{Zero-inflated negative binomial regression by EM with IRLS M-steps}
+\title{Zero-Inflated Negative Binomial Regression by EM with IRLS M-Steps}
 \usage{
 zinbreg(
   formula,

@@ -1,4 +1,4 @@
-#' Zero-inflated negative binomial regression by EM with IRLS M-steps
+#' Zero-Inflated Negative Binomial Regression by EM with IRLS M-Steps
 #'
 #' @description
 #' Fits a zero-inflated negative binomial (ZINB) model: each observation is

@@ -2,7 +2,7 @@
 % Please edit documentation in R/control.R
 \name{nbreg_control}
 \alias{nbreg_control}
-\title{Control settings for nbreg()}
+\title{Control Settings for nbreg()}
 \usage{
 nbreg_control(
   tol = 1e-08,

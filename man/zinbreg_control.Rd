@@ -2,7 +2,7 @@
 % Please edit documentation in R/control.R
 \name{zinbreg_control}
 \alias{zinbreg_control}
-\title{Control settings for zinbreg()}
+\title{Control Settings for zinbreg()}
 \usage{
 zinbreg_control(
   tol = 1e-08,

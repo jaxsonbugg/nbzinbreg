@@ -1,5 +1,5 @@
 ---
-title: "nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM"
+title: "nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial Regression by IRLS and EM"
 subtitle: "STA 651 Final Project, Fall 2026"
 author: "Jaxson Bugg"
 date: today
@@ -212,7 +212,7 @@ definite. As in `zeroinfl()`, $\log\theta$ is reported with its standard
 error, and $\theta$ with the delta-method standard error
 $\theta \cdot \operatorname{SE}(\log\theta)$.
 
-## The R package {#sec-package}
+## The R Package {#sec-package}
 
 The package is installed from GitHub:
 
@@ -398,7 +398,7 @@ iteration, so it needed `r em_iter[["bioChemists_ZINB"]]` and
 evaluations for the BFGS search of `zeroinfl()`. Further, ungraded checks
 are in the supplementary benchmark article on the package website.
 
-## Simulation study {#sec-simulation}
+## Simulation Study {#sec-simulation}
 
 ```{r}
 #| label: sim-setup
@@ -597,7 +597,7 @@ The fits took a median of
 `r if (sim_ok) stats::median(sim$replicates$iterations)` EM iterations each. Profile-likelihood intervals for theta are summarized in the
 appendix.
 
-## Data analysis: NMES1988 {#sec-nmes}
+## Data Analysis: NMES1988 {#sec-nmes}
 
 ```{r}
 #| label: nmes-setup
@@ -1068,11 +1068,11 @@ if (is.null(saved)) {
 }
 ```
 
-### Profile-likelihood intervals in the simulation {.unnumbered}
+### Profile-Likelihood Intervals in the Simulation {.unnumbered}
 
 `r prof_text` `r local_text`
 
-### Provenance of the saved results {.unnumbered}
+### Provenance of the Saved Results {.unnumbered}
 
 ```{=latex}
 \sloppy

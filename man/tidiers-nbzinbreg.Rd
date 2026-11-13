@@ -6,7 +6,7 @@
 \alias{glance.nbreg}
 \alias{tidy.zinbreg}
 \alias{glance.zinbreg}
-\title{Tidy summaries of nbreg and zinbreg fits}
+\title{Tidy Summaries of nbreg and zinbreg Fits}
 \usage{
 \method{tidy}{nbreg}(x, conf.int = FALSE, conf.level = 0.95, ...)
 

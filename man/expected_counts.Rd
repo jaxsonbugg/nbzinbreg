@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostics.R
 \name{expected_counts}
 \alias{expected_counts}
-\title{Observed and expected count frequencies}
+\title{Observed and Expected Count Frequencies}
 \usage{
 expected_counts(object, max_count = NULL, ...)
 }

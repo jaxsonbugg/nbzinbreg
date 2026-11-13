@@ -5,7 +5,7 @@
 \alias{anova.nbreg}
 \alias{anova.zinbreg}
 \alias{print.nbzinbreg_anova}
-\title{Likelihood-ratio tests for nested nbreg or zinbreg fits}
+\title{Likelihood-Ratio Tests for Nested nbreg or zinbreg Fits}
 \usage{
 \method{anova}{nbreg}(object, ...)
 

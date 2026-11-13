@@ -24,7 +24,7 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 library(nbzinbreg)
 ```
 
-## The data
+## The Data
 
 The examples use `bioChemists` from the pscl package: the number of articles
 (`art`) published by 915 biochemistry PhD students in the last three years of
@@ -41,7 +41,7 @@ c(mean = mean(bioChemists$art), variance = var(bioChemists$art),
 The variance is more than twice the mean (overdispersion), which a Poisson
 model cannot describe.
 
-## Negative binomial regression
+## Negative Binomial Regression
 
 `nbreg()` takes a formula and a data frame, like `glm()`. The coefficients
 are on the log scale of the expected count; `theta` is the dispersion
@@ -59,7 +59,7 @@ expected count changes per unit of a covariate.
 round(exp(coef(fit_nb)), 3)
 ```
 
-## Zero-inflated negative binomial regression
+## Zero-Inflated Negative Binomial Regression
 
 `zinbreg()` adds a second, logistic model for the probability of a
 *structural zero* (a student who would publish nothing in any case). The
@@ -75,7 +75,7 @@ summary(fit_zi)
 The summary also reports how the fit converged: the number of EM
 iterations and the gradient check at the estimates.
 
-## Comparing the models
+## Comparing the Models
 
 `logLik()` carries the number of parameters, so `AIC()` and `BIC()` work
 directly.
@@ -110,7 +110,7 @@ predict(fit_zi, newdata = new, type = "zero")
 round(predict(fit_zi, newdata = new, type = "prob")[, 1:4], 3)
 ```
 
-## Confidence intervals
+## Confidence Intervals
 
 `confint()` gives Wald intervals for the coefficients and a
 profile-likelihood interval for theta.
@@ -135,7 +135,7 @@ head(expected_counts(fit_zi), 5)
 rootogram(fit_zi, max_count = 12)
 ```
 
-## Control settings
+## Control Settings
 
 `nbreg_control()` and `zinbreg_control()` set tolerances and iteration
 limits, and `trace = TRUE` prints the progress of the fit. For ZINB,
@@ -149,7 +149,7 @@ fit_zi_num <- zinbreg(art ~ fem + mar + kid5 + phd + ment | ment,
 max(abs(sqrt(diag(vcov(fit_zi_num))) - sqrt(diag(vcov(fit_zi)))))
 ```
 
-## Tidy summaries
+## Tidy Summaries
 
 `tidy()` and `glance()` return the coefficient table and the model summary
 as data frames.
@@ -159,7 +159,7 @@ head(tidy(fit_zi), 4)
 glance(fit_zi)
 ```
 
-## Where next
+## Where Next
 
 - The [Reference](../reference/index.html) lists every function with its
   arguments and examples.

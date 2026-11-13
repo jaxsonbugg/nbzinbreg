@@ -33,7 +33,7 @@ well within the project's tolerances.
   that EM never lowers the likelihood, a gradient check before declaring
   convergence, and informative errors for bad input.
 
-## Get started
+## Get Started
 
 - [**Usage**](articles/usage.html): a step-by-step guide with real output.
 - [**Reference**](reference/index.html): every function, grouped by task.
@@ -52,7 +52,7 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 
 :::
 
-## Quick start
+## Quick Start
 
 ::: {.home-code}
 

@@ -4,7 +4,7 @@
 \alias{simulate-nbzinbreg}
 \alias{simulate.nbreg}
 \alias{simulate.zinbreg}
-\title{Simulate responses from nbreg and zinbreg fits}
+\title{Simulate Responses from nbreg and zinbreg Fits}
 \usage{
 \method{simulate}{nbreg}(object, nsim = 1, seed = NULL, ...)
 
