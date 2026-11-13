@@ -542,3 +542,5 @@ The owner's last changes were made and verified, and this entry records the proj
 1. Write the AI-use statement as the separate document.
 2. Upload `report/report.pdf` to Canvas, with the repository URL and the website URL in the submission comment.
 3. Book the oral walkthrough for November 2-6, if not already booked.
+
+**CI follow-up (2026-11-13).** The push of `7d662a3` failed one of the five CI configurations, `ubuntu-latest (devel)`, in `tests/testthat/test-input-validation.R` (one assertion). The package was behaving correctly: for a factor with one level, `nbreg()` explains the problem and appends R's own message, and R-devel now words that message "cannot set contrasts for variable ..." instead of "contrasts can be applied only to factors with 2 or more levels". The test asserted the old wording. It now checks that the original message is kept and concerns contrasts, whichever wording R uses (and tests the pattern against both). Nothing in `R/` changed. The devel job had passed on `9c5d405` three days earlier with the same 9 test warnings and 4 skips, so the cause is R-devel's changed text, not this round's edits.

@@ -350,8 +350,15 @@ test_that("nbreg() explains model-matrix failures and names the factor", {
   # two factors reduced to one level each
   expect_input_error(nbreg(y ~ g + h, dg, subset = g == "a" & h == "p"),
                      "`g`, `h` have only one level")
-  # the original R message is kept for reference
-  expect_input_error(nbreg(y ~ x + ch, dg), "Original error: contrasts")
+  # the original R message is kept for reference. R's own wording differs
+  # between versions ("contrasts can be applied only to factors with 2 or
+  # more levels", and in R-devel "cannot set contrasts for variable 'ch'"),
+  # so only the fact that it is kept, and that it concerns contrasts, is checked
+  expect_input_error(nbreg(y ~ x + ch, dg), "Original error: .*contrasts")
+  expect_match("Original error: contrasts can be applied only to factors with 2 or more levels",
+               "Original error: .*contrasts")
+  expect_match("Original error: cannot set contrasts for variable 'ch':",
+               "Original error: .*contrasts")
 })
 
 test_that("nbreg() revalidates nbreg_control objects", {
