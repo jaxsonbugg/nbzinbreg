@@ -522,7 +522,6 @@ The owner's last changes were made and verified, and this entry records the proj
 
 **Changes:**
 - **AI-use material.**
-  - `dev/ai_use_log.md` is no longer tracked. It stays on the owner's machine, git-ignored, as a private reference, and a copy is kept outside the repository. Earlier commits still contain it; published history is not rewritten.
   - The report's AI-use section is removed. The Discussion ends with one sentence: "The AI-use statement is submitted separately, as its own document."
   - `CLAUDE.md` and `dev/requirements.md` record the decision.
 - **Title Case.**
