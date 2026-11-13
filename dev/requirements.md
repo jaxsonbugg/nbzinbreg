@@ -139,7 +139,7 @@ Single Quarto source `vignettes/articles/report.qmd`, fully reproducible (all nu
 5. Simulation study (results table and brief discussion)
 6. Data analysis (NMES1988)
 7. Discussion (limitations and possible extensions)
-8. AI-use statement (how Claude Code was used: what it was asked to do, what was verified independently, and one example where its output had to be corrected or rejected). *(Owner's decision: submitted separately, as its own document written by the owner, so the report has no such section and points to it in one sentence. `dev/ai_use_log.md` is kept locally, git-ignored, as the owner's reference.)*
+8. AI-use statement (how Claude Code was used: what it was asked to do, what was verified independently, and one example where its output had to be corrected or rejected). Submitted separately, per instruction.
 9. References
 
 Outputs from the one source:
