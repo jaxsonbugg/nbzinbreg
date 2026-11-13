@@ -38,6 +38,3 @@ desktop.ini
 
 # Checkpoint of the NMES1988 bootstrap run (kept outside the repository)
 inst/benchmark/nmes_bootstrap_checkpoint.rds*
-
-# The AI-use log is kept locally for the author (not part of the repository)
-dev/ai_use_log.md
