@@ -47,7 +47,7 @@ within the project’s tolerances.
   check that EM never lowers the likelihood, a gradient check before
   declaring convergence, and informative errors for bad input.
 
-## Get started
+## Get Started
 
 - [**Usage**](https://jaxsonbugg.github.io/nbzinbreg/articles/usage.md):
   a step-by-step guide with real output.
@@ -65,7 +65,7 @@ within the project’s tolerances.
 devtools::install_github("jaxsonbugg/nbzinbreg")
 ```
 
-## Quick start
+## Quick Start
 
 ``` r
 

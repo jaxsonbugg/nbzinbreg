@@ -17,7 +17,7 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 library(nbzinbreg)
 ```
 
-## The data
+## The Data
 
 The examples use `bioChemists` from the pscl package: the number of
 articles (`art`) published by 915 biochemistry PhD students in the last
@@ -39,7 +39,7 @@ c(mean = mean(bioChemists$art), variance = var(bioChemists$art),
 The variance is more than twice the mean (overdispersion), which a
 Poisson model cannot describe.
 
-## Negative binomial regression
+## Negative Binomial Regression
 
 [`nbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/nbreg.md)
 takes a formula and a data frame, like
@@ -88,7 +88,7 @@ round(exp(coef(fit_nb)), 3)
     (Intercept)    femWomen  marMarried        kid5         phd        ment
           1.292       0.805       1.162       0.838       1.015       1.030 
 
-## Zero-inflated negative binomial regression
+## Zero-Inflated Negative Binomial Regression
 
 [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md)
 adds a second, logistic model for the probability of a *structural zero*
@@ -141,7 +141,7 @@ summary(fit_zi)
 The summary also reports how the fit converged: the number of EM
 iterations and the gradient check at the estimates.
 
-## Comparing the models
+## Comparing the Models
 
 [`logLik()`](https://rdrr.io/r/stats/logLik.html) carries the number of
 parameters, so [`AIC()`](https://rdrr.io/r/stats/AIC.html) and
@@ -228,7 +228,7 @@ round(predict(fit_zi, newdata = new, type = "prob")[, 1:4], 3)
     1 0.199 0.242 0.202 0.142
     2 0.254 0.273 0.201 0.126
 
-## Confidence intervals
+## Confidence Intervals
 
 [`confint()`](https://rdrr.io/r/stats/confint.html) gives Wald intervals
 for the coefficients and a profile-likelihood interval for theta.
@@ -274,7 +274,7 @@ rootogram(fit_zi, max_count = 12)
 
 ![](usage_files/figure-html/unnamed-chunk-12-1.png)
 
-## Control settings
+## Control Settings
 
 [`nbreg_control()`](https://jaxsonbugg.github.io/nbzinbreg/reference/nbreg_control.md)
 and
@@ -293,7 +293,7 @@ max(abs(sqrt(diag(vcov(fit_zi_num))) - sqrt(diag(vcov(fit_zi)))))
 
     [1] 6.236107e-09
 
-## Tidy summaries
+## Tidy Summaries
 
 [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
 [`glance()`](https://generics.r-lib.org/reference/glance.html) return
@@ -320,7 +320,7 @@ glance(fit_zi)
       converged newton_decrement
     1      TRUE     9.354037e-09
 
-## Where next
+## Where Next
 
 - The
   [Reference](https://jaxsonbugg.github.io/nbzinbreg/reference/index.md)

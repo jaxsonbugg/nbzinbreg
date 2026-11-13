@@ -1,4 +1,4 @@
-# Control settings for zinbreg()
+# Control Settings for zinbreg()
 
 Collects and checks the tolerances, iteration limits and other settings
 used by the EM algorithm in

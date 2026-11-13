@@ -1,4 +1,4 @@
-# Summaries, predictions and other methods for zinbreg fits
+# Summaries, Predictions and Other Methods for zinbreg Fits
 
 Standard methods for objects returned by
 [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md):

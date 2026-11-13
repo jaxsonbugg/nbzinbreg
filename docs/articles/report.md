@@ -1,4 +1,4 @@
-# nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM
+# nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial Regression by IRLS and EM
 
 [Download the
 PDF](https://jaxsonbugg.github.io/nbzinbreg/articles/report.pdf)   For
@@ -165,7 +165,7 @@ symmetric and negative definite. As in `zeroinfl()`, $`\log\theta`$ is
 reported with its standard error, and $`\theta`$ with the delta-method
 standard error $`\theta \cdot \operatorname{SE}(\log\theta)`$.
 
-## 3 The R package
+## 3 The R Package
 
 The package is installed from GitHub:
 
@@ -320,7 +320,7 @@ evaluations for the BFGS search of `zeroinfl()`. Further, ungraded
 checks are in the supplementary benchmark article on the package
 website.
 
-## 5 Simulation study
+## 5 Simulation Study
 
 The simulation fits
 [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md)
@@ -399,7 +399,7 @@ for log theta), although here the theta-scale interval is closer to 95%.
 The fits took a median of 0.49 s and 98 EM iterations each.
 Profile-likelihood intervals for theta are summarized in the appendix.
 
-## 6 Data analysis: NMES1988
+## 6 Data Analysis: NMES1988
 
 **The data.** The NMES1988 data ([Deb and Trivedi 1997](#ref-deb1997);
 [Kleiber and Zeileis 2008](#ref-kleiber2008)) come from the 1987–88 US
@@ -614,44 +614,7 @@ already computes); sandwich standard errors; and simulations that vary
 the sample size, the strength of zero inflation and the model
 specification.
 
-## 8 AI-use statement
-
-> **Outline — to be written by the author before submission**
->
-> This section must be written by the author in their own words. The
-> points the project requires, and candidate examples from
-> `dev/ai_use_log.md`, are listed below as a starting point; delete this
-> box when the statement is written.
-
-**Required points.**
-
-1.  What Claude Code was asked to do (planning, implementation, tests,
-    benchmark and simulation scripts, the report).
-2.  What was verified independently (equations checked against the
-    project description; comparisons with `glm.nb()` and `zeroinfl()`;
-    tests; the prohibited-function check; reading the code).
-3.  At least one concrete example where Claude’s output had to be
-    corrected or rejected.
-
-**Candidate examples from the log** (choose and describe in your own
-words):
-
-- *2026-11-08,
-  [`nbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/nbreg.md)
-  plan:* Claude’s first plan clipped $`\eta`$ and floored $`\mu`$, which
-  would have silently changed the likelihood; it also used the number of
-  positive-weight observations instead of the sum of the weights in the
-  starting value for $`\theta`$.
-- *2026-11-09,
-  [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md)
-  validation:* with weights, `zeroinfl()` disagreed with
-  [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md)
-  by 0.03; instead of relaxing the tolerance, the investigation showed
-  that `zeroinfl()`’s weighted fit stops at a point that is not a
-  maximum.
-- *2026-11-09, `grad_tol`:* the planned tolerance of $`10^{-6}`$ could
-  have allowed errors above the required $`10^{-3}`$ on bioChemists, and
-  was changed to $`10^{-8}`$ on that evidence.
+The AI-use statement is submitted separately, as its own document.
 
 ## References
 
@@ -795,7 +758,7 @@ replications).
 Table 11: Computation time in seconds (median of 10 runs, with the
 minimum and maximum).
 
-### Profile-likelihood intervals in the simulation
+### Profile-Likelihood Intervals in the Simulation
 
 The profile-likelihood interval for theta from
 [`confint()`](https://rdrr.io/r/stats/confint.html) was computed for the
@@ -814,7 +777,7 @@ finds the one its starting values lead to. The other fits passed the
 same checks, which establish a local maximum but not the highest one, so
 a small share of them may also be lower local maxima.
 
-### Provenance of the saved results
+### Provenance of the Saved Results
 
 The timings, the simulation and the NMES1988 bootstrap are read from
 saved results, because they take minutes to hours to produce. Each was

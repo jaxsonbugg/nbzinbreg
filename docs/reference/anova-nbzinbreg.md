@@ -1,4 +1,4 @@
-# Likelihood-ratio tests for nested nbreg or zinbreg fits
+# Likelihood-Ratio Tests for Nested nbreg or zinbreg Fits
 
 Compares nested fits of the same class with likelihood-ratio tests:
 twice the difference in log-likelihoods, referred to a chi-squared

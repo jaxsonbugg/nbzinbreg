@@ -1,4 +1,4 @@
-# Benchmark: supplementary checks
+# Benchmark: Supplementary Checks
 
 The report’s Benchmarking section compares the required quantities of
 the project description: the coefficients, their standard errors, theta
@@ -20,7 +20,7 @@ at their default settings,
 [`pscl::zeroinfl()`](https://rdrr.io/pkg/pscl/man/zeroinfl.html) with
 tight tolerances.
 
-## Standard errors of theta and log(theta)
+## Standard Errors of theta and log(theta)
 
 [`nbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/nbreg.md)
 reports SE(theta) and
@@ -38,7 +38,7 @@ references:
 Table 1: Standard error of theta (NB) and of log(theta) (ZINB, analytic
 Hessian), against the references.
 
-## ZINB with the numeric Hessian
+## ZINB with the Numeric Hessian
 
 [`zinbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/zinbreg.md)
 computes standard errors from the analytic Hessian (matrix of second
@@ -75,7 +75,7 @@ least 6.38e-06). The remaining differences from zeroinfl() therefore
 come from the small differences between the two packages’ estimates, not
 from how the standard errors are computed.
 
-## Validity checks
+## Validity Checks
 
 Every comparison in the report and here is made only after these checks
 pass for both fits of a pair. A failed check would be reported here with
@@ -171,7 +171,7 @@ its reason, and the comparison would be marked as not assessed.
 | valid covariance (ours) | yes | finite, symmetric, positive definite; condition number 1.07e+05 |
 | valid covariance (reference) | yes | finite, symmetric, positive definite; condition number 1.07e+05 |
 
-## Timing with the numeric Hessian
+## Timing with the Numeric Hessian
 
 The numeric Hessian needs many more evaluations of the log-likelihood,
 so it is slower. Timings are from the saved benchmark results (median of

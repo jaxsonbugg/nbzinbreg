@@ -143,7 +143,7 @@ Single Quarto source `vignettes/articles/report.qmd`, fully reproducible (all nu
 9. References
 
 Outputs from the one source:
-- [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(Rendered and committed as the draft of record; ticked when the final PDF is rendered.)*
+- [x] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(2026-11-13: rendered and committed as `report/report.pdf`: 15 pages, the main body ends on page 10, headings in Title Case, black table of contents, no AI-use section.)*
 - [x] Website via `pkgdown::build_site()` (report appears as an article next to the function reference), output in `docs/`, served by GitHub Pages from `main` `/docs`. *(Built with `CLAUDE.md` moved out of the root for the build, so it is not published.)*
 
 ## 9. Expected repository layout
@@ -169,10 +169,10 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 - [x] `devtools::check()`: 0 errors, 0 warnings; CI badge is green. *(1 note locally: the clock check. CI green on all five configurations for every commit of this phase.)*
 - [x] `devtools::test()` passes, including the comparisons with `glm.nb()` and `zeroinfl()`. *(323 tests, 2110 expectations, 0 failed, 0 skipped, with `NOT_CRAN = "true"`.)*
 - [x] No prohibited function calls in `R/`. *(The detector test passes on all 192 package functions, and a manual scan of `R/` finds the names only in comments and documentation.)*
-- [ ] Report renders to PDF; `report/report.pdf` is committed. *(Committed as the draft of record; ticked when the final PDF is rendered.)*
+- [x] Report renders to PDF; `report/report.pdf` is committed. *(2026-11-13: see above.)*
 - [x] GitHub Pages site is live and contains the report and the function reference. *(Home, report, supplement, reference pages, the report's figures and its PDF all return HTTP 200.)*
 - [x] Commit history shows progress over time, not a single final commit. *(Small commits throughout the project; this phase alone has eleven.)*
-- [ ] README: the temporary status section has been removed, and the usage example is real and executed. *(Pending owner gate: removed when no work remains.)*
+- [x] README: the temporary status section has been removed, and the usage example is real and executed. *(2026-11-13: the status section is gone; the README ends with a small "Other Links" section. The usage examples are executed and reproduce `README.md`.)*
 
 ### Verification still required as functionality is added
 

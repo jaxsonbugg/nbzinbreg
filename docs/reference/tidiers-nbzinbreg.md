@@ -1,4 +1,4 @@
-# Tidy summaries of nbreg and zinbreg fits
+# Tidy Summaries of nbreg and zinbreg Fits
 
 [`tidy()`](https://generics.r-lib.org/reference/tidy.html) returns a
 data frame with one row per parameter (estimate, standard error, z

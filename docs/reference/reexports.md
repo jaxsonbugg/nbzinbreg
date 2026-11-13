@@ -1,4 +1,4 @@
-# Objects exported from other packages
+# Objects Exported from Other Packages
 
 These objects are imported from other packages. Follow the links below
 to see their documentation.

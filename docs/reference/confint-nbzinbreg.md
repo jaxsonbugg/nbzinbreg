@@ -1,4 +1,4 @@
-# Confidence intervals for nbreg and zinbreg fits
+# Confidence Intervals for nbreg and zinbreg Fits
 
 Confidence intervals for the coefficients and for the dispersion
 parameter `theta`.

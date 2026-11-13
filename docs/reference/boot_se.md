@@ -1,4 +1,4 @@
-# Parametric bootstrap standard errors
+# Parametric Bootstrap Standard Errors
 
 Simulates `R` new data sets from a fitted model, refits the model to
 each, and reports the standard deviation of the refitted estimates. This

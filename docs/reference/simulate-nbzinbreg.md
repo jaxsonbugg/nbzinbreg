@@ -1,4 +1,4 @@
-# Simulate responses from nbreg and zinbreg fits
+# Simulate Responses from nbreg and zinbreg Fits
 
 Draws new response vectors from a fitted model, keeping the covariates
 fixed. For an `nbreg` fit each response is a negative binomial draw with

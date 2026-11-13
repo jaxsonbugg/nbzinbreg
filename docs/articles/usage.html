@@ -91,7 +91,7 @@
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/jaxsonbugg/nbzinbreg" class="external-link">nbzinbreg</a></span><span class="op">)</span></span></code></pre></div>
 </div>
-</section><section class="level2"><h2 id="the-data">The data<a class="anchor" aria-label="anchor" href="#the-data"></a>
+</section><section class="level2"><h2 id="the-data">The Data<a class="anchor" aria-label="anchor" href="#the-data"></a>
 </h2>
 <p>The examples use <code>bioChemists</code> from the pscl package: the number of articles (<code>art</code>) published by 915 biochemistry PhD students in the last three years of their PhD, with gender (<code>fem</code>), marital status (<code>mar</code>), the number of children under 6 (<code>kid5</code>), the prestige of the PhD programme (<code>phd</code>) and the number of articles by the student’s mentor (<code>ment</code>).</p>
 <div class="cell">
@@ -105,7 +105,7 @@
 </div>
 </div>
 <p>The variance is more than twice the mean (overdispersion), which a Poisson model cannot describe.</p>
-</section><section class="level2"><h2 id="negative-binomial-regression">Negative binomial regression<a class="anchor" aria-label="anchor" href="#negative-binomial-regression"></a>
+</section><section class="level2"><h2 id="negative-binomial-regression">Negative Binomial Regression<a class="anchor" aria-label="anchor" href="#negative-binomial-regression"></a>
 </h2>
 <p><code><a href="../reference/nbreg.html">nbreg()</a></code> takes a formula and a data frame, like <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm()</a></code>. The coefficients are on the log scale of the expected count; <code>theta</code> is the dispersion parameter, with variance <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>μ</mi><mo>+</mo><msup><mi>μ</mi><mn>2</mn></msup><mi>/</mi><mi>θ</mi></mrow><annotation encoding="application/x-tex">\mu + \mu^2/\theta</annotation></semantics></math>.</p>
 <div class="cell">
@@ -148,7 +148,7 @@ Outer passes: 4;  converged: yes</code></pre>
       1.292       0.805       1.162       0.838       1.015       1.030 </code></pre>
 </div>
 </div>
-</section><section class="level2"><h2 id="zero-inflated-negative-binomial-regression">Zero-inflated negative binomial regression<a class="anchor" aria-label="anchor" href="#zero-inflated-negative-binomial-regression"></a>
+</section><section class="level2"><h2 id="zero-inflated-negative-binomial-regression">Zero-Inflated Negative Binomial Regression<a class="anchor" aria-label="anchor" href="#zero-inflated-negative-binomial-regression"></a>
 </h2>
 <p><code><a href="../reference/zinbreg.html">zinbreg()</a></code> adds a second, logistic model for the probability of a <em>structural zero</em> (a student who would publish nothing in any case). The formula has two parts: count covariates before <code>|</code>, zero covariates after. Without <code>|</code>, both parts use the same covariates.</p>
 <div class="cell">
@@ -195,7 +195,7 @@ Starting values: count part from negative binomial fit; zero part from logistic 
 </div>
 </div>
 <p>The summary also reports how the fit converged: the number of EM iterations and the gradient check at the estimates.</p>
-</section><section class="level2"><h2 id="comparing-the-models">Comparing the models<a class="anchor" aria-label="anchor" href="#comparing-the-models"></a>
+</section><section class="level2"><h2 id="comparing-the-models">Comparing the Models<a class="anchor" aria-label="anchor" href="#comparing-the-models"></a>
 </h2>
 <p><code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code> carries the number of parameters, so <code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC()</a></code> and <code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">BIC()</a></code> work directly.</p>
 <div class="cell">
@@ -264,7 +264,7 @@ Vuong test is not a valid test of zero inflation; the statistics are descriptive
 2 0.254 0.273 0.201 0.126</code></pre>
 </div>
 </div>
-</section><section class="level2"><h2 id="confidence-intervals">Confidence intervals<a class="anchor" aria-label="anchor" href="#confidence-intervals"></a>
+</section><section class="level2"><h2 id="confidence-intervals">Confidence Intervals<a class="anchor" aria-label="anchor" href="#confidence-intervals"></a>
 </h2>
 <p><code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> gives Wald intervals for the coefficients and a profile-likelihood interval for theta.</p>
 <div class="cell">
@@ -306,7 +306,7 @@ theta        1.80734  2.89853</code></pre>
 </div>
 </div>
 </div>
-</section><section class="level2"><h2 id="control-settings">Control settings<a class="anchor" aria-label="anchor" href="#control-settings"></a>
+</section><section class="level2"><h2 id="control-settings">Control Settings<a class="anchor" aria-label="anchor" href="#control-settings"></a>
 </h2>
 <p><code><a href="../reference/nbreg_control.html">nbreg_control()</a></code> and <code><a href="../reference/zinbreg_control.html">zinbreg_control()</a></code> set tolerances and iteration limits, and <code>trace = TRUE</code> prints the progress of the fit. For ZINB, <code>hessian = "numeric"</code> uses a numerical Hessian for the standard errors instead of the analytic one.</p>
 <div class="cell">
@@ -319,7 +319,7 @@ theta        1.80734  2.89853</code></pre>
 <pre><code>[1] 6.236107e-09</code></pre>
 </div>
 </div>
-</section><section class="level2"><h2 id="tidy-summaries">Tidy summaries<a class="anchor" aria-label="anchor" href="#tidy-summaries"></a>
+</section><section class="level2"><h2 id="tidy-summaries">Tidy Summaries<a class="anchor" aria-label="anchor" href="#tidy-summaries"></a>
 </h2>
 <p><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> and <code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> return the coefficient table and the model summary as data frames.</p>
 <div class="cell">
@@ -341,7 +341,7 @@ theta        1.80734  2.89853</code></pre>
 1      TRUE     9.354037e-09</code></pre>
 </div>
 </div>
-</section><section class="level2"><h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
+</section><section class="level2"><h2 id="where-next">Where Next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
 <ul>
 <li>The <a href="../reference/index.html">Reference</a> lists every function with its arguments and examples.</li>
@@ -429,7 +429,7 @@ theta        1.80734  2.89853</code></pre>
       }
     }
   });
-  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On This Page</h2>
     </nav></aside>
 </div>
 

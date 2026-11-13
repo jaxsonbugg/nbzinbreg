@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Benchmark: supplementary checks • nbzinbreg</title>
+<title>Benchmark: Supplementary Checks • nbzinbreg</title>
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="benchmark-supplement_files/libs/quarto-html/popper.min.js"></script><script src="benchmark-supplement_files/libs/quarto-html/tippy.umd.min.js"></script><link href="benchmark-supplement_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="benchmark-supplement_files/libs/quarto-html/light-border.css" rel="stylesheet">
-<!-- pkgdown --><script src="../pkgdown.js"></script><script src="../extra.js"></script><meta property="og:title" content="Benchmark: supplementary checks">
+<!-- pkgdown --><script src="../pkgdown.js"></script><script src="../extra.js"></script><meta property="og:title" content="Benchmark: Supplementary Checks">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -65,7 +65,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Benchmark: supplementary checks</h1>
+      <h1>Benchmark: Supplementary Checks</h1>
 
 
 
@@ -92,7 +92,7 @@ inst/benchmark/benchmark.R.
 <li>the <strong>relative difference</strong> |ours − reference| / |reference|, which puts quantities of different sizes on a common footing (a relative difference of 1e-5 means agreement to about five significant digits).</li>
 </ul>
 <p>The data, formulas and settings are those of the report: our functions at their default settings, <code><a href="https://rdrr.io/pkg/MASS/man/glm.nb.html" class="external-link">MASS::glm.nb()</a></code> and <code><a href="https://rdrr.io/pkg/pscl/man/zeroinfl.html" class="external-link">pscl::zeroinfl()</a></code> with tight tolerances.</p>
-<section class="level2"><h2 id="standard-errors-of-theta-and-logtheta">Standard errors of theta and log(theta)<a class="anchor" aria-label="anchor" href="#standard-errors-of-theta-and-logtheta"></a>
+<section class="level2"><h2 id="standard-errors-of-theta-and-logtheta">Standard Errors of theta and log(theta)<a class="anchor" aria-label="anchor" href="#standard-errors-of-theta-and-logtheta"></a>
 </h2>
 <p><code><a href="../reference/nbreg.html">nbreg()</a></code> reports SE(theta) and <code><a href="../reference/zinbreg.html">zinbreg()</a></code> reports SE(log theta), as the references do. Their agreement with the references:</p>
 <div class="cell">
@@ -146,7 +146,7 @@ Table 1: Standard error of theta (NB) and of log(theta) (ZINB, analytic Hessian
 </figure>
 </div>
 </div>
-</section><section class="level2"><h2 id="zinb-with-the-numeric-hessian">ZINB with the numeric Hessian<a class="anchor" aria-label="anchor" href="#zinb-with-the-numeric-hessian"></a>
+</section><section class="level2"><h2 id="zinb-with-the-numeric-hessian">ZINB with the Numeric Hessian<a class="anchor" aria-label="anchor" href="#zinb-with-the-numeric-hessian"></a>
 </h2>
 <p><code><a href="../reference/zinbreg.html">zinbreg()</a></code> computes standard errors from the analytic Hessian (matrix of second derivatives) of the log-likelihood by default; with <code>zinbreg_control(hessian = "numeric")</code> it differentiates the log-likelihood numerically instead (<code><a href="https://rdrr.io/pkg/numDeriv/man/hessian.html" class="external-link">numDeriv::hessian()</a></code>). The option only changes how the matrix used for the standard errors is computed: the EM iterations and the gradient check that stops them are the same, so the estimates are identical and this checks the standard errors by a second, independent route.</p>
 <div class="cell">
@@ -249,7 +249,7 @@ Table 2: ZINB fits with the numeric Hessian against zeroinfl(), and our analyti
 </div>
 </div>
 <p>Our two Hessian methods give standard errors that agree with each other to 2.47e-07, far more closely than either agrees with zeroinfl() (at least 6.38e-06). The remaining differences from zeroinfl() therefore come from the small differences between the two packages’ estimates, not from how the standard errors are computed.</p>
-</section><section class="level2"><h2 id="validity-checks">Validity checks<a class="anchor" aria-label="anchor" href="#validity-checks"></a>
+</section><section class="level2"><h2 id="validity-checks">Validity Checks<a class="anchor" aria-label="anchor" href="#validity-checks"></a>
 </h2>
 <p>Every comparison in the report and here is made only after these checks pass for both fits of a pair. A failed check would be reported here with its reason, and the comparison would be marked as not assessed.</p>
 <p><strong>bioChemists NB</strong></p>
@@ -641,7 +641,7 @@ Table 2: ZINB fits with the numeric Hessian against zeroinfl(), and our analyti
 <td style="text-align: left;">finite, symmetric, positive definite; condition number 1.07e+05</td>
 </tr>
 </tbody>
-</table></section><section class="level2"><h2 id="timing-with-the-numeric-hessian">Timing with the numeric Hessian<a class="anchor" aria-label="anchor" href="#timing-with-the-numeric-hessian"></a>
+</table></section><section class="level2"><h2 id="timing-with-the-numeric-hessian">Timing with the Numeric Hessian<a class="anchor" aria-label="anchor" href="#timing-with-the-numeric-hessian"></a>
 </h2>
 <p>The numeric Hessian needs many more evaluations of the log-likelihood, so it is slower. Timings are from the saved benchmark results (median of 10 runs, with the range).</p>
 <div class="cell">
@@ -779,7 +779,7 @@ Table 3: zinbreg() with the analytic and the numeric Hessian: computation time 
       }
     }
   });
-  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On This Page</h2>
     </nav></aside>
 </div>
 

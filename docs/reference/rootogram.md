@@ -1,4 +1,4 @@
-# Rootogram of observed and expected count frequencies
+# Rootogram of Observed and Expected Count Frequencies
 
 Draws a hanging rootogram (Kleiber and Zeileis, 2016). The square roots
 of the expected frequencies from

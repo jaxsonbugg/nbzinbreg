@@ -1,4 +1,4 @@
-# Test for overdispersion: Poisson against negative binomial
+# Test for Overdispersion: Poisson against Negative Binomial
 
 Tests whether the negative binomial model fits better than the Poisson
 model, which is its limit as `theta` goes to infinity. The Poisson model

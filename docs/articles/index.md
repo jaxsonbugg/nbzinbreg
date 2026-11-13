@@ -7,11 +7,11 @@
 
 ### Report
 
-- [nbzinbreg: negative binomial and zero-inflated negative binomial
-  regression by IRLS and
+- [nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial
+  Regression by IRLS and
   EM](https://jaxsonbugg.github.io/nbzinbreg/articles/report.md):
 
-### Supplementary material
+### Supplementary Material
 
-- [Benchmark: supplementary
-  checks](https://jaxsonbugg.github.io/nbzinbreg/articles/benchmark-supplement.md):
+- [Benchmark: Supplementary
+  Checks](https://jaxsonbugg.github.io/nbzinbreg/articles/benchmark-supplement.md):

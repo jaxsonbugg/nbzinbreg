@@ -1,4 +1,4 @@
-# Compare a zinbreg fit with an nbreg fit
+# Compare a zinbreg Fit with an nbreg Fit
 
 Compares the zero-inflated model with the plain negative binomial (NB)
 model fitted to the same data. It reports the Vuong statistics as a

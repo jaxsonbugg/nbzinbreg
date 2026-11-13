@@ -1,4 +1,4 @@
-# Control settings for nbreg()
+# Control Settings for nbreg()
 
 Collects and checks the tolerances, iteration limits and other settings
 used by

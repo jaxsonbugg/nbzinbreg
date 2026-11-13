@@ -515,3 +515,30 @@ The supplementary benchmark article made no such claims. A regression check of t
 6. Run the gates, then commit ("Finalize the report with the author's AI-use statement") and push; confirm that CI is green and the site has updated.
 
 The author then uploads `report/report.pdf` to Canvas and submits the repository URL and the Pages URL.
+
+## 2026-11-13: Finalized: submission-ready
+
+The owner's last changes were made and verified, and this entry records the project as final. The one thing outside the repository is the AI-use statement, which the owner writes alone as a separate document (see below); the owner submits it and the report together.
+
+**Changes:**
+- **AI-use material.**
+  - `dev/ai_use_log.md` is no longer tracked. It stays on the owner's machine, git-ignored, as a private reference, and a copy is kept outside the repository. Earlier commits still contain it; published history is not rewritten.
+  - The report's AI-use section is removed. The Discussion ends with one sentence: "The AI-use statement is submitted separately, as its own document."
+  - `CLAUDE.md` and `dev/requirements.md` record the decision.
+- **Title Case.**
+  - Headings and titles in the Usage, Reference, Report and Supplementary pages, the home page and the README, and the one-line function titles in the Reference (roxygen titles in `R/`, documentation only; `man/` regenerated).
+  - A few labels that pkgdown and roxygen generate themselves ("Package index", "Objects exported from other packages", "On this page", "Dev status") cannot be set in the sources; the site build replaces them in `docs/` afterwards. `CLAUDE.md` records the four replacements.
+  - A sweep of every heading on the built pages found no sentence-case heading apart from the package name `nbzinbreg`, which is lowercase by design.
+- **README.** The status section is removed completely. The progress log, design notes and requirements checklist links are in a small "Other Links" section at the bottom. `CLAUDE.md`'s rules for the status section were replaced by a note on the README's layout.
+
+**Verification (one run on the combined result):**
+- The test suite with `NOT_CRAN = "true"`: 323 tests, 2110 expectations, 0 failed, 0 skipped.
+- `devtools::check()`: 0 errors, 0 warnings, 1 note (the local clock). Plain `R CMD check --no-manual`: Status: OK.
+- `pkgdown::check_pkgdown()` passes; `docs/` has no CLAUDE page and no personal paths; the only AI-use text on the site is the pointer sentence.
+- `report/report.pdf`: 15 pages, the main body ends on page 10 (References start there, the appendix follows), headings in Title Case, black table of contents, cross-references and citations resolved.
+- Results of record are unchanged: no code, simulation or bootstrap result was touched in this round.
+
+**What the owner still does** (outside the repository):
+1. Write the AI-use statement as the separate document.
+2. Upload `report/report.pdf` to Canvas, with the repository URL and the website URL in the submission comment.
+3. Book the oral walkthrough for November 2-6, if not already booked.

@@ -1,4 +1,4 @@
-# Observed and expected count frequencies
+# Observed and Expected Count Frequencies
 
 Compares how often each count value (0, 1, 2, ...) occurs in the data
 with how often the fitted model expects it to occur. The expected

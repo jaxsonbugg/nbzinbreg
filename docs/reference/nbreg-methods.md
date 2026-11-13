@@ -1,4 +1,4 @@
-# Summaries, predictions and other methods for nbreg fits
+# Summaries, Predictions and Other Methods for nbreg Fits
 
 Standard methods for objects returned by
 [`nbreg()`](https://jaxsonbugg.github.io/nbzinbreg/reference/nbreg.md):

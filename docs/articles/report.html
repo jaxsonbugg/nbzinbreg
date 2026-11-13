@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM • nbzinbreg</title>
+<title>nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial Regression by IRLS and EM • nbzinbreg</title>
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="report_files/libs/quarto-html/popper.min.js"></script><script src="report_files/libs/quarto-html/tippy.umd.min.js"></script><link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="report_files/libs/quarto-html/light-border.css" rel="stylesheet">
-<!-- pkgdown --><script src="../pkgdown.js"></script><script src="../extra.js"></script><meta property="og:title" content="nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM">
+<!-- pkgdown --><script src="../pkgdown.js"></script><script src="../extra.js"></script><meta property="og:title" content="nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial Regression by IRLS and EM">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -65,10 +65,10 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>nbzinbreg: negative binomial and zero-inflated negative binomial regression by IRLS and EM</h1>
+      <h1>nbzinbreg: Negative Binomial and Zero-Inflated Negative Binomial Regression by IRLS and EM</h1>
       <p class="subtitle">STA 651 Final Project, Fall 2026</p>
       <p class="author">Jaxson Bugg</p>
-      <p class="date">November 10, 2026</p>
+      <p class="date">November 13, 2026</p>
 
       <small class="dont-index">Source: <a href="https://github.com/jaxsonbugg/nbzinbreg/blob/HEAD/vignettes/articles/report.qmd" class="external-link"><code>vignettes/articles/report.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -138,7 +138,7 @@ f_{\text{NB}}(y_i; \mu_i, \theta)\Big].
 <p><strong>Monotonicity and convergence.</strong> EM can never lower the observed-data log-likelihood. The package checks this at every iteration, together with each M-step’s own objective, and a decrease (beyond rounding) is reported and blocks convergence; the check cannot be switched off. EM converges slowly near the maximum, so small changes alone are a poor stopping rule: the fit stops only when the relative change in the log-likelihood is below <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>8</mn></mrow></msup><annotation encoding="application/x-tex">10^{-8}</annotation></semantics></math>, the parameters are stable, and the <strong>Newton decrement</strong> <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi><mo>=</mo><msup><mi>g</mi><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mi>H</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>g</mi></mrow><annotation encoding="application/x-tex">\delta = g^\top(-H)^{-1}g</annotation></semantics></math> (with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> the gradient and Hessian of <a href="#eq-zinb-ll" class="quarto-xref">Equation 4</a>) is at most <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>8</mn></mrow></msup><annotation encoding="application/x-tex">10^{-8}</annotation></semantics></math>. This establishes approximate stationarity. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math> can only be computed where <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mi>H</mi></mrow><annotation encoding="application/x-tex">-H</annotation></semantics></math> is positive definite, so a converged fit also has negative definite curvature: a local maximum, not necessarily the highest one.</p>
 <p><strong>Standard errors for ZINB.</strong> EM gives no standard errors. They come from the inverse of the observed information, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mi>H</mi></mrow><annotation encoding="application/x-tex">-H</annotation></semantics></math>, the negative Hessian of <a href="#eq-zinb-ll" class="quarto-xref">Equation 4</a> in <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>,</mo><mi>γ</mi><mo>,</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\beta, \gamma, \log\theta)</annotation></semantics></math> at the estimates. The package computes <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math><strong>analytically</strong>, from closed-form derivatives of each observation’s contribution, and offers <code><a href="https://rdrr.io/pkg/numDeriv/man/hessian.html" class="external-link">numDeriv::hessian()</a></code> of our own log-likelihood as an option; the two agree to about <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>11</mn></mrow></msup><annotation encoding="application/x-tex">10^{-11}</annotation></semantics></math>. Before inverting, the Hessian is checked to be finite, symmetric and negative definite. As in <code>zeroinfl()</code>, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\log\theta</annotation></semantics></math> is reported with its standard error, and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math> with the delta-method standard error <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi><mo>⋅</mo><mrow><mi mathvariant="normal">SE</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\theta \cdot \operatorname{SE}(\log\theta)</annotation></semantics></math>.</p>
 </section><section class="level2" data-number="3"><h2 data-number="3" id="sec-package">
-<span class="header-section-number">3</span> The R package<a class="anchor" aria-label="anchor" href="#sec-package"></a>
+<span class="header-section-number">3</span> The R Package<a class="anchor" aria-label="anchor" href="#sec-package"></a>
 </h2>
 <p>The package is installed from GitHub:</p>
 <div class="cell">
@@ -326,7 +326,7 @@ Table 1: Maximum absolute differences from the reference fits, against the requ
 <p>Every required quantity is within its tolerance, with a large margin: the largest differences are 3.4e-07 for the NB coefficients and 4.8e-05 for the ZINB coefficients. The NB fits agree almost to rounding error (closely related algorithms for the same likelihood). The ZINB differences are larger but still at least 21 times below the tolerance: <code><a href="../reference/zinbreg.html">zinbreg()</a></code> stops when its gradient check places every estimate within a tiny fraction of a standard error of a stationary point, <code>zeroinfl()</code> by its own BFGS criterion. The log-likelihoods differ by at most 4.2e-09; in all four comparisons the reference value is very slightly higher.</p>
 <p><strong>Computation time</strong> (median of 10 runs with <code><a href="https://bench.r-lib.org/reference/mark.html" class="external-link">bench::mark()</a></code>; <a href="#tbl-bench-time" class="quarto-xref">Table 11</a> in the appendix). The NB fits take a fraction of a second with either implementation. Our ZINB fits are about 7 (bioChemists) and 3 (NMES1988) times slower than <code>zeroinfl()</code> at its defaults: EM gains a roughly fixed fraction per iteration, so it needed 123 and 57 iterations of full IRLS fits, against 43 and 30 gradient evaluations for the BFGS search of <code>zeroinfl()</code>. Further, ungraded checks are in the supplementary benchmark article on the package website.</p>
 </section><section class="level2" data-number="5"><h2 data-number="5" id="sec-simulation">
-<span class="header-section-number">5</span> Simulation study<a class="anchor" aria-label="anchor" href="#sec-simulation"></a>
+<span class="header-section-number">5</span> Simulation Study<a class="anchor" aria-label="anchor" href="#sec-simulation"></a>
 </h2>
 <p>The simulation fits <code><a href="../reference/zinbreg.html">zinbreg()</a></code> to data generated from a ZINB model with known parameters and compares the estimates with the truth.</p>
 <p><strong>Design.</strong> Each data set has n = 500 observations with three covariates: x1 ~ N(0, 1), used in both parts; x2 ~ Bernoulli(0.5), used in the count part only; and z ~ N(0, 1), used in the zero part only. The covariates are drawn once and kept fixed (a <em>fixed design</em>); only the responses are redrawn, so the results describe the estimator for this design. The true model is</p>
@@ -434,7 +434,7 @@ Table 2: Simulation results over the usable replications: bias, the spread of t
 <p><strong>Results.</strong> Of the 1,000 fits, 1,000 were usable: converged with a passed gradient check, no estimate on a boundary, a valid covariance matrix, and finite, ordered intervals (none failed or ended on a boundary). Some biases are larger than simulation noise (up to 9.3 Monte Carlo SEs from zero, for theta), although every bias is below 31% of a standard error. This is the small-sample bias that maximum likelihood estimates have, of order 1/n: it is largest for the zero part and theta, which the data determine least precisely, and it shrinks as n grows (a check at n = 2000 is in the project notes). The reported standard errors match the actual spread of the estimates: the SE/SD ratios lie between 0.92 and 1.02. The coverage of every 95% Wald interval is within two Monte Carlo SEs of 95%. For theta, the interval built on the log scale and transformed back covers 94.5% of the time, and theta ± 1.96 SE(theta) 95.2%. The estimates of theta are skewed (skewness 1.07; 0.04 for log theta), although here the theta-scale interval is closer to 95%.</p>
 <p>The fits took a median of 0.49 s and 98 EM iterations each. Profile-likelihood intervals for theta are summarized in the appendix.</p>
 </section><section class="level2" data-number="6"><h2 data-number="6" id="sec-nmes">
-<span class="header-section-number">6</span> Data analysis: NMES1988<a class="anchor" aria-label="anchor" href="#sec-nmes"></a>
+<span class="header-section-number">6</span> Data Analysis: NMES1988<a class="anchor" aria-label="anchor" href="#sec-nmes"></a>
 </h2>
 <p><strong>The data.</strong> The NMES1988 data <span class="citation" data-cites="deb1997 kleiber2008">(<a href="#ref-deb1997" role="doc-biblioref">Deb and Trivedi 1997</a>; <a href="#ref-kleiber2008" role="doc-biblioref">Kleiber and Zeileis 2008</a>)</span> come from the 1987–88 US National Medical Expenditure Survey and describe 4,406 people aged 66 and over. The response is <code>visits</code>, the number of physician office visits. The covariates are <code>hospital</code> (the number of hospital stays), <code>health</code> (self-perceived health: poor, average or excellent, with average as the reference level), <code>chronic</code> (the number of chronic conditions), <code>gender</code>, <code>school</code> (years of education) and <code>insurance</code> (whether the person has private insurance). Both models use all six in the count part. The ZINB zero part uses the handout’s set, which is every covariate except <code>health</code>; the check at the end of the model comparison supports that choice.</p>
 <p><strong>Descriptive evidence.</strong> The mean number of visits is 5.77 and the variance is 45.7, about 8 times the mean. A Poisson distribution has its variance equal to its mean, so the counts are strongly <em>overdispersed</em>: they are far more spread out than a Poisson model allows. 683 people (15.5%) made no visits at all. As a first, rough look that ignores the covariates, a single Poisson distribution with the sample mean would give <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>e</mi><mrow><mi>−</mi><mn>5.77</mn></mrow></msup><annotation encoding="application/x-tex">e^{-5.77}</annotation></semantics></math> = 0.31% zeros, about 14 people (<a href="#fig-visits" class="quarto-xref">Figure 2</a>, in the appendix). That comparison exaggerates the problem: people differ in health, and a mixture of people with different means always has more zeros and more spread than a single mean gives. The model comparison below accounts for the covariates.</p>
@@ -631,30 +631,8 @@ Table 5: ZINB zero part: odds ratios of being a structural zero (a person who w
 <em>Local maxima.</em> Excess zeros can be explained by zero inflation or by overdispersion, so the ZINB likelihood can have several maxima. The gradient check establishes only approximate stationarity (with the curvature condition, a local maximum), not the global maximum. In the simulation, one fit stopped at a local maximum, which confint() detected. Several starting values would guard against this.</li>
 </ul>
 <p><strong>Possible extensions.</strong> Hurdle models; EM acceleration (for example Newton steps near the maximum with the analytic Hessian the package already computes); sandwich standard errors; and simulations that vary the sample size, the strength of zero inflation and the model specification.</p>
-</section><section class="level2" data-number="8"><h2 data-number="8" id="ai-use-statement">
-<span class="header-section-number">8</span> AI-use statement<a class="anchor" aria-label="anchor" href="#ai-use-statement"></a>
-</h2>
-<div>
-<blockquote>
-<p><strong>Outline — to be written by the author before submission</strong></p>
-<p>This section must be written by the author in their own words. The points the project requires, and candidate examples from <code>dev/ai_use_log.md</code>, are listed below as a starting point; delete this box when the statement is written.</p>
-</blockquote>
-</div>
-<p><strong>Required points.</strong></p>
-<ol type="1">
-<li>What Claude Code was asked to do (planning, implementation, tests, benchmark and simulation scripts, the report).</li>
-<li>What was verified independently (equations checked against the project description; comparisons with <code>glm.nb()</code> and <code>zeroinfl()</code>; tests; the prohibited-function check; reading the code).</li>
-<li>At least one concrete example where Claude’s output had to be corrected or rejected.</li>
-</ol>
-<p><strong>Candidate examples from the log</strong> (choose and describe in your own words):</p>
-<ul>
-<li>
-<em>2026-11-08, <code><a href="../reference/nbreg.html">nbreg()</a></code> plan:</em> Claude’s first plan clipped <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>η</mi><annotation encoding="application/x-tex">\eta</annotation></semantics></math> and floored <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>, which would have silently changed the likelihood; it also used the number of positive-weight observations instead of the sum of the weights in the starting value for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math>.</li>
-<li>
-<em>2026-11-09, <code><a href="../reference/zinbreg.html">zinbreg()</a></code> validation:</em> with weights, <code>zeroinfl()</code> disagreed with <code><a href="../reference/zinbreg.html">zinbreg()</a></code> by 0.03; instead of relaxing the tolerance, the investigation showed that <code>zeroinfl()</code>’s weighted fit stops at a point that is not a maximum.</li>
-<li>
-<em>2026-11-09, <code>grad_tol</code>:</em> the planned tolerance of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>6</mn></mrow></msup><annotation encoding="application/x-tex">10^{-6}</annotation></semantics></math> could have allowed errors above the required <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>3</mn></mrow></msup><annotation encoding="application/x-tex">10^{-3}</annotation></semantics></math> on bioChemists, and was changed to <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>8</mn></mrow></msup><annotation encoding="application/x-tex">10^{-8}</annotation></semantics></math> on that evidence.</li>
-</ul></section><section class="level2 unnumbered"><h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<p>The AI-use statement is submitted separately, as its own document.</p>
+</section><section class="level2 unnumbered"><h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-cameron2013" class="csl-entry" role="listitem">
@@ -1379,10 +1357,10 @@ Table 11: Computation time in seconds (median of 10 runs, with the minimum and 
 </figure>
 </div>
 </div>
-<section class="level3 unnumbered"><h3 class="unnumbered" id="profile-likelihood-intervals-in-the-simulation">Profile-likelihood intervals in the simulation<a class="anchor" aria-label="anchor" href="#profile-likelihood-intervals-in-the-simulation"></a>
+<section class="level3 unnumbered"><h3 class="unnumbered" id="profile-likelihood-intervals-in-the-simulation">Profile-Likelihood Intervals in the Simulation<a class="anchor" aria-label="anchor" href="#profile-likelihood-intervals-in-the-simulation"></a>
 </h3>
 <p>The profile-likelihood interval for theta from <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> was computed for the first 200 data sets: 199 were finite, 0 unbounded above (certified), and 1 could not be evaluated. Its coverage over the 199 evaluable intervals is 93.5% (MC SE 1.8%); counting the others as not covering or covering gives 93.0% to 93.5%. In one case (data set 86), <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> refused to give an interval because its search over theta found a higher likelihood than the fit: <code><a href="../reference/zinbreg.html">zinbreg()</a></code> had converged, with its gradient check passed, to a local maximum. Excess zeros can be explained either by zero inflation or by overdispersion, and the ZINB likelihood can have a maximum for each; EM finds the one its starting values lead to. The other fits passed the same checks, which establish a local maximum but not the highest one, so a small share of them may also be lower local maxima.</p>
-</section><section class="level3 unnumbered"><h3 class="unnumbered" id="provenance-of-the-saved-results">Provenance of the saved results<a class="anchor" aria-label="anchor" href="#provenance-of-the-saved-results"></a>
+</section><section class="level3 unnumbered"><h3 class="unnumbered" id="provenance-of-the-saved-results">Provenance of the Saved Results<a class="anchor" aria-label="anchor" href="#provenance-of-the-saved-results"></a>
 </h3>
 <p>The timings, the simulation and the NMES1988 bootstrap are read from saved results, because they take minutes to hours to produce. Each was produced from a clean, committed state of the package, and each is checked here against the installed code.</p>
 <p><strong>Timings.</strong> The timings were measured on Windows 10 x64 (Intel64 Family 6 Model 186 Stepping 2, GenuineIntel, 20 cores) under R version 4.3.1 (2023-06-16 ucrt), with MASS 7.3.60, pscl 1.5.9 and bench 1.1.4, on 2026-11-10, for the package code of commit 65f2720 (code fingerprint f6f29a27eff95d07ab6302d5a428954e; provenance verified). The installed package’s code fingerprint (f6f29a27eff95d07ab6302d5a428954e) matches the code that produced the timings (commit 65f2720b0fc178074ae477c7b23d55ba54768b71).</p>
@@ -1495,7 +1473,7 @@ Figure 3: Standardized errors (estimate − truth) / SE for each parameter over
       }
     }
   });
-  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On This Page</h2>
     </nav></aside>
 </div>
 
