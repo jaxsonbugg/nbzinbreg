@@ -139,11 +139,11 @@ Single Quarto source `vignettes/articles/report.qmd`, fully reproducible (all nu
 5. Simulation study (results table and brief discussion)
 6. Data analysis (NMES1988)
 7. Discussion (limitations and possible extensions)
-8. AI-use statement (how Claude Code was used: what it was asked to do, what was verified independently, and one example where its output had to be corrected or rejected). Draw this from `dev/ai_use_log.md`.
+8. AI-use statement (how Claude Code was used: what it was asked to do, what was verified independently, and one example where its output had to be corrected or rejected). *(Owner's decision: submitted separately, as its own document written by the owner, so the report has no such section and points to it in one sentence. `dev/ai_use_log.md` is kept locally, git-ignored, as the owner's reference.)*
 9. References
 
 Outputs from the one source:
-- [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(Rendered and committed as the draft of record; this stays open until the author has written the AI-use statement and the final PDF is rendered.)*
+- [ ] PDF via `quarto render vignettes/articles/report.qmd --to pdf`, committed as `report/report.pdf`. *(Rendered and committed as the draft of record; ticked when the final PDF is rendered.)*
 - [x] Website via `pkgdown::build_site()` (report appears as an article next to the function reference), output in `docs/`, served by GitHub Pages from `main` `/docs`. *(Built with `CLAUDE.md` moved out of the root for the build, so it is not published.)*
 
 ## 9. Expected repository layout
@@ -169,7 +169,7 @@ Additional folders here: `dev/` (project notes, not part of the package) and `do
 - [x] `devtools::check()`: 0 errors, 0 warnings; CI badge is green. *(1 note locally: the clock check. CI green on all five configurations for every commit of this phase.)*
 - [x] `devtools::test()` passes, including the comparisons with `glm.nb()` and `zeroinfl()`. *(323 tests, 2110 expectations, 0 failed, 0 skipped, with `NOT_CRAN = "true"`.)*
 - [x] No prohibited function calls in `R/`. *(The detector test passes on all 192 package functions, and a manual scan of `R/` finds the names only in comments and documentation.)*
-- [ ] Report renders to PDF; `report/report.pdf` is committed. *(Committed as the draft of record. Pending owner gate: the final PDF follows the author's AI-use statement.)*
+- [ ] Report renders to PDF; `report/report.pdf` is committed. *(Committed as the draft of record; ticked when the final PDF is rendered.)*
 - [x] GitHub Pages site is live and contains the report and the function reference. *(Home, report, supplement, reference pages, the report's figures and its PDF all return HTTP 200.)*
 - [x] Commit history shows progress over time, not a single final commit. *(Small commits throughout the project; this phase alone has eleven.)*
 - [ ] README: the temporary status section has been removed, and the usage example is real and executed. *(Pending owner gate: removed when no work remains.)*

@@ -115,7 +115,7 @@ The README is a short working-status page; keep it short and readable, and keep 
 
 - Commit often with small, specific, imperative messages (for example "Add IRLS update for beta in nbreg"). Commit after each working unit and push to `origin/main` regularly, so the history shows the work as it develops.
 - Log every project change in `dev/progress_log.md` with the date and why.
-- Whenever Claude writes a non-trivial piece of code, or the owner catches an error in Claude's output, add an entry to `dev/ai_use_log.md` (what was asked, what was checked, what was corrected). The report needs an honest AI-use statement built from this log.
+- Whenever Claude writes a non-trivial piece of code, or the owner catches an error in Claude's output, add an entry to `dev/ai_use_log.md` (what was asked, what was checked, what was corrected). That file is a local, git-ignored log for the owner's own reference; it is not part of the repository. The AI-use statement is a separate document that the owner writes alone, and it is not part of the report.
 
 ## Reproducibility
 
