@@ -15,42 +15,7 @@ algorithm with IRLS steps for ZINB. No general-purpose optimizer is
 used. NB results are validated against `MASS::glm.nb()`, and ZINB
 results against `pscl::zeroinfl()`.
 
-<!-- status: start -->
-
-<!-- Temporary section: delete everything from "status: start" to
-"status: end" once the package is finished and no work remains. -->
-
-## Status
-
-Negative binomial and zero-inflated negative binomial regression are
-implemented and validated, with all required methods and the extras
-(confidence intervals, model tests, bootstrap and diagnostics), and
-benchmarked against `glm.nb()` and `zeroinfl()`, with a simulation study
-of `zinbreg()` and an analysis of the NMES1988 data. The report is
-drafted; the author’s AI-use statement and final review come next.
-
-| Part | Status |
-|----|----|
-| Package skeleton (installs, documented, CI) | ✅ Done |
-| `nbreg()`: negative binomial regression | ✅ Done |
-| `zinbreg()`: zero-inflated NB regression | ✅ Done |
-| Methods (`print`, `summary`, `predict`, …) | ✅ Done |
-| Extras (confidence intervals, model tests, diagnostics) | ✅ Done |
-| Benchmarks against `glm.nb()` and `zeroinfl()` | ✅ Done |
-| Simulation study | ✅ Done |
-| NMES1988 data analysis | ✅ Done |
-| Report and website | 🚧 Awaiting the author’s AI-use statement and review |
-
-Details: [progress
-log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
-· [design
-notes](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/design.md)
-· [requirements
-checklist](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/requirements.md)
-
-<!-- status: end -->
-
-## Website and report
+## Website and Report
 
 - Package website, with the function reference and the report:
   <https://jaxsonbugg.github.io/nbzinbreg/>
@@ -66,7 +31,7 @@ devtools::install_github("jaxsonbugg/nbzinbreg")
 
 ## Usage
 
-### Negative binomial regression
+### Negative Binomial Regression
 
 ``` r
 library(nbzinbreg)
@@ -100,7 +65,7 @@ summary(fit_nb)
 #> Outer passes: 4;  converged: yes
 ```
 
-### Zero-inflated negative binomial regression
+### Zero-Inflated Negative Binomial Regression
 
 ``` r
 library(nbzinbreg)
@@ -150,7 +115,7 @@ summary(fit_zinb)
 #> Starting values: count part from negative binomial fit; zero part from logistic fit of I(y == 0)
 ```
 
-### Inference and diagnostics
+### Inference and Diagnostics
 
 ``` r
 # Profile-likelihood interval for theta, Wald intervals for the coefficients
@@ -191,7 +156,7 @@ bootstrap likelihood-ratio test of NB against ZINB), bootstrap standard
 errors (`boot_se()`), `simulate()`, `rootogram()`, and `tidy()` /
 `glance()` are also available; see the function reference.
 
-## Check results
+## Check Results
 
 `R CMD check`: 0 errors, 0 warnings, 0 notes on all CI platforms (macOS,
 Windows and Ubuntu; R release, devel and the previous release). A local
@@ -201,3 +166,12 @@ comes from the machine’s clock check, not from the package.
 ## License
 
 MIT © Jaxson Bugg
+
+## Other Links
+
+[Progress
+log](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/progress_log.md)
+· [Design
+notes](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/design.md)
+· [Requirements
+checklist](https://github.com/jaxsonbugg/nbzinbreg/blob/main/dev/requirements.md)
